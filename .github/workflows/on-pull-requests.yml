@@ -129,8 +129,8 @@ jobs:
         with:
           config: .github/zizmor.yml
 
-  license-compliance-check:
-    name: License Compliance Check
+  deps-license-check:
+    name: License / Dependency Compliance
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -168,6 +168,54 @@ jobs:
           echo "## ✅ License Compliance Check Passed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "No GPL/AGPL/Unknown licenses found in dependencies." >> $GITHUB_STEP_SUMMARY
+
+  no-spdx-headers-check:
+    name: License / No SPDX Headers
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Check for accidental SPDX headers
+        run: |
+          echo "Checking for accidental SPDX license headers in source files..."
+          echo "(We use REUSE.toml instead of per-file headers)"
+          echo ""
+
+          # Search for SPDX-License-Identifier in source files, excluding expected locations
+          FOUND_HEADERS=$(grep -r "SPDX-License-Identifier" \
+            --include="*.ts" \
+            --include="*.tsx" \
+            --include="*.js" \
+            --include="*.jsx" \
+            --include="*.json" \
+            --exclude-dir=node_modules \
+            --exclude-dir=dist \
+            --exclude-dir=.next \
+            --exclude-dir=vendor \
+            . 2>/dev/null || true)
+
+          if [ -n "$FOUND_HEADERS" ]; then
+            echo "::error::Found SPDX headers in source files. We use REUSE.toml for license declarations."
+            echo ""
+            echo "Files with headers:"
+            echo "$FOUND_HEADERS"
+            echo ""
+            echo "## ❌ SPDX Headers Found" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Remove SPDX headers from these files (we use REUSE.toml instead):" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "$FOUND_HEADERS" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          echo "✅ No accidental SPDX headers found"
+          echo "## ✅ No SPDX Headers Check Passed" >> $GITHUB_STEP_SUMMARY
 
   platform-linting-and-tests-pr:
     name: Platform Linting and Tests (Optional)

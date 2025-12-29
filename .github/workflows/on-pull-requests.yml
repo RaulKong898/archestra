@@ -197,7 +197,7 @@ jobs:
             fi
           done
 
-          # Check non-.ee.ts/.ee.tsx source files have MIT header
+          # Check OSS source files have MIT header
           for file in $(find ./platform -type f \( -name "*.ts" -o -name "*.tsx" \) \
             ! -name "*.ee.ts" \
             ! -name "*.ee.tsx" \
@@ -205,29 +205,18 @@ jobs:
             ! -path "*/dist/*" \
             ! -path "*/.next/*" 2>/dev/null); do
             if ! head -1 "$file" | grep -q "SPDX-License-Identifier: MIT"; then
-              ERRORS="${ERRORS}❌ Source file missing MIT header: ${file}\n"
+              ERRORS="${ERRORS}❌ OSS file missing MIT header: ${file}\n"
             fi
           done
 
-          # Check that non-EE files don't have Enterprise License (wrong license)
+          # Check for duplicate/multiple SPDX headers
           for file in $(find ./platform -type f \( -name "*.ts" -o -name "*.tsx" \) \
-            ! -name "*.ee.ts" \
-            ! -name "*.ee.tsx" \
             ! -path "*/node_modules/*" \
             ! -path "*/dist/*" \
             ! -path "*/.next/*" 2>/dev/null); do
-            if head -1 "$file" | grep -q "SPDX-License-Identifier: Archestra-Enterprise-License"; then
-              ERRORS="${ERRORS}❌ Non-EE file has Enterprise License (should be MIT): ${file}\n"
-            fi
-          done
-
-          # Check that EE files don't have MIT (wrong license)
-          for file in $(find ./platform -type f -name "*.ee.ts" \
-            ! -path "*/node_modules/*" \
-            ! -path "*/dist/*" \
-            ! -path "*/.next/*" 2>/dev/null); do
-            if head -1 "$file" | grep -q "SPDX-License-Identifier: MIT"; then
-              ERRORS="${ERRORS}❌ EE file has MIT license (should be Archestra-Enterprise-License): ${file}\n"
+            count=$(grep -c "SPDX-License-Identifier" "$file" || true)
+            if [ "$count" -gt 1 ]; then
+              ERRORS="${ERRORS}❌ File has multiple SPDX headers ($count found): ${file}\n"
             fi
           done
 
@@ -243,7 +232,7 @@ jobs:
             echo -e "$ERRORS" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Required headers:**" >> $GITHUB_STEP_SUMMARY
+            echo "**Required headers (exactly one per file, on line 1):**" >> $GITHUB_STEP_SUMMARY
             echo "- \`.ee.ts\` files: \`/* SPDX-License-Identifier: Archestra-Enterprise-License */\`" >> $GITHUB_STEP_SUMMARY
             echo "- Other \`.ts\`/\`.tsx\` files: \`/* SPDX-License-Identifier: MIT */\`" >> $GITHUB_STEP_SUMMARY
             exit 1

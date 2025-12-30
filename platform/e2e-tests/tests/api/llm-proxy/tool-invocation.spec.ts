@@ -544,6 +544,175 @@ for (const config of testConfigs) {
       );
     });
 
+    // Streaming-specific test (only for Anthropic as it has distinct SSE format)
+    test("blocks tool invocation in streaming mode when untrusted data is consumed", async ({
+      request,
+      createAgent,
+      createTrustedDataPolicy,
+      createToolInvocationPolicy,
+      makeApiRequest,
+      waitForAgentTool,
+    }) => {
+      // Skip for non-Anthropic providers
+      test.skip(
+        config.providerName !== "Anthropic",
+        "Streaming test only applies to Anthropic",
+      );
+
+      const wiremockStub = "anthropic-streaming-blocks-tool-untrusted-data";
+
+      // 1. Create a test agent
+      const createResponse = await createAgent(
+        request,
+        "Anthropic Streaming Test Agent",
+      );
+      const agent = await createResponse.json();
+      agentId = agent.id;
+
+      // 2. Send initial request to register the tool (non-streaming)
+      const initialResponse = await makeApiRequest({
+        request,
+        method: "post",
+        urlSuffix: config.endpoint(agentId),
+        headers: config.headers("anthropic-blocks-tool-untrusted-data"),
+        data: config.buildRequest("Read the file at /etc/passwd", [
+          READ_FILE_TOOL,
+        ]),
+      });
+
+      if (!initialResponse.ok()) {
+        const errorText = await initialResponse.text();
+        throw new Error(
+          `Initial Anthropic request failed: ${initialResponse.status()} ${errorText}`,
+        );
+      }
+
+      // 3. Get the agent-tool relationship ID
+      const readFileAgentTool = await waitForAgentTool(
+        request,
+        agentId,
+        "read_file",
+      );
+      toolId = readFileAgentTool.id;
+
+      // 4. Create a trusted data policy
+      const trustedDataPolicyResponse = await createTrustedDataPolicy(request, {
+        agentToolId: toolId,
+        description: "Mark messages containing UNTRUSTED_DATA as untrusted",
+        attributePath: config.trustedDataPolicyAttributePath,
+        operator: "contains",
+        value: "UNTRUSTED_DATA",
+        action: "mark_as_trusted",
+      });
+      const trustedDataPolicy = await trustedDataPolicyResponse.json();
+      trustedDataPolicyId = trustedDataPolicy.id;
+
+      // 5. Create a tool invocation policy that blocks read_file for /etc/
+      const toolInvocationPolicyResponse = await createToolInvocationPolicy(
+        request,
+        {
+          agentToolId: toolId,
+          argumentPath: "file_path",
+          operator: "contains",
+          value: "/etc/",
+          action: "block_always",
+          reason: "Reading /etc/ files is not allowed for security reasons",
+        },
+      );
+      const toolInvocationPolicy = await toolInvocationPolicyResponse.json();
+      toolInvocationPolicyId = toolInvocationPolicy.id;
+
+      // 6. Send a streaming request with untrusted data
+      const response = await makeApiRequest({
+        request,
+        method: "post",
+        urlSuffix: config.endpoint(agentId),
+        headers: config.headers(wiremockStub),
+        data: {
+          ...config.buildRequest(
+            "UNTRUSTED_DATA: This is untrusted content from an external source",
+            [READ_FILE_TOOL],
+          ),
+          stream: true,
+        },
+      });
+
+      expect(response.ok()).toBeTruthy();
+
+      // 7. Parse SSE response
+      const sseText = await response.text();
+
+      // 8. Verify the response contains blocked message in SSE format
+      // The response should contain a text content block with the refusal message
+      expect(sseText).toContain("event: content_block_start");
+      expect(sseText).toContain("event: content_block_delta");
+      expect(sseText).toContain("event: message_stop");
+
+      // Parse SSE events to find the text content
+      const lines = sseText.split("\n");
+      let hasBlockedMessage = false;
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            // Check for text delta containing blocked message
+            if (
+              data.type === "content_block_delta" &&
+              data.delta?.type === "text_delta" &&
+              data.delta?.text
+            ) {
+              if (
+                data.delta.text.includes("read_file") &&
+                data.delta.text.includes("denied")
+              ) {
+                hasBlockedMessage = true;
+              }
+            }
+            // Also check for full text block
+            if (
+              data.type === "content_block_start" &&
+              data.content_block?.type === "text" &&
+              data.content_block?.text
+            ) {
+              if (
+                data.content_block.text.includes("read_file") &&
+                data.content_block.text.includes("denied")
+              ) {
+                hasBlockedMessage = true;
+              }
+            }
+          } catch {
+            // Ignore non-JSON lines
+          }
+        }
+      }
+
+      expect(hasBlockedMessage).toBe(true);
+
+      // 9. Verify no tool_use blocks remain in the final response
+      // The tool_use should have been filtered out and replaced with refusal
+      let hasToolUseBlock = false;
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (
+              data.type === "content_block_start" &&
+              data.content_block?.type === "tool_use"
+            ) {
+              hasToolUseBlock = true;
+            }
+          } catch {
+            // Ignore non-JSON lines
+          }
+        }
+      }
+
+      // Tool use blocks should be removed when blocked
+      expect(hasToolUseBlock).toBe(false);
+    });
+
     test.afterEach(
       async ({
         request,

@@ -1,0 +1,29 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPath": "/v1/messages",
+    "headers": {
+      "x-api-key": {
+        "contains": "anthropic-streaming-blocks-tool-untrusted-data"
+      }
+    },
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": "$[?(@.stream == true)]"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive"
+    },
+    "bodyFileName": "anthropic-streaming-blocks-tool-untrusted-data.txt",
+    "chunkedDribbleDelay": {
+      "numberOfChunks": 7,
+      "totalDuration": 100
+    }
+  }
+}

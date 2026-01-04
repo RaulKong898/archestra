@@ -21,6 +21,7 @@ import {
   LimitValidationService,
   TokenPriceModel,
 } from "@/models";
+import { getTokenizer } from "@/tokenizers";
 import {
   type Agent,
   ApiError,
@@ -243,9 +244,10 @@ const openAiProxyRoutes: FastifyPluginAsyncZod = async (fastify) => {
       let model = baselineModel;
       // Optimize model selection for cost using dynamic rules
       const hasTools = (tools?.length ?? 0) > 0;
+      const tokenCount = getTokenizer("openai").countTokens(messages);
       const optimizedModel = await utils.costOptimization.getOptimizedModel(
         resolvedAgent,
-        messages,
+        tokenCount,
         "openai",
         hasTools,
       );

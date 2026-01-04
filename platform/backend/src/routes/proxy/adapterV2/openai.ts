@@ -129,6 +129,11 @@ class OpenAIRequestAdapter
     return this.request;
   }
 
+  countTokens(): number {
+    const tokenizer = getTokenizer("openai");
+    return tokenizer.countTokens(this.request.messages);
+  }
+
   // ---------------------------------------------------------------------------
   // Modify Access
   // ---------------------------------------------------------------------------

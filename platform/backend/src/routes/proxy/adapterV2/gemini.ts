@@ -156,6 +156,11 @@ class GeminiRequestAdapter
     return this.request;
   }
 
+  countTokens(): number {
+    const tokenizer = getTokenizer("gemini");
+    return tokenizer.countTokens(this.request.contents || []);
+  }
+
   // ---------------------------------------------------------------------------
   // Modify Access
   // ---------------------------------------------------------------------------

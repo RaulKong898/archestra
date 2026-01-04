@@ -22,6 +22,7 @@ import {
   LimitValidationService,
   TokenPriceModel,
 } from "@/models";
+import { getTokenizer } from "@/tokenizers";
 import {
   type Agent,
   Anthropic,
@@ -271,9 +272,10 @@ const anthropicProxyRoutes: FastifyPluginAsyncZod = async (fastify) => {
       let model = baselineModel;
       // Optimize model selection for cost using dynamic rules
       const hasTools = mergedTools.length > 0;
+      const tokenCount = getTokenizer("anthropic").countTokens(body.messages);
       const optimizedModel = await utils.costOptimization.getOptimizedModel(
         resolvedAgent,
-        body.messages,
+        tokenCount,
         "anthropic",
         hasTools,
       );

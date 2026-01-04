@@ -158,16 +158,11 @@ export async function handleLLMProxy<
     // Cost optimization - potentially switch to cheaper model
     const baselineModel = requestAdapter.getModel();
     const hasTools = requestAdapter.hasTools();
-    // Cast messages since getOptimizedModel expects specific provider types
-    // but our generic adapter provides the correct type at runtime
+    const tokenCount = requestAdapter.countTokens();
     const optimizedModel = await utils.costOptimization.getOptimizedModel(
       resolvedAgent,
-      requestAdapter.getProviderMessages() as Parameters<
-        typeof utils.costOptimization.getOptimizedModel
-      >[1],
-      providerName as Parameters<
-        typeof utils.costOptimization.getOptimizedModel
-      >[2],
+      tokenCount,
+      providerName,
       hasTools,
     );
 

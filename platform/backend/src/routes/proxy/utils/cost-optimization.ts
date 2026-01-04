@@ -1,3 +1,4 @@
+import type { SupportedProvider } from "@shared";
 import logger from "@/logging";
 import {
   AgentTeamModel,
@@ -5,25 +6,21 @@ import {
   TeamModel,
   TokenPriceModel,
 } from "@/models";
-import { getTokenizer } from "@/tokenizers";
-import type { Agent, Anthropic, Gemini, OpenAi } from "@/types";
-
-type ProviderMessages = {
-  openai: OpenAi.Types.ChatCompletionsRequest["messages"];
-  anthropic: Anthropic.Types.MessagesRequest["messages"];
-  gemini: Gemini.Types.GenerateContentRequest["contents"];
-};
+import type { Agent } from "@/types";
 
 /**
  * Get optimized model based on dynamic optimization rules
  * Returns the optimized model name or null if no optimization applies
+ *
+ * @param agent - The agent making the request
+ * @param tokenCount - Pre-computed token count from the caller
+ * @param provider - The LLM provider name
+ * @param hasTools - Whether the request includes tools
  */
-export async function getOptimizedModel<
-  Provider extends keyof ProviderMessages,
->(
+export async function getOptimizedModel(
   agent: Agent,
-  messages: ProviderMessages[Provider],
-  provider: Provider,
+  tokenCount: number,
+  provider: SupportedProvider,
   hasTools: boolean,
 ): Promise<string | null> {
   const agentId = agent.id;
@@ -77,10 +74,6 @@ export async function getOptimizedModel<
     );
     return null;
   }
-
-  // Use provider-specific tokenizer to count tokens
-  const tokenizer = getTokenizer(provider);
-  const tokenCount = tokenizer.countTokens(messages);
 
   logger.info(
     { tokenCount, hasTools },

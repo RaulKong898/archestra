@@ -91,11 +91,17 @@ export interface LLMRequestAdapter<TRequest, TMessages = unknown> {
   /** Check if request has tools */
   hasTools(): boolean;
 
-  /** Get provider-specific messages (for token counting) */
+  /** Get provider-specific messages (for legacy routes that need raw messages) */
   getProviderMessages(): TMessages;
 
   /** Get original unmodified request */
   getOriginalRequest(): TRequest;
+
+  /**
+   * Count tokens in the request messages using provider-specific tokenizer.
+   * Used for cost optimization to determine which model tier to use.
+   */
+  countTokens(): number;
 
   // ---------------------------------------------------------------------------
   // Modify Access

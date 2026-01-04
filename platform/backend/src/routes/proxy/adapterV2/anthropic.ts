@@ -142,6 +142,11 @@ class AnthropicRequestAdapter
     return this.request;
   }
 
+  countTokens(): number {
+    const tokenizer = getTokenizer("anthropic");
+    return tokenizer.countTokens(this.request.messages);
+  }
+
   // ---------------------------------------------------------------------------
   // Modify Access
   // ---------------------------------------------------------------------------

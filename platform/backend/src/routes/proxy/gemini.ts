@@ -245,7 +245,9 @@ const geminiProxyRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       // Optimize model selection for cost using dynamic rules
       const hasTools = mergedTools.length > 0;
-      const tokenCount = getTokenizer("gemini").countTokens(body.contents || []);
+      const tokenCount = getTokenizer("gemini").countTokens(
+        body.contents || [],
+      );
       const optimizedModel = await utils.costOptimization.getOptimizedModel(
         resolvedAgent,
         tokenCount,

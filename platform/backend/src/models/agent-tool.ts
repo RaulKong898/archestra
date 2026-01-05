@@ -754,17 +754,19 @@ class AgentToolModel {
   }
 
   /**
-   * Delete all agent-tool assignments that use a specific MCP server as their execution source.
-   * Used when a local MCP server is deleted/uninstalled.
+   * Update executionSourceMcpServerId for agent-tool assignments.
+   * Used during MCP server reinstall to point assignments to the new server.
    */
-  static async deleteByExecutionSourceMcpServerId(
-    mcpServerId: string,
+  static async updateExecutionSourceForTools(
+    toolIds: string[],
+    newMcpServerId: string,
   ): Promise<number> {
+    if (toolIds.length === 0) return 0;
+
     const result = await db
-      .delete(schema.agentToolsTable)
-      .where(
-        eq(schema.agentToolsTable.executionSourceMcpServerId, mcpServerId),
-      );
+      .update(schema.agentToolsTable)
+      .set({ executionSourceMcpServerId: newMcpServerId })
+      .where(inArray(schema.agentToolsTable.toolId, toolIds));
     return result.rowCount ?? 0;
   }
 

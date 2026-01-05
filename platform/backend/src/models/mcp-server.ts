@@ -6,10 +6,8 @@ import { McpServerRuntimeManager } from "@/mcp-server-runtime";
 import { secretManager } from "@/secrets-manager";
 import { computeSecretStorageType } from "@/secrets-manager/utils";
 import type { InsertMcpServer, McpServer, UpdateMcpServer } from "@/types";
-import AgentToolModel from "./agent-tool";
 import InternalMcpCatalogModel from "./internal-mcp-catalog";
 import McpServerUserModel from "./mcp-server-user";
-import ToolModel from "./tool";
 
 class McpServerModel {
   static async create(server: InsertMcpServer): Promise<McpServer> {
@@ -339,23 +337,10 @@ class McpServerModel {
 
     // For local servers, stop and remove the K8s deployment
     if (mcpServer.serverType === "local") {
-      // Clean up agent_tools that use this server as execution source
-      // Must be done before deletion to ensure agents do not retain unusable tool assignments; FK constraint would only null out the reference, not remove the assignment
-      try {
-        const deletedAgentTools =
-          await AgentToolModel.deleteByExecutionSourceMcpServerId(id);
-        if (deletedAgentTools > 0) {
-          logger.info(
-            `Deleted ${deletedAgentTools} agent tool assignments for local MCP server: ${mcpServer.name}`,
-          );
-        }
-      } catch (error) {
-        logger.error(
-          { err: error },
-          `Failed to clean up agent tools for MCP server ${mcpServer.name}:`,
-        );
-        // Continue with deletion even if agent tool cleanup fails
-      }
+      // Note: agent_tools with executionSourceMcpServerId pointing to this server
+      // will have that FK set to null (onDelete: "set null"). This is intentional
+      // to preserve profile-tool assignments during reinstall - the new server ID
+      // will be set during the install phase.
 
       try {
         await McpServerRuntimeManager.removeMcpServer(id);
@@ -384,32 +369,9 @@ class McpServerModel {
       await secretManager().deleteSecret(mcpServer.secretId);
     }
 
-    // If the MCP server was deleted and had a catalogId, check if this was the last installation
-    // If so, clean up all tools for this catalog
-    if (deleted && mcpServer.catalogId) {
-      try {
-        // Check if any other servers exist for this catalog
-        const remainingServers = await McpServerModel.findByCatalogId(
-          mcpServer.catalogId,
-        );
-
-        if (remainingServers.length === 0) {
-          // No more servers for this catalog, delete all tools
-          const deletedToolsCount = await ToolModel.deleteByCatalogId(
-            mcpServer.catalogId,
-          );
-          logger.info(
-            `Deleted ${deletedToolsCount} tools for catalog ${mcpServer.catalogId} (last installation removed)`,
-          );
-        }
-      } catch (error) {
-        logger.error(
-          { err: error },
-          `Failed to clean up tools for catalog ${mcpServer.catalogId}:`,
-        );
-        // Don't fail the deletion if tool cleanup fails
-      }
-    }
+    // Note: Tools are NOT deleted when MCP server is uninstalled.
+    // Tools are catalog-level entities and will be reused on reinstall.
+    // Tools are only deleted when the catalog itself is deleted (via FK cascade).
 
     return deleted;
   }

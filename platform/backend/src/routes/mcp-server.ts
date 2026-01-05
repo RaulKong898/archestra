@@ -440,12 +440,28 @@ const mcpServerRoutes: FastifyPluginAsyncZod = async (fastify) => {
                 }));
 
                 // Bulk create tools to avoid N+1 queries
+                // This returns existing tools (reused) + newly created tools
                 const createdTools =
                   await ToolModel.bulkCreateToolsIfNotExists(toolsToCreate);
 
-                // If agentIds were provided, create agent-tool assignments with executionSourceMcpServerId
+                const toolIds = createdTools.map((t) => t.id);
+                fastify.log.info({ toolIds }, "Tool ids to update");
+
+                // Update existing agent-tool assignments to point to the new server
+                // This preserves profile-tool relationships during reinstall
+                const updatedCount =
+                  await AgentToolModel.updateExecutionSourceForTools(
+                    toolIds,
+                    mcpServer.id,
+                  );
+                if (updatedCount > 0) {
+                  fastify.log.info(
+                    `Updated ${updatedCount} existing agent-tool assignments to new server: ${mcpServer.name}`,
+                  );
+                }
+
+                // If agentIds were provided, create NEW agent-tool assignments with executionSourceMcpServerId
                 if (agentIds && agentIds.length > 0) {
-                  const toolIds = createdTools.map((t) => t.id);
                   await AgentToolModel.bulkCreateForAgentsAndTools(
                     agentIds,
                     toolIds,

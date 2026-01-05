@@ -328,9 +328,9 @@ class ToolModel {
   }
 
   /**
-   * Bulk create tools for an MCP server (catalog-based tools)
-   * Fetches existing tools in a single query, then bulk inserts only new tools
-   * Returns all tools (existing + newly created) to avoid N+1 queries
+   * Bulk create or update tools for an MCP server (catalog-based tools).
+   * Matches by raw tool name (part after prefix) to handle catalog renames.
+   * Returns all tools (existing/updated + newly created).
    */
   static async bulkCreateToolsIfNotExists(
     tools: Array<{
@@ -345,11 +345,15 @@ class ToolModel {
       return [];
     }
 
-    // Group tools by catalogId (all tools should have the same catalogId in practice)
     const catalogId = tools[0].catalogId;
-    const toolNames = tools.map((t) => t.name);
 
-    // Fetch all existing tools for this catalog in a single query
+    // Extract raw tool name (e.g., "list_pods" from "kubernetes__list_pods")
+    // or port_forward from flux159__mcp-server-kubernetes__port_forward
+    const extractRawName = (slugifiedName: string): string => {
+      return slugifiedName.split(MCP_SERVER_TOOL_NAME_SEPARATOR).pop() ?? slugifiedName;
+    };
+
+    // Fetch ALL existing tools for this catalog (not filtered by name)
     const existingTools = await db
       .select()
       .from(schema.toolsTable)
@@ -357,20 +361,33 @@ class ToolModel {
         and(
           isNull(schema.toolsTable.agentId),
           eq(schema.toolsTable.catalogId, catalogId),
-          inArray(schema.toolsTable.name, toolNames),
         ),
       );
 
-    const existingToolsByName = new Map(existingTools.map((t) => [t.name, t]));
+    const existingByRawName = new Map(
+      existingTools.map((t) => [extractRawName(t.name), t]),
+    );
 
-    // Prepare tools to insert (only those that don't exist)
-    const toolsToInsert: InsertTool[] = [];
     const resultTools: Tool[] = [];
+    const toolsToInsert: InsertTool[] = [];
 
     for (const tool of tools) {
-      const existingTool = existingToolsByName.get(tool.name);
+      const rawName = extractRawName(tool.name);
+      const existingTool = existingByRawName.get(rawName);
+
       if (existingTool) {
-        resultTools.push(existingTool);
+        // Update existing tool (preserves ID and agent_tools assignments)
+        const [updatedTool] = await db
+          .update(schema.toolsTable)
+          .set({
+            name: tool.name,
+            description: tool.description,
+            parameters: tool.parameters,
+            mcpServerId: tool.mcpServerId,
+          })
+          .where(eq(schema.toolsTable.id, existingTool.id))
+          .returning();
+        resultTools.push(updatedTool);
       } else {
         toolsToInsert.push({
           name: tool.name,
@@ -418,11 +435,7 @@ class ToolModel {
       }
     }
 
-    // Return tools in the same order as input
-    const resultToolsByName = new Map(resultTools.map((t) => [t.name, t]));
-    return tools
-      .map((t) => resultToolsByName.get(t.name))
-      .filter((t): t is Tool => t !== undefined);
+    return resultTools;
   }
 
   /**

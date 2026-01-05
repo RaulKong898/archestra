@@ -136,6 +136,10 @@ export const RouteId = {
     "openAiChatCompletionsWithDefaultAgent",
   OpenAiChatCompletionsWithAgent: "openAiChatCompletionsWithAgent",
 
+  // Proxy Routes - OpenAI Responses API
+  OpenAiResponsesWithDefaultAgent: "openAiResponsesWithDefaultAgent",
+  OpenAiResponsesWithAgent: "openAiResponsesWithAgent",
+
   // Proxy Routes - Anthropic
   AnthropicMessagesWithDefaultAgent: "anthropicMessagesWithDefaultAgent",
   AnthropicMessagesWithAgent: "anthropicMessagesWithAgent",

@@ -43,6 +43,7 @@ import {
   ApiError,
   Gemini,
   OpenAi,
+  OpenAiResponses,
   WebSocketMessageSchema,
 } from "@/types";
 import websocketService from "@/websocket";
@@ -90,6 +91,12 @@ export function registerOpenApiSchemas() {
   });
   z.globalRegistry.add(Anthropic.API.MessagesResponseSchema, {
     id: "AnthropicMessagesResponse",
+  });
+  z.globalRegistry.add(OpenAiResponses.API.ResponsesRequestSchema, {
+    id: "OpenAiResponsesRequest",
+  });
+  z.globalRegistry.add(OpenAiResponses.API.ResponsesResponseSchema, {
+    id: "OpenAiResponsesResponse",
   });
   z.globalRegistry.add(WebSocketMessageSchema, {
     id: "WebSocketMessage",

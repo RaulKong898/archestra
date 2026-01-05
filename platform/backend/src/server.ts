@@ -23,6 +23,7 @@ import * as Sentry from "@sentry/node";
 import Fastify from "fastify";
 import metricsPlugin from "fastify-metrics";
 import {
+  isResponseSerializationError,
   jsonSchemaTransform,
   jsonSchemaTransformObject,
   serializerCompiler,
@@ -206,6 +207,32 @@ export const createFastifyInstance = () =>
           error: {
             message,
             type,
+          },
+        });
+      }
+
+      // Handle response serialization errors with detailed logging
+      if (isResponseSerializationError(error)) {
+        const issues = error.cause?.issues ?? [];
+        this.log.error(
+          {
+            error: error.message,
+            method: error.method,
+            url: error.url,
+            statusCode: 500,
+            validationIssues: issues.map((issue) => ({
+              path: issue.path?.join(".") ?? "root",
+              code: issue.code,
+              message: issue.message,
+            })),
+          },
+          "Response serialization failed - response doesn't match schema",
+        );
+
+        return reply.status(500).send({
+          error: {
+            message: "Internal server error",
+            type: "api_internal_server_error",
           },
         });
       }

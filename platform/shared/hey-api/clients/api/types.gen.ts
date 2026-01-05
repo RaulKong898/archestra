@@ -1910,14 +1910,14 @@ export type OpenAiResponsesResponseInput = {
      */
     incomplete_details?: {
         reason: 'max_output_tokens' | 'content_filter' | 'turn_limit_reached' | 'interrupted';
-    };
+    } | unknown;
     /**
      * Error details if status is failed
      */
     error?: {
         code: string;
         message: string;
-    };
+    } | unknown;
     /**
      * Custom metadata from the request
      */
@@ -1925,11 +1925,11 @@ export type OpenAiResponsesResponseInput = {
         [key: string]: string;
     };
     parallel_tool_calls?: boolean;
-    previous_response_id?: string;
+    previous_response_id?: string | unknown;
     service_tier?: string;
     temperature?: number;
     top_p?: number;
-    max_output_tokens?: number;
+    max_output_tokens?: number | unknown;
     truncation?: string;
     /**
      * Configuration for text output
@@ -4008,14 +4008,14 @@ export type OpenAiResponsesResponse = {
      */
     incomplete_details?: {
         reason: 'max_output_tokens' | 'content_filter' | 'turn_limit_reached' | 'interrupted';
-    };
+    } | unknown;
     /**
      * Error details if status is failed
      */
     error?: {
         code: string;
         message: string;
-    };
+    } | unknown;
     /**
      * Custom metadata from the request
      */
@@ -4023,11 +4023,11 @@ export type OpenAiResponsesResponse = {
         [key: string]: string;
     };
     parallel_tool_calls?: boolean;
-    previous_response_id?: string;
+    previous_response_id?: string | unknown;
     service_tier?: string;
     temperature?: number;
     top_p?: number;
-    max_output_tokens?: number;
+    max_output_tokens?: number | unknown;
     truncation?: string;
     /**
      * Configuration for text output
@@ -10158,7 +10158,7 @@ export type GetInteractionsResponses = {
             request: OpenAiResponsesRequest;
             processedRequest?: OpenAiResponsesRequest | null;
             response: OpenAiResponsesResponse;
-            type: 'openai-responses:responses';
+            type: 'openai:responses';
             model: string | null;
             inputTokens: number | null;
             outputTokens: number | null;
@@ -10469,7 +10469,7 @@ export type GetInteractionResponses = {
         request: OpenAiResponsesRequest;
         processedRequest?: OpenAiResponsesRequest | null;
         response: OpenAiResponsesResponse;
-        type: 'openai-responses:responses';
+        type: 'openai:responses';
         model: string | null;
         inputTokens: number | null;
         outputTokens: number | null;
@@ -14765,7 +14765,7 @@ export type OpenAiResponsesWithDefaultAgentData = {
     };
     path?: never;
     query?: never;
-    url: '/v1/openai-responses/responses';
+    url: '/v1/openai/responses';
 };
 
 export type OpenAiResponsesWithDefaultAgentErrors = {
@@ -14852,7 +14852,7 @@ export type OpenAiResponsesWithAgentData = {
         agentId: string;
     };
     query?: never;
-    url: '/v1/openai-responses/{agentId}/responses';
+    url: '/v1/openai/{agentId}/responses';
 };
 
 export type OpenAiResponsesWithAgentErrors = {

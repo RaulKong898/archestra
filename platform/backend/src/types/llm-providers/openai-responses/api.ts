@@ -57,6 +57,7 @@ export const IncompleteDetailsSchema = z
       "interrupted",
     ]),
   })
+  .nullable()
   .optional()
   .describe("Details about why the response is incomplete");
 
@@ -211,6 +212,7 @@ export const ResponsesResponseSchema = z
         code: z.string(),
         message: z.string(),
       })
+      .nullable()
       .optional()
       .describe("Error details if status is failed"),
     metadata: z
@@ -218,11 +220,11 @@ export const ResponsesResponseSchema = z
       .optional()
       .describe("Custom metadata from the request"),
     parallel_tool_calls: z.boolean().optional(),
-    previous_response_id: z.string().optional(),
+    previous_response_id: z.string().nullable().optional(),
     service_tier: z.string().optional(),
     temperature: z.number().optional(),
     top_p: z.number().optional(),
-    max_output_tokens: z.number().optional(),
+    max_output_tokens: z.number().nullable().optional(),
     truncation: z.string().optional(),
     text: TextConfigSchema.optional(),
     reasoning: ReasoningConfigSchema.optional(),

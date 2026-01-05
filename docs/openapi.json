@@ -5369,36 +5369,50 @@
           },
           "incomplete_details": {
             "description": "Details about why the response is incomplete",
-            "type": "object",
-            "properties": {
-              "reason": {
-                "type": "string",
-                "enum": [
-                  "max_output_tokens",
-                  "content_filter",
-                  "turn_limit_reached",
-                  "interrupted"
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "max_output_tokens",
+                      "content_filter",
+                      "turn_limit_reached",
+                      "interrupted"
+                    ]
+                  }
+                },
+                "required": [
+                  "reason"
                 ]
+              },
+              {
+                "type": "null"
               }
-            },
-            "required": [
-              "reason"
             ]
           },
           "error": {
             "description": "Error details if status is failed",
-            "type": "object",
-            "properties": {
-              "code": {
-                "type": "string"
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "code",
+                  "message"
+                ]
               },
-              "message": {
-                "type": "string"
+              {
+                "type": "null"
               }
-            },
-            "required": [
-              "code",
-              "message"
             ]
           },
           "metadata": {
@@ -5412,7 +5426,14 @@
             "type": "boolean"
           },
           "previous_response_id": {
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "service_tier": {
             "type": "string"
@@ -5424,7 +5445,14 @@
             "type": "number"
           },
           "max_output_tokens": {
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "truncation": {
             "type": "string"
@@ -11475,39 +11503,53 @@
           },
           "incomplete_details": {
             "description": "Details about why the response is incomplete",
-            "type": "object",
-            "properties": {
-              "reason": {
-                "type": "string",
-                "enum": [
-                  "max_output_tokens",
-                  "content_filter",
-                  "turn_limit_reached",
-                  "interrupted"
-                ]
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "max_output_tokens",
+                      "content_filter",
+                      "turn_limit_reached",
+                      "interrupted"
+                    ]
+                  }
+                },
+                "required": [
+                  "reason"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
               }
-            },
-            "required": [
-              "reason"
-            ],
-            "additionalProperties": false
+            ]
           },
           "error": {
             "description": "Error details if status is failed",
-            "type": "object",
-            "properties": {
-              "code": {
-                "type": "string"
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "code",
+                  "message"
+                ],
+                "additionalProperties": false
               },
-              "message": {
-                "type": "string"
+              {
+                "type": "null"
               }
-            },
-            "required": [
-              "code",
-              "message"
-            ],
-            "additionalProperties": false
+            ]
           },
           "metadata": {
             "description": "Custom metadata from the request",
@@ -11520,7 +11562,14 @@
             "type": "boolean"
           },
           "previous_response_id": {
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "service_tier": {
             "type": "string"
@@ -11532,7 +11581,14 @@
             "type": "number"
           },
           "max_output_tokens": {
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "truncation": {
             "type": "string"
@@ -32170,7 +32226,7 @@
                               "type": {
                                 "type": "string",
                                 "enum": [
-                                  "openai-responses:responses"
+                                  "openai:responses"
                                 ]
                               },
                               "model": {
@@ -33367,7 +33423,7 @@
                         "type": {
                           "type": "string",
                           "enum": [
-                            "openai-responses:responses"
+                            "openai:responses"
                           ]
                         },
                         "model": {
@@ -48582,7 +48638,7 @@
         "tags": [
           "llm-proxy"
         ],
-        "description": "Create a chat completion with OpenAI (uses default agent)",
+        "description": "Send a chat completions request to OpenAI using the default agent",
         "requestBody": {
           "content": {
             "application/json": {
@@ -48842,7 +48898,7 @@
         "tags": [
           "llm-proxy"
         ],
-        "description": "Create a chat completion with OpenAI for a specific agent",
+        "description": "Send a chat completions request to OpenAI using a specific agent (n8n URL format)",
         "requestBody": {
           "content": {
             "application/json": {
@@ -49106,7 +49162,7 @@
         }
       }
     },
-    "/v1/openai-responses/responses": {
+    "/v1/openai/responses": {
       "post": {
         "operationId": "openAiResponsesWithDefaultAgent",
         "tags": [
@@ -49366,7 +49422,7 @@
         }
       }
     },
-    "/v1/openai-responses/{agentId}/responses": {
+    "/v1/openai/{agentId}/responses": {
       "post": {
         "operationId": "openAiResponsesWithAgent",
         "tags": [

@@ -846,7 +846,7 @@ export const handleOAuthCallback = <ThrowOnError extends boolean = false>(option
 });
 
 /**
- * Create a chat completion with OpenAI (uses default agent)
+ * Send a chat completions request to OpenAI using the default agent
  */
 export const openAiChatCompletionsWithDefaultAgent = <ThrowOnError extends boolean = false>(options: Options<OpenAiChatCompletionsWithDefaultAgentData, ThrowOnError>) => (options.client ?? client).post<OpenAiChatCompletionsWithDefaultAgentResponses, OpenAiChatCompletionsWithDefaultAgentErrors, ThrowOnError>({
     url: '/v1/openai/chat/completions',
@@ -858,7 +858,7 @@ export const openAiChatCompletionsWithDefaultAgent = <ThrowOnError extends boole
 });
 
 /**
- * Create a chat completion with OpenAI for a specific agent
+ * Send a chat completions request to OpenAI using a specific agent (n8n URL format)
  */
 export const openAiChatCompletionsWithAgent = <ThrowOnError extends boolean = false>(options: Options<OpenAiChatCompletionsWithAgentData, ThrowOnError>) => (options.client ?? client).post<OpenAiChatCompletionsWithAgentResponses, OpenAiChatCompletionsWithAgentErrors, ThrowOnError>({
     url: '/v1/openai/{agentId}/chat/completions',
@@ -873,7 +873,7 @@ export const openAiChatCompletionsWithAgent = <ThrowOnError extends boolean = fa
  * Send a responses request to OpenAI using the default agent
  */
 export const openAiResponsesWithDefaultAgent = <ThrowOnError extends boolean = false>(options: Options<OpenAiResponsesWithDefaultAgentData, ThrowOnError>) => (options.client ?? client).post<OpenAiResponsesWithDefaultAgentResponses, OpenAiResponsesWithDefaultAgentErrors, ThrowOnError>({
-    url: '/v1/openai-responses/responses',
+    url: '/v1/openai/responses',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -885,7 +885,7 @@ export const openAiResponsesWithDefaultAgent = <ThrowOnError extends boolean = f
  * Send a responses request to OpenAI using a specific agent
  */
 export const openAiResponsesWithAgent = <ThrowOnError extends boolean = false>(options: Options<OpenAiResponsesWithAgentData, ThrowOnError>) => (options.client ?? client).post<OpenAiResponsesWithAgentResponses, OpenAiResponsesWithAgentErrors, ThrowOnError>({
-    url: '/v1/openai-responses/{agentId}/responses',
+    url: '/v1/openai/{agentId}/responses',
     ...options,
     headers: {
         'Content-Type': 'application/json',

@@ -115,7 +115,7 @@ export class DynamicInteraction implements InteractionUtils {
   private getInteractionClass(interaction: Interaction): InteractionUtils {
     if (this.type === "openai:chatCompletions") {
       return new OpenAiChatCompletionInteraction(interaction);
-    } else if (this.type === "openai-responses:responses") {
+    } else if (this.type === "openai:responses") {
       return new OpenAiResponsesInteraction(interaction);
     } else if (this.type === "anthropic:messages") {
       return new AnthropicMessagesInteraction(interaction);

@@ -836,7 +836,7 @@ export const openaiResponsesAdapterFactory: LLMProvider<
   OpenAiResponsesHeaders
 > = {
   provider: "openai-responses",
-  interactionType: "openai-responses:responses",
+  interactionType: "openai:responses",
 
   createRequestAdapter(
     request: OpenAiResponsesRequest,

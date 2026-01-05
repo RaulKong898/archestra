@@ -48,7 +48,7 @@ export const SelectInteractionSchema = z.discriminatedUnion("type", [
     response: OpenAi.API.ChatCompletionResponseSchema,
   }),
   BaseSelectInteractionSchema.extend({
-    type: z.enum(["openai-responses:responses"]),
+    type: z.enum(["openai:responses"]),
     request: OpenAiResponses.API.ResponsesRequestSchema,
     processedRequest:
       OpenAiResponses.API.ResponsesRequestSchema.nullable().optional(),

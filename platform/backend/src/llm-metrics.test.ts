@@ -658,6 +658,40 @@ describe("reportLLMTokens with model", () => {
     initializeMetrics([]);
   });
 
+  test("normalizes openai-responses provider to openai for metrics grouping", () => {
+    reportLLMTokens(
+      "openai-responses",
+      testAgent,
+      { input: 100, output: 50 },
+      "gpt-4o",
+    );
+
+    // Provider should be normalized to "openai" (base provider)
+    expect(counterInc).toHaveBeenCalledWith(
+      {
+        provider: "openai",
+        agent_id: "",
+        profile_id: testAgent.id,
+        profile_name: testAgent.name,
+        model: "gpt-4o",
+        type: "input",
+      },
+      100,
+    );
+
+    expect(counterInc).toHaveBeenCalledWith(
+      {
+        provider: "openai",
+        agent_id: "",
+        profile_id: testAgent.id,
+        profile_name: testAgent.name,
+        model: "gpt-4o",
+        type: "output",
+      },
+      50,
+    );
+  });
+
   test("records tokens with model specified", () => {
     reportLLMTokens("openai", testAgent, { input: 100, output: 50 }, "gpt-4");
 

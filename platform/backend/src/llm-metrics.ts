@@ -9,7 +9,7 @@
  */
 
 import type { GoogleGenAI } from "@google/genai";
-import type { SupportedProvider } from "@shared";
+import { getBaseProvider, type SupportedProvider } from "@shared";
 import client from "prom-client";
 import logger from "@/logging";
 import type { Agent, UsageView } from "@/types";
@@ -151,7 +151,7 @@ export function initializeMetrics(labelKeys: string[]): void {
 /**
  * Helper function to build metric labels from agent
  * @param profile The Archestra profile
- * @param additionalLabels Additional labels to include
+ * @param additionalLabels Additional labels to include (provider will be normalized to base provider)
  * @param model The model name
  * @param externalAgentId Optional external agent ID from X-Archestra-Agent-Id header
  */
@@ -161,6 +161,15 @@ function buildMetricLabels(
   model?: string,
   externalAgentId?: string,
 ): Record<string, string> {
+  // Normalize provider to base provider for consistent metric grouping
+  // e.g., "openai-responses" becomes "openai"
+  const normalizedLabels = { ...additionalLabels };
+  if (normalizedLabels.provider) {
+    normalizedLabels.provider = getBaseProvider(
+      normalizedLabels.provider as SupportedProvider,
+    );
+  }
+
   // agent_id: External agent ID from X-Archestra-Agent-Id header (or empty if not provided)
   // profile_id/profile_name: Internal Archestra profile ID and name
   const labels: Record<string, string> = {
@@ -168,7 +177,7 @@ function buildMetricLabels(
     profile_id: profile.id,
     profile_name: profile.name,
     model: model ?? "unknown",
-    ...additionalLabels,
+    ...normalizedLabels,
   };
 
   // Add agent label values for all registered label keys

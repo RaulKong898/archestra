@@ -160,15 +160,15 @@ export function createLLMModel(params: {
   }
 
   if (provider === "openai") {
-    // URL format: /v1/openai/:agentId (SDK appends /chat/completions)
+    // URL format: /v1/openai/:agentId (SDK appends /responses)
     const client = createOpenAI({
       apiKey,
       baseURL: `http://localhost:${config.api.port}/v1/openai/${agentId}`,
       headers,
     });
-    // Use .chat() to force Chat Completions API (not Responses API)
-    // so our proxy's tool policy evaluation is applied
-    return client.chat(modelName);
+    // Use .responses() to use OpenAI Responses API
+    // Our proxy's tool policy evaluation is applied via /v1/openai/:agentId/responses route
+    return client.responses(modelName);
   }
 
   throw new Error(`Unsupported provider: ${provider}`);

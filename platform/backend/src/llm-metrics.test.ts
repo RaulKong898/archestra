@@ -310,7 +310,11 @@ describe("getObservableGenAI", () => {
       },
     });
 
-    const instrumentedGenAI = getObservableGenAI(mockGenAI, testAgent, undefined);
+    const instrumentedGenAI = getObservableGenAI(
+      mockGenAI,
+      testAgent,
+      undefined,
+    );
 
     // biome-ignore lint/suspicious/noExplicitAny: Mock parameter for testing
     await instrumentedGenAI.models.generateContent({} as any);
@@ -357,7 +361,11 @@ describe("getObservableGenAI", () => {
     Object.assign(errorWithStatus, { status: 400 });
 
     const mockGenAI = getGenAIMock(errorWithStatus);
-    const instrumentedGenAI = getObservableGenAI(mockGenAI, testAgent, undefined);
+    const instrumentedGenAI = getObservableGenAI(
+      mockGenAI,
+      testAgent,
+      undefined,
+    );
 
     await expect(
       // biome-ignore lint/suspicious/noExplicitAny: Mock parameter for testing
@@ -380,7 +388,11 @@ describe("getObservableGenAI", () => {
   test("records duration with status_code 0 on Gemini network error", async () => {
     const mockGenAI = getGenAIMock(new Error("Network timeout"));
 
-    const instrumentedGenAI = getObservableGenAI(mockGenAI, testAgent, undefined);
+    const instrumentedGenAI = getObservableGenAI(
+      mockGenAI,
+      testAgent,
+      undefined,
+    );
 
     await expect(
       // biome-ignore lint/suspicious/noExplicitAny: Mock parameter for testing
@@ -417,7 +429,11 @@ describe("getObservableGenAI", () => {
       },
     } as unknown as GoogleGenAI;
 
-    const instrumentedGenAI = getObservableGenAI(mockGenAI, testAgent, undefined);
+    const instrumentedGenAI = getObservableGenAI(
+      mockGenAI,
+      testAgent,
+      undefined,
+    );
 
     const params = { model: "gemini-pro", contents: [{ text: "test" }] };
     const result = await instrumentedGenAI.models.generateContent(
@@ -441,7 +457,11 @@ describe("getObservableGenAI", () => {
       },
     } as unknown as GoogleGenAI;
 
-    const instrumentedGenAI = getObservableGenAI(mockGenAI, testAgent, undefined);
+    const instrumentedGenAI = getObservableGenAI(
+      mockGenAI,
+      testAgent,
+      undefined,
+    );
 
     await expect(
       // biome-ignore lint/suspicious/noExplicitAny: Mock parameter for testing

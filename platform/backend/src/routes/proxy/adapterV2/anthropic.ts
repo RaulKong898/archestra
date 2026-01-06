@@ -950,11 +950,7 @@ export const anthropicAdapterFactory: LLMProvider<
 
     // Use observable fetch for request duration metrics if agent is provided
     const customFetch = options?.agent
-      ? getObservableFetch(
-          "anthropic",
-          options.agent,
-          options.externalAgentId,
-        )
+      ? getObservableFetch("anthropic", options.agent, options.externalAgentId)
       : undefined;
 
     return new AnthropicProvider({

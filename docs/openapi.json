@@ -3758,7 +3758,6 @@
                 "items": {
                   "anyOf": [
                     {
-                      "description": "A message in easy input format (similar to chat completions)",
                       "type": "object",
                       "properties": {
                         "type": {
@@ -3892,10 +3891,10 @@
                       "required": [
                         "role",
                         "content"
-                      ]
+                      ],
+                      "additionalProperties": {}
                     },
                     {
-                      "description": "A message input item",
                       "type": "object",
                       "properties": {
                         "type": {
@@ -4034,10 +4033,10 @@
                         "type",
                         "role",
                         "content"
-                      ]
+                      ],
+                      "additionalProperties": {}
                     },
                     {
-                      "description": "Reference to a previous item by ID",
                       "type": "object",
                       "properties": {
                         "type": {
@@ -4052,10 +4051,10 @@
                       "required": [
                         "type",
                         "id"
-                      ]
+                      ],
+                      "additionalProperties": {}
                     },
                     {
-                      "description": "Output from a function call (for multi-turn conversations)",
                       "type": "object",
                       "properties": {
                         "type": {
@@ -4075,7 +4074,133 @@
                         "type",
                         "call_id",
                         "output"
-                      ]
+                      ],
+                      "additionalProperties": {}
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "const": "mcp_call_output"
+                        },
+                        "id": {
+                          "description": "ID of the MCP call this is responding to",
+                          "type": "string"
+                        },
+                        "output": {
+                          "description": "The output/result of the MCP call",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "id",
+                        "output"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "const": "mcp_approval_response"
+                        },
+                        "approval_request_id": {
+                          "description": "ID of the approval request",
+                          "type": "string"
+                        },
+                        "approve": {
+                          "description": "Whether to approve the request",
+                          "type": "boolean"
+                        },
+                        "reason": {
+                          "description": "Optional reason for the decision",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "approval_request_id",
+                        "approve"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "const": "computer_call_output"
+                        },
+                        "call_id": {
+                          "description": "ID of the computer call this is responding to",
+                          "type": "string"
+                        },
+                        "output": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "const": "computer_screenshot"
+                            },
+                            "image_url": {
+                              "description": "Base64 data URL of the screenshot",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "image_url"
+                          ]
+                        },
+                        "acknowledged_safety_checks": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "code": {
+                                "type": "string"
+                              },
+                              "message": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "code",
+                              "message"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "call_id",
+                        "output"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    {
+                      "type": "object",
+                      "properties": {},
+                      "additionalProperties": {}
                     }
                   ]
                 }
@@ -4556,20 +4681,34 @@
             "properties": {
               "effort": {
                 "description": "Effort level for reasoning",
-                "type": "string",
-                "enum": [
-                  "low",
-                  "medium",
-                  "high"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "low",
+                      "medium",
+                      "high"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "generate_summary": {
                 "description": "Type of reasoning summary to generate",
-                "type": "string",
-                "enum": [
-                  "auto",
-                  "concise",
-                  "detailed"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "auto",
+                      "concise",
+                      "detailed"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               }
             }
@@ -5522,20 +5661,34 @@
             "properties": {
               "effort": {
                 "description": "Effort level for reasoning",
-                "type": "string",
-                "enum": [
-                  "low",
-                  "medium",
-                  "high"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "low",
+                      "medium",
+                      "high"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "generate_summary": {
                 "description": "Type of reasoning summary to generate",
-                "type": "string",
-                "enum": [
-                  "auto",
-                  "concise",
-                  "detailed"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "auto",
+                      "concise",
+                      "detailed"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               }
             }
@@ -9833,7 +9986,6 @@
                 "items": {
                   "anyOf": [
                     {
-                      "description": "A message in easy input format (similar to chat completions)",
                       "type": "object",
                       "properties": {
                         "type": {
@@ -9972,10 +10124,9 @@
                         "role",
                         "content"
                       ],
-                      "additionalProperties": false
+                      "additionalProperties": {}
                     },
                     {
-                      "description": "A message input item",
                       "type": "object",
                       "properties": {
                         "type": {
@@ -10119,10 +10270,9 @@
                         "role",
                         "content"
                       ],
-                      "additionalProperties": false
+                      "additionalProperties": {}
                     },
                     {
-                      "description": "Reference to a previous item by ID",
                       "type": "object",
                       "properties": {
                         "type": {
@@ -10138,10 +10288,9 @@
                         "type",
                         "id"
                       ],
-                      "additionalProperties": false
+                      "additionalProperties": {}
                     },
                     {
-                      "description": "Output from a function call (for multi-turn conversations)",
                       "type": "object",
                       "properties": {
                         "type": {
@@ -10162,7 +10311,134 @@
                         "call_id",
                         "output"
                       ],
-                      "additionalProperties": false
+                      "additionalProperties": {}
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "const": "mcp_call_output"
+                        },
+                        "id": {
+                          "description": "ID of the MCP call this is responding to",
+                          "type": "string"
+                        },
+                        "output": {
+                          "description": "The output/result of the MCP call",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "id",
+                        "output"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "const": "mcp_approval_response"
+                        },
+                        "approval_request_id": {
+                          "description": "ID of the approval request",
+                          "type": "string"
+                        },
+                        "approve": {
+                          "description": "Whether to approve the request",
+                          "type": "boolean"
+                        },
+                        "reason": {
+                          "description": "Optional reason for the decision",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "approval_request_id",
+                        "approve"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "const": "computer_call_output"
+                        },
+                        "call_id": {
+                          "description": "ID of the computer call this is responding to",
+                          "type": "string"
+                        },
+                        "output": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "const": "computer_screenshot"
+                            },
+                            "image_url": {
+                              "description": "Base64 data URL of the screenshot",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "image_url"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "acknowledged_safety_checks": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "code": {
+                                "type": "string"
+                              },
+                              "message": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "code",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "call_id",
+                        "output"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "type"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    {
+                      "type": "object",
+                      "properties": {},
+                      "additionalProperties": {}
                     }
                   ]
                 }
@@ -10659,20 +10935,34 @@
             "properties": {
               "effort": {
                 "description": "Effort level for reasoning",
-                "type": "string",
-                "enum": [
-                  "low",
-                  "medium",
-                  "high"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "low",
+                      "medium",
+                      "high"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "generate_summary": {
                 "description": "Type of reasoning summary to generate",
-                "type": "string",
-                "enum": [
-                  "auto",
-                  "concise",
-                  "detailed"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "auto",
+                      "concise",
+                      "detailed"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               }
             },
@@ -11662,20 +11952,34 @@
             "properties": {
               "effort": {
                 "description": "Effort level for reasoning",
-                "type": "string",
-                "enum": [
-                  "low",
-                  "medium",
-                  "high"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "low",
+                      "medium",
+                      "high"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "generate_summary": {
                 "description": "Type of reasoning summary to generate",
-                "type": "string",
-                "enum": [
-                  "auto",
-                  "concise",
-                  "detailed"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "auto",
+                      "concise",
+                      "detailed"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               }
             },
@@ -48641,7 +48945,7 @@
         "tags": [
           "llm-proxy"
         ],
-        "description": "Send a chat completions request to OpenAI using the default agent",
+        "description": "Create a chat completion with OpenAI (uses default agent)",
         "requestBody": {
           "content": {
             "application/json": {
@@ -48901,7 +49205,7 @@
         "tags": [
           "llm-proxy"
         ],
-        "description": "Send a chat completions request to OpenAI using a specific agent (n8n URL format)",
+        "description": "Create a chat completion with OpenAI for a specific agent",
         "requestBody": {
           "content": {
             "application/json": {

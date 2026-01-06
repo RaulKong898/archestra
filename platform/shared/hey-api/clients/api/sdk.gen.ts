@@ -846,7 +846,7 @@ export const handleOAuthCallback = <ThrowOnError extends boolean = false>(option
 });
 
 /**
- * Send a chat completions request to OpenAI using the default agent
+ * Create a chat completion with OpenAI (uses default agent)
  */
 export const openAiChatCompletionsWithDefaultAgent = <ThrowOnError extends boolean = false>(options: Options<OpenAiChatCompletionsWithDefaultAgentData, ThrowOnError>) => (options.client ?? client).post<OpenAiChatCompletionsWithDefaultAgentResponses, OpenAiChatCompletionsWithDefaultAgentErrors, ThrowOnError>({
     url: '/v1/openai/chat/completions',
@@ -858,7 +858,7 @@ export const openAiChatCompletionsWithDefaultAgent = <ThrowOnError extends boole
 });
 
 /**
- * Send a chat completions request to OpenAI using a specific agent (n8n URL format)
+ * Create a chat completion with OpenAI for a specific agent
  */
 export const openAiChatCompletionsWithAgent = <ThrowOnError extends boolean = false>(options: Options<OpenAiChatCompletionsWithAgentData, ThrowOnError>) => (options.client ?? client).post<OpenAiChatCompletionsWithAgentResponses, OpenAiChatCompletionsWithAgentErrors, ThrowOnError>({
     url: '/v1/openai/{agentId}/chat/completions',

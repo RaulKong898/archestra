@@ -522,10 +522,12 @@ export function getObservableGenAI(
       );
 
       // Record token metrics
-      const usage = result.usageMetadata as {
-        promptTokenCount?: number;
-        candidatesTokenCount?: number;
-      } | undefined;
+      const usage = result.usageMetadata as
+        | {
+            promptTokenCount?: number;
+            candidatesTokenCount?: number;
+          }
+        | undefined;
       if (usage) {
         // Gemini usage format: promptTokenCount, candidatesTokenCount
         reportLLMTokens(

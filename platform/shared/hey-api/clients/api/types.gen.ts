@@ -1419,6 +1419,51 @@ export type OpenAiResponsesRequestInput = {
              */
             filename?: string;
         }>;
+        [key: string]: unknown | string | 'user' | 'assistant' | 'system' | 'developer' | string | Array<{
+            type: string;
+            /**
+             * The text content
+             */
+            text: string;
+        } | {
+            type: string;
+            /**
+             * URL of the image (can be data: URL for base64)
+             */
+            image_url?: string;
+            /**
+             * File ID of an uploaded image
+             */
+            file_id?: string;
+            /**
+             * Detail level for image analysis
+             */
+            detail?: 'auto' | 'low' | 'high';
+        } | {
+            type: string;
+            /**
+             * Base64-encoded audio data
+             */
+            data: string;
+            /**
+             * Audio format
+             */
+            format: 'wav' | 'mp3';
+        } | {
+            type: string;
+            /**
+             * File ID of an uploaded file
+             */
+            file_id?: string;
+            /**
+             * Base64-encoded file data
+             */
+            file_data?: string;
+            /**
+             * Name of the file
+             */
+            filename?: string;
+        }> | undefined;
     } | {
         type: string;
         role: 'user' | 'assistant' | 'system' | 'developer';
@@ -1471,12 +1516,58 @@ export type OpenAiResponsesRequestInput = {
          * Optional ID for the message
          */
         id?: string;
+        [key: string]: unknown | string | 'user' | 'assistant' | 'system' | 'developer' | string | Array<{
+            type: string;
+            /**
+             * The text content
+             */
+            text: string;
+        } | {
+            type: string;
+            /**
+             * URL of the image (can be data: URL for base64)
+             */
+            image_url?: string;
+            /**
+             * File ID of an uploaded image
+             */
+            file_id?: string;
+            /**
+             * Detail level for image analysis
+             */
+            detail?: 'auto' | 'low' | 'high';
+        } | {
+            type: string;
+            /**
+             * Base64-encoded audio data
+             */
+            data: string;
+            /**
+             * Audio format
+             */
+            format: 'wav' | 'mp3';
+        } | {
+            type: string;
+            /**
+             * File ID of an uploaded file
+             */
+            file_id?: string;
+            /**
+             * Base64-encoded file data
+             */
+            file_data?: string;
+            /**
+             * Name of the file
+             */
+            filename?: string;
+        }> | undefined;
     } | {
         type: string;
         /**
          * ID of the item to reference
          */
         id: string;
+        [key: string]: unknown | string;
     } | {
         type: string;
         /**
@@ -1487,6 +1578,67 @@ export type OpenAiResponsesRequestInput = {
          * The output/result of the function call
          */
         output: string;
+        [key: string]: unknown | string;
+    } | {
+        type: string;
+        /**
+         * ID of the MCP call this is responding to
+         */
+        id: string;
+        /**
+         * The output/result of the MCP call
+         */
+        output: string;
+        [key: string]: unknown | string;
+    } | {
+        type: string;
+        /**
+         * ID of the approval request
+         */
+        approval_request_id: string;
+        /**
+         * Whether to approve the request
+         */
+        approve: boolean;
+        /**
+         * Optional reason for the decision
+         */
+        reason?: string;
+        [key: string]: unknown | string | boolean | undefined;
+    } | {
+        type: string;
+        /**
+         * ID of the computer call this is responding to
+         */
+        call_id: string;
+        output: {
+            type: string;
+            /**
+             * Base64 data URL of the screenshot
+             */
+            image_url: string;
+        };
+        acknowledged_safety_checks?: Array<{
+            id: string;
+            code: string;
+            message: string;
+        }>;
+        [key: string]: unknown | string | {
+            type: string;
+            /**
+             * Base64 data URL of the screenshot
+             */
+            image_url: string;
+        } | Array<{
+            id: string;
+            code: string;
+            message: string;
+        }> | undefined;
+    } | {
+        type: string;
+        [key: string]: unknown | string;
+    } | {
+        [key: string]: unknown;
     }>;
     /**
      * System instructions for the model
@@ -1675,11 +1827,11 @@ export type OpenAiResponsesRequestInput = {
         /**
          * Effort level for reasoning
          */
-        effort?: 'low' | 'medium' | 'high';
+        effort?: 'low' | 'medium' | 'high' | unknown;
         /**
          * Type of reasoning summary to generate
          */
-        generate_summary?: 'auto' | 'concise' | 'detailed';
+        generate_summary?: 'auto' | 'concise' | 'detailed' | unknown;
     };
     /**
      * Truncation strategy for context
@@ -1958,11 +2110,11 @@ export type OpenAiResponsesResponseInput = {
         /**
          * Effort level for reasoning
          */
-        effort?: 'low' | 'medium' | 'high';
+        effort?: 'low' | 'medium' | 'high' | unknown;
         /**
          * Type of reasoning summary to generate
          */
-        generate_summary?: 'auto' | 'concise' | 'detailed';
+        generate_summary?: 'auto' | 'concise' | 'detailed' | unknown;
     };
     instructions?: string | unknown;
     /**
@@ -3517,6 +3669,51 @@ export type OpenAiResponsesRequest = {
              */
             filename?: string;
         }>;
+        [key: string]: unknown | string | 'user' | 'assistant' | 'system' | 'developer' | string | Array<{
+            type: string;
+            /**
+             * The text content
+             */
+            text: string;
+        } | {
+            type: string;
+            /**
+             * URL of the image (can be data: URL for base64)
+             */
+            image_url?: string;
+            /**
+             * File ID of an uploaded image
+             */
+            file_id?: string;
+            /**
+             * Detail level for image analysis
+             */
+            detail?: 'auto' | 'low' | 'high';
+        } | {
+            type: string;
+            /**
+             * Base64-encoded audio data
+             */
+            data: string;
+            /**
+             * Audio format
+             */
+            format: 'wav' | 'mp3';
+        } | {
+            type: string;
+            /**
+             * File ID of an uploaded file
+             */
+            file_id?: string;
+            /**
+             * Base64-encoded file data
+             */
+            file_data?: string;
+            /**
+             * Name of the file
+             */
+            filename?: string;
+        }> | undefined;
     } | {
         type: string;
         role: 'user' | 'assistant' | 'system' | 'developer';
@@ -3569,12 +3766,58 @@ export type OpenAiResponsesRequest = {
          * Optional ID for the message
          */
         id?: string;
+        [key: string]: unknown | string | 'user' | 'assistant' | 'system' | 'developer' | string | Array<{
+            type: string;
+            /**
+             * The text content
+             */
+            text: string;
+        } | {
+            type: string;
+            /**
+             * URL of the image (can be data: URL for base64)
+             */
+            image_url?: string;
+            /**
+             * File ID of an uploaded image
+             */
+            file_id?: string;
+            /**
+             * Detail level for image analysis
+             */
+            detail?: 'auto' | 'low' | 'high';
+        } | {
+            type: string;
+            /**
+             * Base64-encoded audio data
+             */
+            data: string;
+            /**
+             * Audio format
+             */
+            format: 'wav' | 'mp3';
+        } | {
+            type: string;
+            /**
+             * File ID of an uploaded file
+             */
+            file_id?: string;
+            /**
+             * Base64-encoded file data
+             */
+            file_data?: string;
+            /**
+             * Name of the file
+             */
+            filename?: string;
+        }> | undefined;
     } | {
         type: string;
         /**
          * ID of the item to reference
          */
         id: string;
+        [key: string]: unknown | string;
     } | {
         type: string;
         /**
@@ -3585,6 +3828,67 @@ export type OpenAiResponsesRequest = {
          * The output/result of the function call
          */
         output: string;
+        [key: string]: unknown | string;
+    } | {
+        type: string;
+        /**
+         * ID of the MCP call this is responding to
+         */
+        id: string;
+        /**
+         * The output/result of the MCP call
+         */
+        output: string;
+        [key: string]: unknown | string;
+    } | {
+        type: string;
+        /**
+         * ID of the approval request
+         */
+        approval_request_id: string;
+        /**
+         * Whether to approve the request
+         */
+        approve: boolean;
+        /**
+         * Optional reason for the decision
+         */
+        reason?: string;
+        [key: string]: unknown | string | boolean | undefined;
+    } | {
+        type: string;
+        /**
+         * ID of the computer call this is responding to
+         */
+        call_id: string;
+        output: {
+            type: string;
+            /**
+             * Base64 data URL of the screenshot
+             */
+            image_url: string;
+        };
+        acknowledged_safety_checks?: Array<{
+            id: string;
+            code: string;
+            message: string;
+        }>;
+        [key: string]: unknown | string | {
+            type: string;
+            /**
+             * Base64 data URL of the screenshot
+             */
+            image_url: string;
+        } | Array<{
+            id: string;
+            code: string;
+            message: string;
+        }> | undefined;
+    } | {
+        type: string;
+        [key: string]: unknown | string;
+    } | {
+        [key: string]: unknown;
     }>;
     /**
      * System instructions for the model
@@ -3773,11 +4077,11 @@ export type OpenAiResponsesRequest = {
         /**
          * Effort level for reasoning
          */
-        effort?: 'low' | 'medium' | 'high';
+        effort?: 'low' | 'medium' | 'high' | unknown;
         /**
          * Type of reasoning summary to generate
          */
-        generate_summary?: 'auto' | 'concise' | 'detailed';
+        generate_summary?: 'auto' | 'concise' | 'detailed' | unknown;
     };
     /**
      * Truncation strategy for context
@@ -4056,11 +4360,11 @@ export type OpenAiResponsesResponse = {
         /**
          * Effort level for reasoning
          */
-        effort?: 'low' | 'medium' | 'high';
+        effort?: 'low' | 'medium' | 'high' | unknown;
         /**
          * Type of reasoning summary to generate
          */
-        generate_summary?: 'auto' | 'concise' | 'detailed';
+        generate_summary?: 'auto' | 'concise' | 'detailed' | unknown;
     };
     instructions?: string | unknown;
     /**

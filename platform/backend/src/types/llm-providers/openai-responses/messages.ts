@@ -118,7 +118,9 @@ export const McpApprovalResponseSchema = z
 export const ComputerCallOutputSchema = z
   .object({
     type: z.literal("computer_call_output"),
-    call_id: z.string().describe("ID of the computer call this is responding to"),
+    call_id: z
+      .string()
+      .describe("ID of the computer call this is responding to"),
     output: z.object({
       type: z.literal("computer_screenshot"),
       image_url: z.string().describe("Base64 data URL of the screenshot"),
@@ -145,9 +147,13 @@ export const InputItemSchema = z.union([
   McpApprovalResponseSchema.passthrough(),
   ComputerCallOutputSchema.passthrough(),
   // Fallback for any object with a type field (forward compatibility)
-  z.object({ type: z.string() }).passthrough(),
+  z
+    .object({ type: z.string() })
+    .passthrough(),
   // Fallback for any object without a type field (e.g., easy input format variations)
-  z.object({}).passthrough(),
+  z
+    .object({})
+    .passthrough(),
 ]);
 
 // =============================================================================

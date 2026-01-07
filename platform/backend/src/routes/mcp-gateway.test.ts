@@ -218,7 +218,7 @@ describe("MCP Gateway session auto-recreation", () => {
     expect(sessionId).toMatch(/^session-\d+-[a-f0-9-]+$/);
   });
 
-  test("non-initialize request with expired session creates new session (not 400)", async ({
+  test("non-initialize request with expired session returns error (prompts re-initialization)", async ({
     makeAgent,
     makeOrganization,
   }) => {
@@ -256,8 +256,8 @@ describe("MCP Gateway session auto-recreation", () => {
     activeSessions.clear();
 
     // Step 3: Send tools/list with the expired session ID
-    // Previously this would return 400 "Invalid or expired session"
-    // Now it should create a new session
+    // Should return 400 with clear error message prompting re-initialization
+    // This allows clients like Cursor to detect and restart the connection
     const toolsResponse = await app.inject({
       method: "POST",
       url: "/v1/mcp",
@@ -270,21 +270,75 @@ describe("MCP Gateway session auto-recreation", () => {
       },
     });
 
-    // The response code depends on the MCP SDK behavior
-    // With our fix, it should NOT be 400 with "Invalid or expired session"
-    // It will be 200 (success) or 400 with "Server not initialized" (MCP SDK requirement)
-    // Either way, a new session should be created
+    // Should return 400 with session expired error
+    expect(toolsResponse.statusCode).toBe(400);
+    const body = toolsResponse.json();
+    expect(body.error?.message).toBe(
+      "Bad Request: Session expired or invalid. Please reconnect.",
+    );
+
+    // No orphan session should be created
+    expect(activeSessions.size).toBe(0);
+  });
+
+  test("initialize request with expired session creates new session successfully", async ({
+    makeAgent,
+    makeOrganization,
+  }) => {
+    const agent = await makeAgent();
+    const org = await makeOrganization();
+
+    await TeamTokenModel.create({
+      organizationId: org.id,
+      name: "Org Token",
+      teamId: null,
+      isOrganizationToken: true,
+    });
+
+    // Step 1: Initialize to create a session
+    const initResponse = await app.inject({
+      method: "POST",
+      url: "/v1/mcp",
+      headers: makeMcpHeaders(agent.id),
+      payload: {
+        jsonrpc: "2.0",
+        method: "initialize",
+        params: {
+          protocolVersion: "2024-11-05",
+          capabilities: {},
+          clientInfo: { name: "test-client", version: "1.0.0" },
+        },
+        id: 1,
+      },
+    });
+
+    expect(initResponse.statusCode).toBe(200);
+    const sessionId = initResponse.headers["mcp-session-id"] as string;
+
+    // Step 2: Clear session to simulate expiration
+    activeSessions.clear();
+
+    // Step 3: Send initialize with the expired session ID - should work and create new session
+    const reinitResponse = await app.inject({
+      method: "POST",
+      url: "/v1/mcp",
+      headers: makeMcpHeaders(agent.id, sessionId),
+      payload: {
+        jsonrpc: "2.0",
+        method: "initialize",
+        params: {
+          protocolVersion: "2024-11-05",
+          capabilities: {},
+          clientInfo: { name: "test-client", version: "1.0.0" },
+        },
+        id: 2,
+      },
+    });
+
+    expect(reinitResponse.statusCode).toBe(200);
+
+    // New session should be created with the same ID
     expect(activeSessions.size).toBe(1);
     expect(activeSessions.has(sessionId)).toBe(true);
-
-    // Verify it's NOT the old "Invalid or expired session" error
-    if (toolsResponse.statusCode === 400) {
-      const body = toolsResponse.json();
-      expect(body.error?.message).not.toBe(
-        "Bad Request: Invalid or expired session",
-      );
-      // It should be "Server not initialized" from MCP SDK (expected behavior)
-      expect(body.error?.message).toBe("Bad Request: Server not initialized");
-    }
   });
 });

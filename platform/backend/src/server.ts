@@ -415,6 +415,9 @@ const start = async () => {
       `Observability initialized with ${labelKeys.length} agent label keys`,
     );
 
+    // CI test log line - can be removed
+    logger.debug("CI test: server initialization proceeding normally");
+
     startMcpServerRuntime(fastify);
 
     /**

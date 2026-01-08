@@ -7,6 +7,7 @@ import {
   OpenAIErrorTypes,
 } from "@shared";
 import { describe, expect, it } from "vitest";
+import { ToolExecutionError } from "@/errors/tool-execution-error";
 import { mapProviderError } from "./errors";
 
 // =============================================================================
@@ -1013,5 +1014,201 @@ describe("mapProviderError - Provider preservation", () => {
     const result = mapProviderError(error, "gemini");
 
     expect(result.originalError?.provider).toBe("gemini");
+  });
+});
+
+// =============================================================================
+// ToolExecutionError Tests
+// =============================================================================
+
+describe("mapProviderError - ToolExecutionError", () => {
+  describe("basic tool execution error handling", () => {
+    it("should preserve tool name in the error response", () => {
+      const error = new ToolExecutionError(
+        "githubcopilot__remote-mcp__issue_write",
+        "GitHub API rate limit exceeded",
+        { isError: true, error: "GitHub API rate limit exceeded" },
+      );
+      const result = mapProviderError(error, "gemini");
+
+      expect(result.code).toBe(ChatErrorCode.Unknown);
+      expect(result.originalError?.raw).toHaveProperty(
+        "toolName",
+        "githubcopilot__remote-mcp__issue_write",
+      );
+    });
+
+    it("should preserve actual error message instead of generic message", () => {
+      const error = new ToolExecutionError(
+        "some-mcp-tool",
+        "Connection refused: unable to reach external service",
+        { isError: true },
+      );
+      const result = mapProviderError(error, "openai");
+
+      expect(result.originalError?.message).toBe(
+        "Connection refused: unable to reach external service",
+      );
+      // Should NOT be the generic "Tool execution failed"
+      expect(result.originalError?.message).not.toBe("Tool execution failed");
+    });
+
+    it("should set error type to ToolExecutionError", () => {
+      const error = new ToolExecutionError(
+        "test-tool",
+        "Some tool error",
+        null,
+      );
+      const result = mapProviderError(error, "anthropic");
+
+      expect(result.originalError?.type).toBe("ToolExecutionError");
+    });
+
+    it("should preserve the provider in the error response", () => {
+      const error = new ToolExecutionError("test-tool", "Error message", null);
+
+      const geminiResult = mapProviderError(error, "gemini");
+      expect(geminiResult.originalError?.provider).toBe("gemini");
+
+      const openaiResult = mapProviderError(error, "openai");
+      expect(openaiResult.originalError?.provider).toBe("openai");
+
+      const anthropicResult = mapProviderError(error, "anthropic");
+      expect(anthropicResult.originalError?.provider).toBe("anthropic");
+    });
+
+    it("should include raw result in error response for debugging", () => {
+      const rawResult = {
+        isError: true,
+        error: "API call failed",
+        details: { statusCode: 500, retryable: true },
+      };
+      const error = new ToolExecutionError(
+        "failing-tool",
+        "API call failed",
+        rawResult,
+      );
+      const result = mapProviderError(error, "gemini");
+
+      expect(result.originalError?.raw).toHaveProperty("rawResult");
+      const raw = result.originalError?.raw as { rawResult: unknown };
+      expect(raw.rawResult).toEqual(rawResult);
+    });
+
+    it("should not be retryable by default", () => {
+      const error = new ToolExecutionError("test-tool", "Some error", null);
+      const result = mapProviderError(error, "openai");
+
+      expect(result.isRetryable).toBe(false);
+    });
+
+    it("should have no HTTP status for tool execution errors", () => {
+      const error = new ToolExecutionError("test-tool", "Some error", null);
+      const result = mapProviderError(error, "gemini");
+
+      expect(result.originalError?.status).toBeUndefined();
+    });
+  });
+
+  describe("edge cases", () => {
+    it("should handle empty error message", () => {
+      const error = new ToolExecutionError("empty-error-tool", "", null);
+      const result = mapProviderError(error, "openai");
+
+      // Falls back to the Error constructor's message
+      expect(result.originalError?.message).toBe("Tool execution failed");
+    });
+
+    it("should handle ToolExecutionError with undefined raw result", () => {
+      const error = new ToolExecutionError(
+        "no-raw-tool",
+        "Simple error message",
+        undefined,
+      );
+      const result = mapProviderError(error, "anthropic");
+
+      expect(result.code).toBe(ChatErrorCode.Unknown);
+      expect(result.originalError?.message).toBe("Simple error message");
+    });
+
+    it("should handle ToolExecutionError with circular reference in raw result", () => {
+      const circularResult: Record<string, unknown> = {
+        isError: true,
+        error: "Circular ref error",
+      };
+      circularResult.self = circularResult;
+
+      const error = new ToolExecutionError(
+        "circular-tool",
+        "Circular ref error",
+        circularResult,
+      );
+      const result = mapProviderError(error, "gemini");
+
+      // Should not throw when stringifying
+      expect(() => JSON.stringify(result)).not.toThrow();
+      expect(result.code).toBe(ChatErrorCode.Unknown);
+    });
+
+    it("should use user-friendly message from ChatErrorMessages", () => {
+      const error = new ToolExecutionError(
+        "test-tool",
+        "Technical error details",
+        null,
+      );
+      const result = mapProviderError(error, "openai");
+
+      expect(result.message).toBe(ChatErrorMessages[ChatErrorCode.Unknown]);
+    });
+  });
+
+  describe("real-world scenarios", () => {
+    it("should handle MCP tool with authentication failure", () => {
+      const error = new ToolExecutionError(
+        "github__list_repositories",
+        "Bad credentials: The access token is invalid or expired",
+        {
+          isError: true,
+          error: "Bad credentials: The access token is invalid or expired",
+          content: null,
+        },
+      );
+      const result = mapProviderError(error, "gemini");
+
+      expect(result.code).toBe(ChatErrorCode.Unknown);
+      expect(result.originalError?.message).toContain("Bad credentials");
+      expect(result.originalError?.raw).toHaveProperty(
+        "toolName",
+        "github__list_repositories",
+      );
+    });
+
+    it("should handle MCP tool with network timeout", () => {
+      const error = new ToolExecutionError(
+        "external_api__fetch_data",
+        "Request timeout after 30000ms",
+        { isError: true, error: "Request timeout after 30000ms" },
+      );
+      const result = mapProviderError(error, "anthropic");
+
+      expect(result.originalError?.message).toBe(
+        "Request timeout after 30000ms",
+      );
+    });
+
+    it("should handle MCP tool with validation error", () => {
+      const error = new ToolExecutionError(
+        "database__insert_record",
+        "Validation failed: 'email' field is required",
+        {
+          isError: true,
+          error: "Validation failed: 'email' field is required",
+          validationErrors: ["email is required"],
+        },
+      );
+      const result = mapProviderError(error, "openai");
+
+      expect(result.originalError?.message).toContain("Validation failed");
+    });
   });
 });

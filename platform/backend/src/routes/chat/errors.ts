@@ -10,6 +10,7 @@ import {
   type SupportedProvider,
 } from "@shared";
 import { APICallError } from "ai";
+import { ToolExecutionError } from "@/errors/tool-execution-error";
 import logger from "@/logging";
 
 // =============================================================================
@@ -820,6 +821,31 @@ export function mapProviderError(
   provider: SupportedProvider,
 ): ChatErrorResponse {
   logger.debug({ error, provider }, "[ChatErrorMapper] Mapping provider error");
+
+  // Handle ToolExecutionError specifically to preserve tool execution details
+  if (error instanceof ToolExecutionError) {
+    logger.info(
+      {
+        provider,
+        toolName: error.toolName,
+        toolError: error.toolError,
+      },
+      "[ChatErrorMapper] Mapped ToolExecutionError",
+    );
+
+    return createErrorResponse(
+      ChatErrorCode.Unknown,
+      provider,
+      undefined, // no HTTP status for tool execution errors
+      error.toolError || error.message,
+      "ToolExecutionError",
+      {
+        toolName: error.toolName,
+        errorMessage: error.toolError,
+        rawResult: safeSerialize(error.rawResult),
+      },
+    );
+  }
 
   // Get provider-specific parser and mapper
   const parseError = providerParsers[provider];

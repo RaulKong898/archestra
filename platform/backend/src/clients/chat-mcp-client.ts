@@ -3,6 +3,11 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { isArchestraMcpServerTool, TimeInMs } from "@shared";
 import { jsonSchema, type Tool } from "ai";
+import { ToolExecutionError } from "@/errors/tool-execution-error";
+
+// Re-export for backwards compatibility
+export { ToolExecutionError } from "@/errors/tool-execution-error";
+
 import {
   type ArchestraContext,
   executeArchestraTool,
@@ -623,7 +628,11 @@ export async function getChatMcpTools({
                   { agentId, userId, toolName: mcpTool.name, result },
                   "MCP tool execution failed",
                 );
-                throw new Error(result.error || "Tool execution failed");
+                throw new ToolExecutionError(
+                  mcpTool.name,
+                  result.error || "Tool execution failed",
+                  result,
+                );
               }
 
               logger.info(

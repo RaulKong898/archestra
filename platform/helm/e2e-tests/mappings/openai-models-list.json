@@ -1,7 +1,12 @@
 {
   "request": {
     "method": "GET",
-    "urlPath": "/v1/models"
+    "urlPath": "/v1/models",
+    "headers": {
+      "Authorization": {
+        "matches": "Bearer .+"
+      }
+    }
   },
   "response": {
     "status": 200,

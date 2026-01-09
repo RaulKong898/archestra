@@ -161,7 +161,10 @@ test.describe("Chat Models API", () => {
     expect(response2.ok()).toBe(true);
     const models2 = await response2.json();
 
-    // Results should be the same (from cache)
-    expect(models2.length).toBe(models1.length);
+    // Results should be identical (from cache)
+    // Compare model IDs to verify caching returns the same data
+    const ids1 = models1.map((m: { id: string }) => m.id).sort();
+    const ids2 = models2.map((m: { id: string }) => m.id).sort();
+    expect(ids2).toEqual(ids1);
   });
 });

@@ -17,6 +17,13 @@ test.describe("Chat Models API", () => {
     const models = await response.json();
 
     expect(Array.isArray(models)).toBe(true);
+    // Verify we got models from all three providers
+    const providers = new Set(
+      models.map((m: { provider: string }) => m.provider),
+    );
+    expect(providers.has("openai")).toBe(true);
+    expect(providers.has("anthropic")).toBe(true);
+    expect(providers.has("gemini")).toBe(true);
 
     // Check that models have the expected shape
     for (const model of models) {
@@ -41,6 +48,7 @@ test.describe("Chat Models API", () => {
     const models = await response.json();
 
     expect(Array.isArray(models)).toBe(true);
+    expect(models.length).toBeGreaterThan(0);
 
     // All models should be from OpenAI provider
     for (const model of models) {
@@ -64,6 +72,7 @@ test.describe("Chat Models API", () => {
     const models = await response.json();
 
     expect(Array.isArray(models)).toBe(true);
+    expect(models.length).toBeGreaterThan(0);
 
     // All models should be from Anthropic provider
     for (const model of models) {
@@ -87,6 +96,7 @@ test.describe("Chat Models API", () => {
     const models = await response.json();
 
     expect(Array.isArray(models)).toBe(true);
+    expect(models.length).toBeGreaterThan(0);
 
     // All models should be from Gemini provider
     for (const model of models) {

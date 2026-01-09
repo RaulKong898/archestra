@@ -1,6 +1,5 @@
 "use client";
 
-import type { archestraApiTypes } from "@shared";
 import { Sparkles } from "lucide-react";
 import { TruncatedText } from "@/components/truncated-text";
 import { Badge } from "@/components/ui/badge";
@@ -17,17 +16,14 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useInternalMcpCatalog } from "@/lib/internal-mcp-catalog.query";
-import { isMcpTool } from "@/lib/tool.utils";
+import type { ProfileToolData } from "@/lib/profile-tools.query";
 import { formatDate } from "@/lib/utils";
-import { ResponseModifierEditor } from "./response-modifier-editor";
 import { ToolCallPolicies } from "./tool-call-policies";
 import { ToolReadonlyDetails } from "./tool-readonly-details";
 import { ToolResultPolicies } from "./tool-result-policies";
 
 interface ToolDetailsDialogProps {
-  agentTool:
-    | archestraApiTypes.GetAllAgentToolsResponses["200"]["data"][number]
-    | null;
+  agentTool: ProfileToolData | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -40,6 +36,11 @@ export function ToolDetailsDialog({
   const { data: internalMcpCatalogItems } = useInternalMcpCatalog();
   if (!agentTool) return null;
 
+  const profileNames =
+    agentTool.profiles.length > 0
+      ? agentTool.profiles.map((p) => p.name).join(", ")
+      : "-";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[90vw] max-w-[1600px] max-h-[85vh] flex flex-col">
@@ -47,11 +48,11 @@ export function ToolDetailsDialog({
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <DialogTitle className="text-xl font-semibold tracking-tight">
-                {agentTool.tool.name}
+                {agentTool.name}
               </DialogTitle>
-              {agentTool.tool.description && (
+              {agentTool.description && (
                 <TruncatedText
-                  message={agentTool.tool.description}
+                  message={agentTool.description}
                   maxLength={200}
                   className="text-sm text-muted-foreground mt-1"
                 />
@@ -60,10 +61,10 @@ export function ToolDetailsDialog({
             <div className="flex gap-6 text-sm ml-6">
               <div>
                 <div className="text-xs font-medium text-muted-foreground">
-                  Profile
+                  Profiles
                 </div>
                 <div className="text-sm text-foreground mt-0.5">
-                  {agentTool.agent.name || "-"}
+                  {profileNames}
                 </div>
               </div>
               <div>
@@ -71,7 +72,7 @@ export function ToolDetailsDialog({
                   Origin
                 </div>
                 <div className="mt-0.5">
-                  {isMcpTool(agentTool.tool) ? (
+                  {agentTool.catalogId ? (
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -83,7 +84,7 @@ export function ToolDetailsDialog({
                           <p>
                             {
                               internalMcpCatalogItems?.find(
-                                (item) => item.id === agentTool.tool.catalogId,
+                                (item) => item.id === agentTool.catalogId,
                               )?.name
                             }
                           </p>
@@ -150,12 +151,11 @@ export function ToolDetailsDialog({
                   </div>
                 </div>
               )}
-            <ToolReadonlyDetails agentTool={agentTool} />
+            <ToolReadonlyDetails tool={agentTool} />
             <div className="grid grid-cols-2 gap-6">
-              <ToolCallPolicies agentTool={agentTool} />
-              <ToolResultPolicies agentTool={agentTool} />
+              <ToolCallPolicies tool={agentTool} />
+              <ToolResultPolicies toolId={agentTool.id} />
             </div>
-            <ResponseModifierEditor agentTool={agentTool} />
           </div>
         </div>
       </DialogContent>

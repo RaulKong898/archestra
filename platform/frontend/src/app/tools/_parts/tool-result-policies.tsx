@@ -149,11 +149,7 @@ function AttributePathExamples() {
   );
 }
 
-export function ToolResultPolicies({
-  agentTool,
-}: {
-  agentTool: archestraApiTypes.GetAllAgentToolsResponses["200"]["data"][number];
-}) {
+export function ToolResultPolicies({ toolId }: { toolId: string }) {
   const toolResultPoliciesCreateMutation =
     useToolResultPoliciesCreateMutation();
   const {
@@ -161,7 +157,7 @@ export function ToolResultPolicies({
     data: resultPolicies,
   } = useToolResultPolicies();
   const { data: operators } = useOperators();
-  const allPolicies = byProfileToolId[agentTool.tool.id] || [];
+  const allPolicies = byProfileToolId[toolId] || [];
   // Filter out default policies (empty conditions) - they're shown in the DEFAULT section
   const policies = allPolicies.filter((policy) => policy.conditions.length > 0);
   const toolResultPoliciesUpdateMutation =
@@ -172,7 +168,7 @@ export function ToolResultPolicies({
 
   // Derive treatment from policies (default policy with empty conditions)
   const toolResultTreatment = getResultTreatmentFromPolicies(
-    agentTool.tool.id,
+    toolId,
     resultPolicies,
   );
 
@@ -208,7 +204,7 @@ export function ToolResultPolicies({
             onValueChange={(value) => {
               if (value === toolResultTreatment) return;
               resultPolicyMutation.mutate({
-                toolId: agentTool.tool.id,
+                toolId,
                 treatment: value as ToolResultTreatment,
               });
             }}
@@ -330,7 +326,7 @@ export function ToolResultPolicies({
         className="w-full"
         onClick={() =>
           toolResultPoliciesCreateMutation.mutate({
-            toolId: agentTool.tool.id,
+            toolId,
             attributePath: "result",
           })
         }

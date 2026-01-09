@@ -12,7 +12,6 @@ import {
   Loader2,
   Search,
   Sparkles,
-  Unplug,
   Wand2,
 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -20,10 +19,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DebouncedInput } from "@/components/debounced-input";
 import { LoadingSpinner } from "@/components/loading";
-import {
-  DYNAMIC_CREDENTIAL_VALUE,
-  TokenSelect,
-} from "@/components/token-select";
 import { TruncatedText } from "@/components/truncated-text";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,12 +42,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useProfiles } from "@/lib/agent.query";
-import {
-  useAllProfileTools,
-  useAutoConfigurePolicies,
-  useProfileToolPatchMutation,
-  useUnassignTool,
-} from "@/lib/agent-tools.query";
+import { useAutoConfigurePolicies } from "@/lib/agent-tools.query";
 import { useInternalMcpCatalog } from "@/lib/internal-mcp-catalog.query";
 import { useMcpServers } from "@/lib/mcp-server.query";
 import {
@@ -67,7 +57,10 @@ import {
   getAllowUsageFromPolicies,
   getResultTreatmentFromPolicies,
 } from "@/lib/policy.utils";
-import { isMcpTool } from "@/lib/tool.utils";
+import {
+  type ProfileToolData,
+  useProfileTools,
+} from "@/lib/profile-tools.query";
 import {
   DEFAULT_FILTER_ALL,
   DEFAULT_SORT_BY,
@@ -76,7 +69,7 @@ import {
 import type { ToolsInitialData } from "../page";
 
 type GetAllProfileToolsQueryParams = NonNullable<
-  archestraApiTypes.GetAllAgentToolsData["query"]
+  archestraApiTypes.GetAllProfileToolsData["query"]
 >;
 type ProfileToolsSortByValues = NonNullable<
   GetAllProfileToolsQueryParams["sortBy"]
@@ -85,8 +78,6 @@ type ProfileToolsSortDirectionValues = NonNullable<
   GetAllProfileToolsQueryParams["sortDirection"]
 > | null;
 
-type ProfileToolData =
-  archestraApiTypes.GetAllAgentToolsResponses["200"]["data"][number];
 // These fields were moved to policies in the new schema
 // Define the type directly since it's no longer on ProfileToolData
 type ToolResultTreatment = "trusted" | "untrusted" | "sanitize_with_dual_llm";
@@ -114,13 +105,11 @@ export function AssignedToolsTable({
   onToolClick,
   initialData,
 }: AssignedToolsTableProps) {
-  const agentToolPatchMutation = useProfileToolPatchMutation();
   const callPolicyMutation = useCallPolicyMutation();
   const resultPolicyMutation = useResultPolicyMutation();
   const bulkCallPolicyMutation = useBulkCallPolicyMutation();
   const bulkResultPolicyMutation = useBulkResultPolicyMutation();
   const autoConfigureMutation = useAutoConfigurePolicies();
-  const unassignToolMutation = useUnassignTool();
   const { data: invocationPolicies } = useToolInvocationPolicies(
     initialData?.toolInvocationPolicies,
   );
@@ -193,11 +182,11 @@ export function AssignedToolsTable({
     sorting[0]?.desc !== false;
 
   const {
-    data: agentToolsData,
+    data: profileToolsData,
     isLoading,
     refetch,
-  } = useAllProfileTools({
-    initialData: useInitialData ? initialData?.agentTools : undefined,
+  } = useProfileTools({
+    initialData: useInitialData ? initialData?.profileTools : undefined,
     pagination: {
       limit: pageSize,
       offset: pageIndex * pageSize,
@@ -208,14 +197,14 @@ export function AssignedToolsTable({
     },
     filters: {
       search: searchQuery || undefined,
-      agentId: agentFilter !== "all" ? agentFilter : undefined,
+      profileId: agentFilter !== "all" ? agentFilter : undefined,
       origin: originFilter !== "all" ? originFilter : undefined,
       mcpServerOwnerId:
         credentialFilter !== "all" ? credentialFilter : undefined,
     },
   });
 
-  const agentTools = agentToolsData?.data ?? [];
+  const profileTools = profileToolsData?.data ?? [];
 
   // Poll for updates when tools are auto-configuring
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -228,7 +217,7 @@ export function AssignedToolsTable({
     }
 
     // Check if any tools are currently auto-configuring
-    const hasAutoConfiguringTools = agentTools.some(
+    const hasAutoConfiguringTools = profileTools.some(
       (tool) => tool.policiesAutoConfiguringStartedAt,
     );
 
@@ -246,7 +235,7 @@ export function AssignedToolsTable({
         pollingIntervalRef.current = null;
       }
     };
-  }, [agentTools, refetch]);
+  }, [profileTools, refetch]);
 
   // Helper to update URL params
   const updateUrlParams = useCallback(
@@ -282,12 +271,12 @@ export function AssignedToolsTable({
       setRowSelection(newRowSelection);
 
       const newSelectedTools = Object.keys(newRowSelection)
-        .map((index) => agentTools[Number(index)])
+        .map((index) => profileTools[Number(index)])
         .filter(Boolean);
 
       setSelectedTools(newSelectedTools);
     },
-    [agentTools],
+    [profileTools],
   );
 
   const handleSearchChange = useCallback(
@@ -365,8 +354,8 @@ export function AssignedToolsTable({
         .filter((tool) => {
           const policies =
             field === "allowUsageWhenUntrustedDataIsPresent"
-              ? invocationPolicies?.byProfileToolId[tool.tool.id] || []
-              : resultPolicies?.byProfileToolId[tool.tool.id] || [];
+              ? invocationPolicies?.byProfileToolId[tool.id] || []
+              : resultPolicies?.byProfileToolId[tool.id] || [];
 
           // Check if tool has custom policies (non-empty conditions array)
           const hasCustomPolicy = policies.some(
@@ -375,7 +364,7 @@ export function AssignedToolsTable({
 
           return !hasCustomPolicy;
         })
-        .map((tool) => tool.tool.id);
+        .map((tool) => tool.id);
 
       if (toolIds.length === 0) {
         return;
@@ -514,14 +503,14 @@ export function AssignedToolsTable({
           <Checkbox
             checked={row.getIsSelected()}
             onCheckedChange={(value) => row.toggleSelected(!!value)}
-            aria-label={`Select ${row.original.tool.name}`}
+            aria-label={`Select ${row.original.name}`}
           />
         ),
         size: 30,
       },
       {
         id: "name",
-        accessorFn: (row) => row.tool.name,
+        accessorFn: (row) => row.name,
         header: ({ column }) => (
           <Button
             variant="ghost"
@@ -534,7 +523,7 @@ export function AssignedToolsTable({
         ),
         cell: ({ row }) => (
           <TruncatedText
-            message={row.original.tool.name}
+            message={row.original.name}
             className="break-all"
             maxLength={60}
           />
@@ -544,68 +533,51 @@ export function AssignedToolsTable({
         maxSize: 200,
       },
       {
-        id: "agent",
-        accessorFn: (row) => row.agent?.name || "",
-        header: ({ column }) => (
-          <Button
-            variant="ghost"
-            className="-ml-4 h-auto px-4 py-2 font-medium hover:bg-transparent"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          >
-            Profile
-            <SortIcon isSorted={column.getIsSorted()} />
-          </Button>
-        ),
+        id: "profiles",
+        header: "Profiles",
         cell: ({ row }) => {
-          const agentName = row.original.agent?.name || "-";
+          const profiles = row.original.profiles || [];
 
-          const TruncatedProfileName = (
-            <TruncatedText message={agentName} maxLength={30} />
-          );
-
-          if (!isMcpTool(row.original.tool)) {
-            return TruncatedProfileName;
+          if (profiles.length === 0) {
+            return <span className="text-muted-foreground text-sm">—</span>;
           }
 
-          const handleUnassign = async (e: React.MouseEvent) => {
-            e.stopPropagation();
-
-            try {
-              await unassignToolMutation.mutateAsync({
-                agentId: row.original.agent.id,
-                toolId: row.original.tool.id,
-              });
-              toast.success("Tool unassigned from agent");
-            } catch (error) {
-              toast.error("Failed to unassign tool");
-              console.error("Unassign error:", error);
-            }
-          };
+          if (profiles.length <= 2) {
+            return (
+              <div className="flex gap-1 flex-wrap">
+                {profiles.map((p) => (
+                  <Badge key={p.id} variant="secondary" className="text-xs">
+                    <TruncatedText message={p.name} maxLength={15} />
+                  </Badge>
+                ))}
+              </div>
+            );
+          }
 
           return (
-            <div className="flex items-center gap-2">
-              {TruncatedProfileName}
-              <PermissionButton
-                permissions={{ tool: ["delete"] }}
-                variant="ghost"
-                size="icon-sm"
-                tooltip="Unassign from profile"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleUnassign(e);
-                }}
-                disabled={unassignToolMutation.isPending}
-              >
-                <Unplug className="h-4 w-4" />
-              </PermissionButton>
-            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="secondary" className="text-xs cursor-default">
+                    {profiles.length} profiles
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <div className="flex flex-col gap-1">
+                    {profiles.map((p) => (
+                      <span key={p.id}>{p.name}</span>
+                    ))}
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           );
         },
         size: 150,
       },
       {
         id: "origin",
-        accessorFn: (row) => (isMcpTool(row.tool) ? "1-mcp" : "2-intercepted"),
+        accessorFn: (row) => (row.catalogId ? "1-mcp" : "2-intercepted"),
         header: ({ column }) => (
           <Button
             variant="ghost"
@@ -617,7 +589,7 @@ export function AssignedToolsTable({
           </Button>
         ),
         cell: ({ row }) => {
-          const catalogItemId = row.original.tool.catalogId;
+          const catalogItemId = row.original.catalogId;
           const catalogItem = internalMcpCatalogItems?.find(
             (item) => item.id === catalogItemId,
           );
@@ -663,67 +635,65 @@ export function AssignedToolsTable({
         size: 100,
       },
       {
-        id: "token",
-        header: "Credential",
+        id: "credentials",
+        header: "Credentials",
         cell: ({ row }) => {
-          // Only show selector for MCP tools
-          if (!isMcpTool(row.original.tool)) {
+          // Only show for MCP tools
+          if (!row.original.catalogId) {
             return <span className="text-sm text-muted-foreground">—</span>;
           }
 
-          // Determine if tool is from local server using catalog
-          const mcpCatalogItem = internalMcpCatalogItems?.find(
-            (item) => item.id === row.original.tool.catalogId,
-          );
-          const isLocalServer = mcpCatalogItem?.serverType === "local";
+          const credentials = row.original.credentials || [];
 
-          // Show dynamic value if useDynamicTeamCredential is true
-          const currentValue = row.original.useDynamicTeamCredential
-            ? DYNAMIC_CREDENTIAL_VALUE
-            : isLocalServer
-              ? row.original.executionSourceMcpServerId
-              : row.original.credentialSourceMcpServerId;
+          if (credentials.length === 0) {
+            return <span className="text-muted-foreground text-sm">—</span>;
+          }
+
+          // Get unique credential display values
+          const credentialDisplays = credentials.map((cred) => {
+            if (cred.useDynamicTeamCredential) {
+              return { key: "dynamic", label: "Dynamic" };
+            }
+            const serverId =
+              cred.executionSourceMcpServerId ||
+              cred.credentialSourceMcpServerId;
+            if (!serverId) {
+              return { key: "none", label: "None" };
+            }
+            const server = mcpServers?.find((s) => s.id === serverId);
+            return {
+              key: serverId,
+              label: server?.ownerEmail || server?.name || "Unknown",
+            };
+          });
+
+          // Deduplicate by key
+          const uniqueCredentials = Array.from(
+            new Map(credentialDisplays.map((c) => [c.key, c])).values(),
+          );
 
           return (
-            <TokenSelect
-              value={currentValue}
-              onValueChange={(value) => {
-                if (value === null) return;
-
-                const isDynamic = value === DYNAMIC_CREDENTIAL_VALUE;
-                agentToolPatchMutation.mutate({
-                  id: row.original.id,
-                  ...(isLocalServer
-                    ? { executionSourceMcpServerId: isDynamic ? null : value }
-                    : {
-                        credentialSourceMcpServerId: isDynamic ? null : value,
-                      }),
-                  useDynamicTeamCredential: isDynamic,
-                });
-              }}
-              catalogId={row.original.tool.catalogId ?? ""}
-              className="h-8 w-[200px] text-xs"
-              shouldSetDefaultValue={false}
-            />
+            <div className="flex flex-col gap-1">
+              {uniqueCredentials.map((cred) => (
+                <Badge
+                  key={cred.key}
+                  variant="outline"
+                  className="text-xs w-fit"
+                >
+                  <TruncatedText message={cred.label} maxLength={20} />
+                </Badge>
+              ))}
+            </div>
           );
         },
-        size: 120,
+        size: 150,
       },
       {
         id: "allowUsageWhenUntrustedDataIsPresent",
-        header: ({ column }) => (
-          <Button
-            variant="ghost"
-            className="-ml-4 h-auto px-4 py-2 font-medium hover:bg-transparent"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          >
-            In untrusted context
-            <SortIcon isSorted={column.getIsSorted()} />
-          </Button>
-        ),
+        header: "In untrusted context",
         cell: ({ row }) => {
           const policies =
-            invocationPolicies?.byProfileToolId[row.original.tool.id] || [];
+            invocationPolicies?.byProfileToolId[row.original.id] || [];
           // A custom policy has non-empty conditions array
           const hasCustomPolicy = policies.some(
             (policy) => policy.conditions.length > 0,
@@ -745,7 +715,7 @@ export function AssignedToolsTable({
             !!row.original.policiesAutoConfiguringStartedAt;
 
           const allowUsage = getAllowUsageFromPolicies(
-            row.original.tool.id,
+            row.original.id,
             invocationPolicies,
           );
 
@@ -759,12 +729,12 @@ export function AssignedToolsTable({
                   // Only update if value actually changed
                   if (checked === allowUsage) return;
                   handleSingleRowUpdate(
-                    row.original.tool.id,
+                    row.original.id,
                     "allowUsageWhenUntrustedDataIsPresent",
                     checked,
                   );
                 }}
-                aria-label={`Allow ${row.original.tool.name} in untrusted context`}
+                aria-label={`Allow ${row.original.name} in untrusted context`}
               />
               <span className="text-xs text-muted-foreground">
                 {allowUsage ? "Allowed" : "Blocked"}
@@ -812,7 +782,7 @@ export function AssignedToolsTable({
         header: "Results are",
         cell: ({ row }) => {
           const policies =
-            resultPolicies?.byProfileToolId[row.original.tool.id] || [];
+            resultPolicies?.byProfileToolId[row.original.id] || [];
           // A custom policy has non-empty conditions array
           const hasCustomPolicy = policies.some(
             (policy) => policy.conditions.length > 0,
@@ -840,7 +810,7 @@ export function AssignedToolsTable({
             !!row.original.policiesAutoConfiguringStartedAt;
 
           const treatment = getResultTreatmentFromPolicies(
-            row.original.tool.id,
+            row.original.id,
             resultPolicies,
           );
 
@@ -853,7 +823,7 @@ export function AssignedToolsTable({
                   // Only update if value actually changed
                   if (value === treatment) return;
                   handleSingleRowUpdate(
-                    row.original.tool.id,
+                    row.original.id,
                     "toolResultTreatment",
                     value as ToolResultTreatment,
                   );
@@ -916,9 +886,8 @@ export function AssignedToolsTable({
     [
       invocationPolicies,
       resultPolicies,
-      agentToolPatchMutation,
-      unassignToolMutation,
       internalMcpCatalogItems,
+      mcpServers,
       isRowFieldUpdating,
       handleSingleRowUpdate,
     ],
@@ -1009,215 +978,224 @@ export function AssignedToolsTable({
         />
       </div>
 
-      <div className="flex items-center justify-between p-4 bg-muted/50 border border-border rounded-lg">
-        <div className="flex items-center gap-3">
-          {hasSelection ? (
-            <>
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                <span className="text-sm font-semibold text-primary">
-                  {selectedTools.length}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between p-4 bg-muted/50 border border-border rounded-lg">
+          <div className="flex items-center gap-3">
+            {hasSelection ? (
+              <>
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                  <span className="text-sm font-semibold text-primary">
+                    {selectedTools.length}
+                  </span>
+                </div>
+                <span className="text-sm font-medium">
+                  {selectedTools.length === 1
+                    ? "tool selected"
+                    : "tools selected"}
                 </span>
-              </div>
-              <span className="text-sm font-medium">
-                {selectedTools.length === 1
-                  ? "tool selected"
-                  : "tools selected"}
-              </span>
-              {isBulkUpdating && (
-                <LoadingSpinner className="h-4 w-4 text-muted-foreground" />
-              )}
-            </>
-          ) : (
-            <span className="text-sm text-muted-foreground">
-              Select tools to apply bulk actions
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
-              In untrusted context:
-            </span>
-            <ButtonGroup>
-              <PermissionButton
-                permissions={{ tool: ["update"] }}
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  handleBulkAction("allowUsageWhenUntrustedDataIsPresent", true)
-                }
-                disabled={!hasSelection || isBulkUpdating}
-              >
-                Allow
-              </PermissionButton>
-              <PermissionButton
-                permissions={{ tool: ["update"] }}
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  handleBulkAction(
-                    "allowUsageWhenUntrustedDataIsPresent",
-                    false,
-                  )
-                }
-                disabled={!hasSelection || isBulkUpdating}
-              >
-                Block
-              </PermissionButton>
-            </ButtonGroup>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Results are:</span>
-            <ButtonGroup>
-              <PermissionButton
-                permissions={{ tool: ["update"] }}
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  handleBulkAction("toolResultTreatment", "trusted")
-                }
-                disabled={!hasSelection || isBulkUpdating}
-              >
-                Trusted
-              </PermissionButton>
-              <PermissionButton
-                permissions={{ tool: ["update"] }}
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  handleBulkAction("toolResultTreatment", "untrusted")
-                }
-                disabled={!hasSelection || isBulkUpdating}
-              >
-                Untrusted
-              </PermissionButton>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <PermissionButton
-                    size="sm"
-                    variant="outline"
-                    permissions={{ tool: ["update"] }}
-                    onClick={() =>
-                      handleBulkAction(
-                        "toolResultTreatment",
-                        "sanitize_with_dual_llm",
-                      )
-                    }
-                    disabled={!hasSelection || isBulkUpdating}
-                  >
-                    Dual LLM
-                  </PermissionButton>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Sanitize with Dual LLM</p>
-                </TooltipContent>
-              </Tooltip>
-            </ButtonGroup>
-          </div>
-          <div className="ml-2 h-4 w-px bg-border" />
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <PermissionButton
-                permissions={{ profile: ["update"], tool: ["update"] }}
-                size="sm"
-                variant="outline"
-                onClick={handleAutoConfigurePolicies}
-                disabled={
-                  !hasSelection ||
-                  isBulkUpdating ||
-                  autoConfigureMutation.isPending
-                }
-              >
-                {autoConfigureMutation.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Configuring...
-                  </>
-                ) : (
-                  <>
-                    <Wand2 className="h-4 w-4" />
-                    Configure with Subagent
-                  </>
+                {isBulkUpdating && (
+                  <LoadingSpinner className="h-4 w-4 text-muted-foreground" />
                 )}
-              </PermissionButton>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Automatically configure security policies using AI analysis</p>
-            </TooltipContent>
-          </Tooltip>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={clearSelection}
-            disabled={!hasSelection || isBulkUpdating}
-          >
-            Clear selection
-          </Button>
-        </div>
-      </div>
-
-      {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <LoadingSpinner />
-        </div>
-      ) : agentTools.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <Search className="mb-4 h-12 w-12 text-muted-foreground/50" />
-          <h3 className="mb-2 text-lg font-semibold">No tools found</h3>
-          <p className="mb-4 text-sm text-muted-foreground">
-            {searchQuery ||
-            agentFilter !== DEFAULT_FILTER_ALL ||
-            originFilter !== DEFAULT_FILTER_ALL ||
-            credentialFilter !== DEFAULT_FILTER_ALL
-              ? "No tools match your filters. Try adjusting your search or filters."
-              : "No tools have been assigned yet."}
-          </p>
-          {(searchQuery ||
-            agentFilter !== DEFAULT_FILTER_ALL ||
-            originFilter !== DEFAULT_FILTER_ALL ||
-            credentialFilter !== DEFAULT_FILTER_ALL) && (
+              </>
+            ) : (
+              <span className="text-sm text-muted-foreground">
+                Select tools to apply bulk actions
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                In untrusted context:
+              </span>
+              <ButtonGroup>
+                <PermissionButton
+                  permissions={{ tool: ["update"] }}
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    handleBulkAction(
+                      "allowUsageWhenUntrustedDataIsPresent",
+                      true,
+                    )
+                  }
+                  disabled={!hasSelection || isBulkUpdating}
+                >
+                  Allow
+                </PermissionButton>
+                <PermissionButton
+                  permissions={{ tool: ["update"] }}
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    handleBulkAction(
+                      "allowUsageWhenUntrustedDataIsPresent",
+                      false,
+                    )
+                  }
+                  disabled={!hasSelection || isBulkUpdating}
+                >
+                  Block
+                </PermissionButton>
+              </ButtonGroup>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                Results are:
+              </span>
+              <ButtonGroup>
+                <PermissionButton
+                  permissions={{ tool: ["update"] }}
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    handleBulkAction("toolResultTreatment", "trusted")
+                  }
+                  disabled={!hasSelection || isBulkUpdating}
+                >
+                  Trusted
+                </PermissionButton>
+                <PermissionButton
+                  permissions={{ tool: ["update"] }}
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    handleBulkAction("toolResultTreatment", "untrusted")
+                  }
+                  disabled={!hasSelection || isBulkUpdating}
+                >
+                  Untrusted
+                </PermissionButton>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <PermissionButton
+                      size="sm"
+                      variant="outline"
+                      permissions={{ tool: ["update"] }}
+                      onClick={() =>
+                        handleBulkAction(
+                          "toolResultTreatment",
+                          "sanitize_with_dual_llm",
+                        )
+                      }
+                      disabled={!hasSelection || isBulkUpdating}
+                    >
+                      Dual LLM
+                    </PermissionButton>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Sanitize with Dual LLM</p>
+                  </TooltipContent>
+                </Tooltip>
+              </ButtonGroup>
+            </div>
+            <div className="ml-2 h-4 w-px bg-border" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <PermissionButton
+                  permissions={{ profile: ["update"], tool: ["update"] }}
+                  size="sm"
+                  variant="outline"
+                  onClick={handleAutoConfigurePolicies}
+                  disabled={
+                    !hasSelection ||
+                    isBulkUpdating ||
+                    autoConfigureMutation.isPending
+                  }
+                >
+                  {autoConfigureMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Configuring...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="h-4 w-4" />
+                      Configure with Subagent
+                    </>
+                  )}
+                </PermissionButton>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>
+                  Automatically configure security policies using AI analysis
+                </p>
+              </TooltipContent>
+            </Tooltip>
             <Button
-              variant="outline"
-              onClick={() => {
-                handleSearchChange("");
-                handleProfileFilterChange(DEFAULT_FILTER_ALL);
-                handleOriginFilterChange(DEFAULT_FILTER_ALL);
-                handleCredentialFilterChange(DEFAULT_FILTER_ALL);
-              }}
+              size="sm"
+              variant="ghost"
+              onClick={clearSelection}
+              disabled={!hasSelection || isBulkUpdating}
             >
-              Clear all filters
+              Clear selection
             </Button>
-          )}
+          </div>
         </div>
-      ) : (
-        <DataTable
-          columns={columns}
-          data={agentTools}
-          onRowClick={(tool, event) => {
-            const target = event.target as HTMLElement;
-            const isCheckboxClick =
-              target.closest('[data-column-id="select"]') ||
-              target.closest('input[type="checkbox"]') ||
-              target.closest('button[role="checkbox"]') ||
-              target.closest('button[role="switch"]');
-            if (!isCheckboxClick) {
-              onToolClick(tool);
-            }
-          }}
-          sorting={sorting}
-          onSortingChange={handleSortingChange}
-          manualSorting={true}
-          manualPagination={true}
-          pagination={{
-            pageIndex,
-            pageSize,
-            total: agentToolsData?.pagination?.total ?? 0,
-          }}
-          onPaginationChange={handlePaginationChange}
-          rowSelection={rowSelection}
-          onRowSelectionChange={handleRowSelectionChange}
-        />
-      )}
+
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <LoadingSpinner />
+          </div>
+        ) : profileTools.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Search className="mb-4 h-12 w-12 text-muted-foreground/50" />
+            <h3 className="mb-2 text-lg font-semibold">No tools found</h3>
+            <p className="mb-4 text-sm text-muted-foreground">
+              {searchQuery ||
+              agentFilter !== DEFAULT_FILTER_ALL ||
+              originFilter !== DEFAULT_FILTER_ALL ||
+              credentialFilter !== DEFAULT_FILTER_ALL
+                ? "No tools match your filters. Try adjusting your search or filters."
+                : "No tools have been assigned yet."}
+            </p>
+            {(searchQuery ||
+              agentFilter !== DEFAULT_FILTER_ALL ||
+              originFilter !== DEFAULT_FILTER_ALL ||
+              credentialFilter !== DEFAULT_FILTER_ALL) && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  handleSearchChange("");
+                  handleProfileFilterChange(DEFAULT_FILTER_ALL);
+                  handleOriginFilterChange(DEFAULT_FILTER_ALL);
+                  handleCredentialFilterChange(DEFAULT_FILTER_ALL);
+                }}
+              >
+                Clear all filters
+              </Button>
+            )}
+          </div>
+        ) : (
+          <DataTable
+            columns={columns}
+            data={profileTools}
+            onRowClick={(tool, event) => {
+              const target = event.target as HTMLElement;
+              const isCheckboxClick =
+                target.closest('[data-column-id="select"]') ||
+                target.closest('input[type="checkbox"]') ||
+                target.closest('button[role="checkbox"]') ||
+                target.closest('button[role="switch"]');
+              if (!isCheckboxClick) {
+                onToolClick(tool);
+              }
+            }}
+            sorting={sorting}
+            onSortingChange={handleSortingChange}
+            manualSorting={true}
+            manualPagination={true}
+            pagination={{
+              pageIndex,
+              pageSize,
+              total: profileToolsData?.pagination?.total ?? 0,
+            }}
+            onPaginationChange={handlePaginationChange}
+            rowSelection={rowSelection}
+            onRowSelectionChange={handleRowSelectionChange}
+          />
+        )}
+      </div>
     </div>
   );
 }

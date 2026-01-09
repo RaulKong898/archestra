@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useAllProfileTools } from "@/lib/agent-tools.query";
+import { useProfileTools } from "@/lib/profile-tools.query";
 
 interface EditPolicyDialogProps {
   open: boolean;
@@ -24,17 +24,17 @@ export function EditPolicyDialog({
   toolName,
   profileId,
 }: EditPolicyDialogProps) {
-  const { data } = useAllProfileTools({
+  const { data } = useProfileTools({
     filters: {
       search: toolName,
-      agentId: profileId,
+      profileId,
     },
     pagination: {
       limit: 1,
     },
   });
 
-  const agentTool = data?.data?.find((t) => t.tool.name === toolName);
+  const tool = data?.data?.find((t) => t.name === toolName);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -46,10 +46,10 @@ export function EditPolicyDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="mt-2 space-y-4">
-          {agentTool ? (
+          {tool ? (
             <>
-              <ToolCallPolicies agentTool={agentTool} />
-              <ToolResultPolicies agentTool={agentTool} />
+              <ToolCallPolicies tool={tool} />
+              <ToolResultPolicies toolId={tool.id} />
             </>
           ) : (
             <p className="text-muted-foreground text-sm">

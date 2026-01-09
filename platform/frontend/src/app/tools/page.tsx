@@ -20,7 +20,7 @@ import { ToolsClient } from "./page.client";
 export const dynamic = "force-dynamic";
 
 export type ToolsInitialData = {
-  agentTools: archestraApiTypes.GetAllAgentToolsResponses["200"];
+  profileTools: archestraApiTypes.GetAllProfileToolsResponses["200"];
   agents: archestraApiTypes.GetAllAgentsResponses["200"];
   mcpServers: archestraApiTypes.GetMcpServersResponses["200"];
   internalMcpCatalog: archestraApiTypes.GetInternalMcpCatalogResponses["200"];
@@ -30,7 +30,7 @@ export type ToolsInitialData = {
 
 export default async function ToolsPage() {
   let initialData: ToolsInitialData = {
-    agentTools: {
+    profileTools: {
       data: [],
       pagination: {
         currentPage: 1,
@@ -50,9 +50,9 @@ export default async function ToolsPage() {
   try {
     const headers = await getServerApiHeaders();
     initialData = {
-      agentTools:
+      profileTools:
         (
-          await archestraApiSdk.getAllAgentTools({
+          await archestraApiSdk.getAllProfileTools({
             headers,
             query: {
               limit: DEFAULT_TOOLS_PAGE_SIZE,
@@ -62,7 +62,7 @@ export default async function ToolsPage() {
               excludeArchestraTools: true,
             },
           })
-        ).data || initialData.agentTools,
+        ).data || initialData.profileTools,
       agents: (await archestraApiSdk.getAllAgents({ headers })).data || [],
       mcpServers: (await archestraApiSdk.getMcpServers({ headers })).data || [],
       internalMcpCatalog:

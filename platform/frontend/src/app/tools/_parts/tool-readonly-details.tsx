@@ -1,12 +1,6 @@
-import type { archestraApiTypes } from "@shared";
+import type { ProfileToolData } from "@/lib/profile-tools.query";
 
-export function ToolReadonlyDetails({
-  agentTool,
-}: {
-  agentTool: archestraApiTypes.GetAllAgentToolsResponses["200"]["data"][number];
-}) {
-  const tool = agentTool.tool;
-
+export function ToolReadonlyDetails({ tool }: { tool: ProfileToolData }) {
   return (
     <div className="border border-border rounded-lg p-6 bg-card">
       <div className="text-xs font-medium text-muted-foreground mb-4">

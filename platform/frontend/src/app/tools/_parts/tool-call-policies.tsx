@@ -20,13 +20,10 @@ import {
   useToolInvocationPolicyUpdateMutation,
 } from "@/lib/policy.query";
 import { getAllowUsageFromPolicies } from "@/lib/policy.utils";
+import type { ProfileToolData } from "@/lib/profile-tools.query";
 import { PolicyCard } from "./policy-card";
 
-export function ToolCallPolicies({
-  agentTool,
-}: {
-  agentTool: archestraApiTypes.GetAllAgentToolsResponses["200"]["data"][number];
-}) {
+export function ToolCallPolicies({ tool }: { tool: ProfileToolData }) {
   const {
     data: { byProfileToolId },
     data: invocationPolicies,
@@ -40,17 +37,15 @@ export function ToolCallPolicies({
   const callPolicyMutation = useCallPolicyMutation();
   const { data: operators } = useOperators();
 
-  const allPolicies = byProfileToolId[agentTool.tool.id] || [];
+  const allPolicies = byProfileToolId[tool.id] || [];
   // Filter out default policies (empty conditions) - they're shown in the DEFAULT section
   const policies = allPolicies.filter((policy) => policy.conditions.length > 0);
 
-  const argumentNames = Object.keys(
-    agentTool.tool.parameters?.properties || [],
-  );
+  const argumentNames = Object.keys(tool.parameters?.properties || []);
 
   // Derive allow usage from policies (default policy with empty conditions)
   const allowUsageWhenUntrustedDataIsPresent = getAllowUsageFromPolicies(
-    agentTool.tool.id,
+    tool.id,
     invocationPolicies,
   );
 
@@ -76,7 +71,7 @@ export function ToolCallPolicies({
           onCheckedChange={(checked) => {
             if (checked === allowUsageWhenUntrustedDataIsPresent) return;
             callPolicyMutation.mutate({
-              toolId: agentTool.tool.id,
+              toolId: tool.id,
               allowUsage: checked,
             });
           }}
@@ -201,7 +196,7 @@ export function ToolCallPolicies({
         className="w-full"
         onClick={() =>
           toolInvocationPolicyCreateMutation.mutate({
-            toolId: agentTool.tool.id,
+            toolId: tool.id,
             argumentName: argumentNames[0],
           })
         }

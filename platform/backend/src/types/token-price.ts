@@ -22,11 +22,13 @@ export const InsertTokenPriceSchema = createInsertSchema(
 /**
  * Refined types for better type safety and validation
  */
-export const CreateTokenPriceSchema = InsertTokenPriceSchema.omit({
+const CreateTokenPriceBaseSchema = InsertTokenPriceSchema.omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-}).refine(
+});
+
+export const CreateTokenPriceSchema = CreateTokenPriceBaseSchema.refine(
   (data) => {
     // Validation: prices must be positive
     const inputPrice = parseFloat(data.pricePerMillionInput);
@@ -38,7 +40,8 @@ export const CreateTokenPriceSchema = InsertTokenPriceSchema.omit({
   },
 );
 
-export const UpdateTokenPriceSchema = CreateTokenPriceSchema.partial();
+// Use base schema for partial since .partial() can't be used on refined schemas
+export const UpdateTokenPriceSchema = CreateTokenPriceBaseSchema.partial();
 
 /**
  * Exported types

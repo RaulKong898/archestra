@@ -14318,6 +14318,155 @@ export type GetPolicyConfigSubagentPromptResponses = {
 
 export type GetPolicyConfigSubagentPromptResponse = GetPolicyConfigSubagentPromptResponses[keyof GetPolicyConfigSubagentPromptResponses];
 
+export type GetAllProfileToolsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        search?: string;
+        /**
+         * Filter by profile (shows tools that include this profile)
+         */
+        profileId?: string;
+        /**
+         * Can be 'llm-proxy' or a catalogId
+         */
+        origin?: string;
+        /**
+         * Filter by credential source MCP server
+         */
+        credentialSourceMcpServerId?: string;
+        /**
+         * Filter by MCP server owner user ID
+         */
+        mcpServerOwnerId?: string;
+        /**
+         * For test isolation
+         */
+        excludeArchestraTools?: boolean;
+        sortBy?: 'name' | 'origin' | 'createdAt';
+        sortDirection?: 'asc' | 'desc';
+        skipPagination?: boolean;
+        limit?: number;
+        offset?: number;
+    };
+    url: '/api/profile-tools';
+};
+
+export type GetAllProfileToolsErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        error: {
+            message: string;
+            type: 'api_validation_error';
+        };
+    };
+    /**
+     * Default Response
+     */
+    401: {
+        error: {
+            message: string;
+            type: 'api_authentication_error';
+        };
+    };
+    /**
+     * Default Response
+     */
+    403: {
+        error: {
+            message: string;
+            type: 'api_authorization_error';
+        };
+    };
+    /**
+     * Default Response
+     */
+    404: {
+        error: {
+            message: string;
+            type: 'api_not_found_error';
+        };
+    };
+    /**
+     * Default Response
+     */
+    409: {
+        error: {
+            message: string;
+            type: 'api_conflict_error';
+        };
+    };
+    /**
+     * Default Response
+     */
+    500: {
+        error: {
+            message: string;
+            type: 'api_internal_server_error';
+        };
+    };
+};
+
+export type GetAllProfileToolsError = GetAllProfileToolsErrors[keyof GetAllProfileToolsErrors];
+
+export type GetAllProfileToolsResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        data: Array<{
+            id: string;
+            name: string;
+            description: string | null;
+            /**
+             *
+             * https://github.com/openai/openai-node/blob/master/src/resources/shared.ts#L217
+             *
+             * The parameters the functions accepts, described as a JSON Schema object. See the
+             * [guide](https://platform.openai.com/docs/guides/function-calling) for examples,
+             * and the [JSON Schema reference](https://json-schema.org/understanding-json-schema/) for
+             * documentation about the format.
+             *
+             * Omitting parameters defines a function with an empty parameter list.
+             *
+             */
+            parameters?: {
+                [key: string]: unknown;
+            };
+            catalogId: string | null;
+            mcpServerId: string | null;
+            mcpServerName: string | null;
+            mcpServerCatalogId: string | null;
+            createdAt: string;
+            updatedAt: string;
+            profiles: Array<{
+                id: string;
+                name: string;
+            }>;
+            credentials: Array<{
+                credentialSourceMcpServerId: string | null;
+                executionSourceMcpServerId: string | null;
+                useDynamicTeamCredential: boolean;
+            }>;
+            policiesAutoConfiguredAt: string | null;
+            policiesAutoConfiguringStartedAt: string | null;
+            policiesAutoConfiguredReasoning: string | null;
+        }>;
+        pagination: {
+            currentPage: number;
+            limit: number;
+            total: number;
+            totalPages: number;
+            hasNext: boolean;
+            hasPrev: boolean;
+        };
+    };
+};
+
+export type GetAllProfileToolsResponse = GetAllProfileToolsResponses[keyof GetAllProfileToolsResponses];
+
 export type GetAllPromptAgentConnectionsData = {
     body?: never;
     path?: never;

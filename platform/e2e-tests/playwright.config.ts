@@ -51,8 +51,8 @@ const dependencies = {
     projectNames.firefox,
     projectNames.webkit,
   ],
-  // API tests should run after all UI tests to avoid DB state conflicts
-  apiProject: [projectNames.sso],
+  // API tests only need auth setup - can run in parallel with UI tests
+  apiProject: [projectNames.credentialsWithVault],
 };
 
 /**
@@ -64,8 +64,8 @@ export default defineConfig({
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: IS_CI,
-  /* Retry on CI only */
-  retries: IS_CI ? 2 : 0,
+  /* Retry on CI only - keep low to reduce total runtime */
+  retries: IS_CI ? 1 : 0,
   workers: IS_CI ? 12 : 3,
   /* Global timeout for each test */
   timeout: 60_000,

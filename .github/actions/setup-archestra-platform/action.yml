@@ -32,6 +32,10 @@ inputs:
     description: "Whether to build the platform Docker image from source. Set to false to use a pre-built image (e.g., archestra/platform:latest)"
     required: false
     default: "true"
+  skip-image-pull:
+    description: "Skip pulling Docker image from registry. Use when image is already loaded locally (e.g., from artifact)"
+    required: false
+    default: "false"
   platform-image-tag:
     description: "Tag for the platform Docker image (used for both building and loading into Kind)"
     required: false
@@ -92,7 +96,7 @@ runs:
         turbo-token: ${{ inputs.turbo-token }}
 
     - name: Pull Docker image
-      if: ${{ inputs.build-platform-image != 'true' }}
+      if: ${{ inputs.build-platform-image != 'true' && inputs.skip-image-pull != 'true' }}
       shell: bash
       env:
         PLATFORM_IMAGE_TAG: ${{ inputs.platform-image-tag }}

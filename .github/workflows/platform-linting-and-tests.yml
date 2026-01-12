@@ -272,7 +272,7 @@ jobs:
         with:
           working-directory: ./platform
 
-      # Setup Kind cluster and deploy (image already built)
+      # Setup Kind cluster and deploy (image already loaded from artifact)
       - name: Setup Archestra Platform
         uses: ./.github/actions/setup-archestra-platform
         with:
@@ -281,6 +281,7 @@ jobs:
           helm-values-path: .github/values-ci.yaml
           deploy-e2e-dependencies: "true"
           build-platform-image: "false"
+          skip-image-pull: "true"
           platform-image-tag: archestra/platform:ci-test
           platform-context: ./platform
 

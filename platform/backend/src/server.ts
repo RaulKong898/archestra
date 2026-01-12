@@ -370,6 +370,8 @@ const startMcpServerRuntime = async (
 };
 
 const start = async () => {
+  logger.info("Starting Archestra backend server...");
+
   const fastify = createFastifyInstance();
 
   /**

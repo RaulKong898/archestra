@@ -11,6 +11,8 @@ import agentsTable from "./agent";
 import chatApiKeysTable from "./chat-api-key";
 import promptsTable from "./prompt";
 
+export type ShareMode = "private" | "organization" | "public";
+
 const conversationsTable = pgTable("conversations", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: text("user_id").notNull(),
@@ -39,7 +41,8 @@ const conversationsTable = pgTable("conversations", {
       }>
     >(),
   artifact: text("artifact"),
-  isShared: boolean("is_shared").notNull().default(false),
+  shareMode: text("share_mode").$type<ShareMode>().notNull().default("private"),
+  publicShareToken: uuid("public_share_token"),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { mode: "date" })
     .notNull()

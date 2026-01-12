@@ -7,6 +7,8 @@ import { z } from "zod";
 import { schema } from "@/database";
 import { SupportedChatProviderSchema } from "./chat-api-key";
 
+export const ShareModeSchema = z.enum(["private", "organization", "public"]);
+
 export const SelectConversationSchema = createSelectSchema(
   schema.conversationsTable,
 ).extend({
@@ -22,6 +24,8 @@ export const InsertConversationSchema = createInsertSchema(
   {
     // Override selectedProvider to use the proper enum type
     selectedProvider: SupportedChatProviderSchema.nullable().optional(),
+    // Override shareMode to use the proper enum type
+    shareMode: ShareModeSchema.optional(),
   },
 ).omit({
   id: true,
@@ -34,6 +38,8 @@ export const UpdateConversationSchema = createUpdateSchema(
   {
     // Override selectedProvider to use the proper enum type
     selectedProvider: SupportedChatProviderSchema.nullable().optional(),
+    // Override shareMode to use the proper enum type
+    shareMode: ShareModeSchema.optional(),
   },
 ).pick({
   title: true,
@@ -42,7 +48,7 @@ export const UpdateConversationSchema = createUpdateSchema(
   chatApiKeyId: true,
   agentId: true,
   artifact: true,
-  isShared: true,
+  shareMode: true,
 });
 
 export type Conversation = z.infer<typeof SelectConversationSchema>;

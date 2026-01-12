@@ -108,7 +108,9 @@ export class Authnz {
       // Skip ACME challenge paths for SSL certificate domain validation
       url.startsWith("/.well-known/acme-challenge/") ||
       // Allow fetching public SSO providers list for login page (minimal info, no secrets)
-      (method === "GET" && url === "/api/sso-providers/public")
+      (method === "GET" && url === "/api/sso-providers/public") ||
+      // Allow fetching publicly shared conversations by token
+      (method === "GET" && url.startsWith("/api/chat/conversations/public/"))
     ) {
       logger.debug({ url, method }, "[Authnz] Route is in skip list");
       return true;

@@ -34,6 +34,7 @@ export {
   deleteChatApiKey,
   deleteChatConversation,
   shareChatConversation,
+  getPublicChatConversation,
   deleteConversationEnabledTools,
   deleteDualLlmConfig,
   deleteInternalMcpCatalogItem,

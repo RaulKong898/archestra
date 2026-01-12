@@ -1,7 +1,7 @@
 "use client";
 
 import type { UIMessage } from "@ai-sdk/react";
-import { Eye, EyeOff, FileText, Plus, Share2, Users } from "lucide-react";
+import { Eye, EyeOff, FileText, Globe, Lock, Plus, Share2, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -25,6 +25,7 @@ import { ConversationArtifactPanel } from "@/components/chat/conversation-artifa
 import { InitialAgentSelector } from "@/components/chat/initial-agent-selector";
 import { PromptDialog } from "@/components/chat/prompt-dialog";
 import { PromptVersionHistoryDialog } from "@/components/chat/prompt-version-history-dialog";
+import { ShareDialog } from "@/components/chat/share-dialog";
 import { StreamTimeoutWarning } from "@/components/chat/stream-timeout-warning";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,9 +45,9 @@ import { useChatSession } from "@/contexts/global-chat-context";
 import { useProfiles } from "@/lib/agent.query";
 import { useHasPermissions, useSession } from "@/lib/auth.query";
 import {
+  type ShareMode,
   useConversation,
   useCreateConversation,
-  useShareConversation,
   useUpdateConversation,
   useUpdateConversationEnabledTools,
 } from "@/lib/chat.query";
@@ -352,8 +353,8 @@ export default function ChatPage() {
   // Create conversation mutation (requires agentId)
   const createConversationMutation = useCreateConversation();
 
-  // Share conversation mutation
-  const shareConversationMutation = useShareConversation();
+  // Share dialog state
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
 
   // Update enabled tools mutation (for applying pending actions)
   const updateEnabledToolsMutation = useUpdateConversationEnabledTools();
@@ -781,20 +782,17 @@ export default function ChatPage() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
-                      variant={conversation?.isShared ? "secondary" : "ghost"}
+                      variant={conversation?.shareMode !== "private" ? "secondary" : "ghost"}
                       size="sm"
-                      onClick={() => {
-                        if (conversationId) {
-                          shareConversationMutation.mutate({
-                            id: conversationId,
-                            isShared: !conversation?.isShared,
-                          });
-                        }
-                      }}
-                      disabled={shareConversationMutation.isPending}
+                      onClick={() => setIsShareDialogOpen(true)}
                       className="text-xs"
                     >
-                      {conversation?.isShared ? (
+                      {conversation?.shareMode === "public" ? (
+                        <>
+                          <Globe className="h-3 w-3 mr-1" />
+                          Public
+                        </>
+                      ) : conversation?.shareMode === "organization" ? (
                         <>
                           <Users className="h-3 w-3 mr-1" />
                           Shared
@@ -809,9 +807,11 @@ export default function ChatPage() {
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
                     <p className="max-w-xs">
-                      {conversation?.isShared
-                        ? "This conversation is shared with your organization. Click to make it private."
-                        : "Share this conversation with your organization. Only you can send messages."}
+                      {conversation?.shareMode === "public"
+                        ? "Anyone with the link can view this conversation."
+                        : conversation?.shareMode === "organization"
+                          ? "Organization members can view this conversation."
+                          : "Share this conversation. Only you can send messages."}
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -1126,6 +1126,16 @@ export default function ChatPage() {
         }}
         prompt={versionHistoryPrompt}
       />
+
+      {conversationId && conversation && (
+        <ShareDialog
+          open={isShareDialogOpen}
+          onOpenChange={setIsShareDialogOpen}
+          conversationId={conversationId}
+          currentShareMode={(conversation.shareMode as ShareMode) ?? "private"}
+          publicShareToken={conversation.publicShareToken ?? null}
+        />
+      )}
     </div>
   );
 }

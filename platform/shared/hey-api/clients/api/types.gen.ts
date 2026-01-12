@@ -6703,7 +6703,8 @@ export type GetChatConversationsResponses = {
             [key: string]: unknown;
         } | Array<unknown> | null;
         artifact: string | null;
-        isShared: boolean;
+        shareMode: 'private' | 'organization' | 'public';
+        publicShareToken: string | null;
         createdAt: string;
         updatedAt: string;
         agent: {
@@ -6808,7 +6809,8 @@ export type CreateChatConversationResponses = {
             [key: string]: unknown;
         } | Array<unknown> | null;
         artifact: string | null;
-        isShared: boolean;
+        shareMode: 'private' | 'organization' | 'public';
+        publicShareToken: string | null;
         createdAt: string;
         updatedAt: string;
         agent: {
@@ -6987,7 +6989,8 @@ export type GetChatConversationResponses = {
             [key: string]: unknown;
         } | Array<unknown> | null;
         artifact: string | null;
-        isShared: boolean;
+        shareMode: 'private' | 'organization' | 'public';
+        publicShareToken: string | null;
         createdAt: string;
         updatedAt: string;
         agent: {
@@ -7094,7 +7097,8 @@ export type UpdateChatConversationResponses = {
             [key: string]: unknown;
         } | Array<unknown> | null;
         artifact: string | null;
-        isShared: boolean;
+        shareMode: 'private' | 'organization' | 'public';
+        publicShareToken: string | null;
         createdAt: string;
         updatedAt: string;
         agent: {
@@ -7192,7 +7196,7 @@ export type GetChatAgentMcpToolsResponse = GetChatAgentMcpToolsResponses[keyof G
 
 export type ShareChatConversationData = {
     body: {
-        isShared: boolean;
+        shareMode: 'private' | 'organization' | 'public';
     };
     path: {
         id: string;
@@ -7272,7 +7276,8 @@ export type ShareChatConversationResponses = {
             status: 'pending' | 'in_progress' | 'completed';
         }> | null;
         artifact: string | null;
-        isShared: boolean;
+        shareMode: 'private' | 'organization' | 'public';
+        publicShareToken: string | null;
         createdAt: string;
         updatedAt: string;
         agent: {
@@ -7284,6 +7289,71 @@ export type ShareChatConversationResponses = {
 };
 
 export type ShareChatConversationResponse = ShareChatConversationResponses[keyof ShareChatConversationResponses];
+
+export type GetPublicChatConversationData = {
+    body?: never;
+    path: {
+        token: string;
+    };
+    query?: never;
+    url: '/api/chat/conversations/public/{token}';
+};
+
+export type GetPublicChatConversationErrors = {
+    /**
+     * Default Response
+     */
+    404: {
+        error: {
+            message: string;
+            type: 'api_not_found_error';
+        };
+    };
+    /**
+     * Default Response
+     */
+    500: {
+        error: {
+            message: string;
+            type: 'api_internal_server_error';
+        };
+    };
+};
+
+export type GetPublicChatConversationError = GetPublicChatConversationErrors[keyof GetPublicChatConversationErrors];
+
+export type GetPublicChatConversationResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        id: string;
+        userId: string;
+        organizationId: string;
+        agentId: string;
+        promptId: string | null;
+        chatApiKeyId: string | null;
+        title: string | null;
+        selectedModel: string;
+        selectedProvider: string | null;
+        hasCustomToolSelection: boolean;
+        todoList: string | number | boolean | null | {
+            [key: string]: unknown;
+        } | Array<unknown> | null;
+        artifact: string | null;
+        shareMode: 'private' | 'organization' | 'public';
+        publicShareToken: string | null;
+        createdAt: string;
+        updatedAt: string;
+        agent: {
+            id: string;
+            name: string;
+        };
+        messages: Array<unknown>;
+    };
+};
+
+export type GetPublicChatConversationResponse = GetPublicChatConversationResponses[keyof GetPublicChatConversationResponses];
 
 export type GenerateChatConversationTitleData = {
     body?: {
@@ -7377,7 +7447,8 @@ export type GenerateChatConversationTitleResponses = {
             [key: string]: unknown;
         } | Array<unknown> | null;
         artifact: string | null;
-        isShared: boolean;
+        shareMode: 'private' | 'organization' | 'public';
+        publicShareToken: string | null;
         createdAt: string;
         updatedAt: string;
         agent: {

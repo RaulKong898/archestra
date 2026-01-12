@@ -317,9 +317,11 @@ export function usePromptTools(promptId: string | undefined) {
   });
 }
 
+export type ShareMode = "private" | "organization" | "public";
+
 /**
- * Share or unshare a conversation with the organization
- * Only the owner can share/unshare
+ * Set sharing mode for a conversation
+ * Only the owner can change sharing settings
  */
 export function useShareConversation() {
   const queryClient = useQueryClient();
@@ -327,32 +329,33 @@ export function useShareConversation() {
   return useMutation({
     mutationFn: async ({
       id,
-      isShared,
+      shareMode,
     }: {
       id: string;
-      isShared: boolean;
+      shareMode: ShareMode;
     }) => {
       const { data, error } = await shareChatConversation({
         path: { id },
-        body: { isShared },
+        body: { shareMode },
       });
-      if (error) throw new Error("Failed to share conversation");
+      if (error) throw new Error("Failed to update sharing settings");
       return data;
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
       queryClient.invalidateQueries({
         queryKey: ["conversation", variables.id],
       });
-      toast.success(
-        variables.isShared
-          ? "Conversation shared with organization"
-          : "Conversation is now private",
-      );
+      const messages: Record<ShareMode, string> = {
+        private: "Conversation is now private",
+        organization: "Conversation shared with organization",
+        public: "Conversation is now public",
+      };
+      toast.success(messages[variables.shareMode]);
     },
     onError: (error) => {
       toast.error(
-        `Failed to share conversation: ${error instanceof Error ? error.message : "Unknown error"}`,
+        `Failed to update sharing settings: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
     },
   });

@@ -390,6 +390,33 @@ const chatRoutes: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  /**
+   * Public endpoint for accessing publicly shared conversations.
+   * No authentication required - uses publicShareToken for access.
+   */
+  fastify.get(
+    "/api/chat/conversations/public/:token",
+    {
+      schema: {
+        operationId: RouteId.GetPublicChatConversation,
+        description:
+          "Get a publicly shared conversation by its share token. No authentication required.",
+        tags: ["Chat"],
+        params: z.object({ token: UuidIdSchema }),
+        response: constructResponseSchema(SelectConversationSchema),
+      },
+    },
+    async ({ params: { token } }, reply) => {
+      const conversation = await ConversationModel.findByPublicToken(token);
+
+      if (!conversation) {
+        throw new ApiError(404, "Conversation not found or not publicly shared");
+      }
+
+      return reply.send(conversation);
+    },
+  );
+
   fastify.get(
     "/api/chat/conversations/:id",
     {
@@ -668,21 +695,21 @@ const chatRoutes: FastifyPluginAsyncZod = async (fastify) => {
       schema: {
         operationId: RouteId.ShareChatConversation,
         description:
-          "Toggle sharing for a conversation. Only the owner can share/unshare.",
+          "Set sharing mode for a conversation. Only the owner can change sharing settings.",
         tags: ["Chat"],
         params: z.object({ id: UuidIdSchema }),
         body: z.object({
-          isShared: z.boolean(),
+          shareMode: z.enum(["private", "organization", "public"]),
         }),
         response: constructResponseSchema(SelectConversationSchema),
       },
     },
-    async ({ params: { id }, body: { isShared }, user, organizationId }, reply) => {
-      const conversation = await ConversationModel.setShared(
+    async ({ params: { id }, body: { shareMode }, user, organizationId }, reply) => {
+      const conversation = await ConversationModel.setShareMode(
         id,
         user.id,
         organizationId,
-        isShared,
+        shareMode,
       );
 
       if (!conversation) {

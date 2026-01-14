@@ -160,7 +160,10 @@ export async function executeArchestraTool(
       if (!organizationId) {
         return {
           content: [
-            { type: "text", text: "Error: Organization context not available." },
+            {
+              type: "text",
+              text: "Error: Organization context not available.",
+            },
           ],
           isError: true,
         };
@@ -269,7 +272,8 @@ export async function executeArchestraTool(
         userId: userId || "system",
         sessionId,
         // Pass the current delegation chain so the child can extend it
-        parentDelegationChain: context.delegationChain || context.promptId || profile.id,
+        parentDelegationChain:
+          context.delegationChain || context.promptId || profile.id,
       });
 
       return {

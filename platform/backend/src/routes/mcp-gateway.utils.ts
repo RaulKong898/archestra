@@ -180,7 +180,10 @@ export async function createAgentServer(
       try {
         // Check if this is an Archestra tool or agent delegation tool
         const archestraToolPrefix = `${ARCHESTRA_MCP_SERVER_NAME}${MCP_SERVER_TOOL_NAME_SEPARATOR}`;
-        if (name.startsWith(archestraToolPrefix) || name.startsWith(AGENT_TOOL_PREFIX)) {
+        if (
+          name.startsWith(archestraToolPrefix) ||
+          name.startsWith(AGENT_TOOL_PREFIX)
+        ) {
           logger.info(
             {
               agentId,

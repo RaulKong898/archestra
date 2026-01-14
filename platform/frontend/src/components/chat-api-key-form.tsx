@@ -115,6 +115,14 @@ const PROVIDER_CONFIG: Record<
     consoleUrl: "https://z.ai/model-api",
     consoleName: "Zhipu AI Platform",
   },
+  bedrock: {
+    name: "Amazon Bedrock",
+    icon: "/icons/bedrock.png",
+    placeholder: "configured-via-aws-credentials",
+    enabled: false, // Bedrock uses AWS IAM credentials, not API keys
+    consoleUrl: "https://console.aws.amazon.com/bedrock/",
+    consoleName: "AWS Bedrock Console",
+  },
 } as const;
 
 export { PROVIDER_CONFIG };

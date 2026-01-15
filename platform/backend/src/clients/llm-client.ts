@@ -1,6 +1,5 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createCerebras } from "@ai-sdk/cerebras";
-import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import {
@@ -249,13 +248,13 @@ export function createLLMModel(params: {
   if (provider === "bedrock") {
     // URL format: /v1/bedrock/:agentId (SDK appends /chat/completions)
     // Bedrock uses OpenAI-compatible API via bedrock-mantle, so we use the OpenAI SDK
-    const client = createAmazonBedrock({
+    const client = createOpenAI({
       apiKey,
       baseURL: `http://localhost:${config.api.port}/v1/bedrock/${agentId}`,
       headers,
     });
     // Use .chat() to force Chat Completions API
-    return client(modelName);
+    return client.chat(modelName);
   }
 
   throw new Error(`Unsupported provider: ${provider}`);

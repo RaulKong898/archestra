@@ -273,6 +273,54 @@ async function fetchVllmModels(apiKey: string): Promise<ModelInfo[]> {
 }
 
 /**
+ * Fetch models from AWS Bedrock API (OpenAI-compatible)
+ * Bedrock exposes an OpenAI-compatible /models endpoint via bedrock-mantle
+ * See: https://docs.aws.amazon.com/bedrock/latest/userguide/bedrock-mantle.html
+ */
+async function fetchBedrockModels(apiKey: string): Promise<ModelInfo[]> {
+  const baseUrl = config.chat.bedrock.baseUrl;
+  if (!baseUrl) {
+    logger.warn("Bedrock base URL not configured, skipping model fetch");
+    return [];
+  }
+
+  const url = `${baseUrl}/models`;
+
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    logger.error(
+      { status: response.status, error: errorText },
+      "Failed to fetch Bedrock models",
+    );
+    throw new Error(`Failed to fetch Bedrock models: ${response.status}`);
+  }
+
+  const data = (await response.json()) as {
+    data: Array<{
+      id: string;
+      object: string;
+      created?: number;
+      owned_by?: string;
+    }>;
+  };
+
+  return data.data.map((model) => ({
+    id: model.id,
+    displayName: model.id,
+    provider: "bedrock" as const,
+    createdAt: model.created
+      ? new Date(model.created * 1000).toISOString()
+      : undefined,
+  }));
+}
+
+/**
  * Fetch models from Ollama API
  * Ollama exposes an OpenAI-compatible /models endpoint
  * See: https://github.com/ollama/ollama/blob/main/docs/openai.md
@@ -422,6 +470,8 @@ async function getProviderApiKey({
   switch (provider) {
     case "anthropic":
       return config.chat.anthropic.apiKey || null;
+    case "bedrock":
+      return config.chat.bedrock.apiKey || null;
     case "cerebras":
       return config.chat.cerebras.apiKey || null;
     case "gemini":
@@ -445,6 +495,7 @@ const modelFetchers: Record<
   (apiKey: string) => Promise<ModelInfo[]>
 > = {
   anthropic: fetchAnthropicModels,
+  bedrock: fetchBedrockModels,
   cerebras: fetchCerebrasModels,
   gemini: fetchGeminiModels,
   openai: fetchOpenAiModels,
@@ -498,7 +549,7 @@ export async function fetchModelsForProvider({
 
   try {
     let models: ModelInfo[] = [];
-    if (["anthropic", "cerebras", "openai"].includes(provider)) {
+    if (["anthropic", "bedrock", "cerebras", "openai"].includes(provider)) {
       if (apiKey) {
         models = await modelFetchers[provider](apiKey);
       }

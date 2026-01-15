@@ -152,13 +152,14 @@ describe("executeArchestraTool", () => {
 
       expect(result.isError).toBe(false);
       expect(result.content).toHaveLength(1);
+      // Expect 3 servers: Test Server + 2 builtin catalogs (Archestra, Agent Delegation)
       expect((result.content[0] as any).text).toContain(
-        "Found 1 MCP server(s)",
+        "Found 3 MCP server(s)",
       );
       expect((result.content[0] as any).text).toContain("Test Server");
     });
 
-    test("should return empty result when no catalog items exist", async () => {
+    test("should return builtin catalogs when no user catalog items exist", async () => {
       const result = await executeArchestraTool(
         `${ARCHESTRA_MCP_SERVER_NAME}${MCP_SERVER_TOOL_NAME_SEPARATOR}search_private_mcp_registry`,
         undefined,
@@ -166,17 +167,15 @@ describe("executeArchestraTool", () => {
       );
 
       expect(result.isError).toBe(false);
-      expect((result.content[0] as any).text).toContain("No MCP servers found");
+      // Test setup seeds Archestra and Agent Delegation catalogs
+      expect((result.content[0] as any).text).toContain(
+        "Found 2 MCP server(s)",
+      );
+      expect((result.content[0] as any).text).toContain("Archestra");
+      expect((result.content[0] as any).text).toContain("Agent Delegation");
     });
 
-    test("should include Archestra catalog when seeded", async ({
-      makeAgent,
-      seedAndAssignArchestraTools,
-    }) => {
-      // Seed Archestra catalog
-      const agent = await makeAgent();
-      await seedAndAssignArchestraTools(agent.id);
-
+    test("should include Archestra catalog (always seeded)", async () => {
       const result = await executeArchestraTool(
         `${ARCHESTRA_MCP_SERVER_NAME}${MCP_SERVER_TOOL_NAME_SEPARATOR}search_private_mcp_registry`,
         undefined,

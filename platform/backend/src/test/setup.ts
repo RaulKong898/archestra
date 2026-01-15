@@ -27,6 +27,11 @@ process.env.ARCHESTRA_SENTRY_ENVIRONMENT = "test";
 // Set auth secret for tests
 process.env.ARCHESTRA_AUTH_SECRET = "auth-secret-unit-tests-32-chars!";
 
+import {
+  AGENT_DELEGATION_MCP_CATALOG_ID,
+  ARCHESTRA_MCP_CATALOG_ID,
+} from "@shared";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Module-level variables to persist across tests within a file
@@ -120,6 +125,20 @@ beforeEach(async () => {
     await pgliteClient.exec(seedSql);
   } catch {
     // Ignore if default agent already exists or table doesn't have expected structure
+  }
+
+  // Seed required MCP catalog entries for tests that create tools with catalog references
+  const seedCatalogsSql = `
+    INSERT INTO internal_mcp_catalog (id, name, description, server_type, requires_auth, created_at, updated_at)
+    VALUES
+      ('${ARCHESTRA_MCP_CATALOG_ID}', 'Archestra', 'Built-in Archestra tools', 'builtin', false, NOW(), NOW()),
+      ('${AGENT_DELEGATION_MCP_CATALOG_ID}', 'Agent Delegation', 'Agent delegation tools', 'builtin', false, NOW(), NOW())
+    ON CONFLICT DO NOTHING;
+  `;
+  try {
+    await pgliteClient.exec(seedCatalogsSql);
+  } catch {
+    // Ignore if catalogs already exist or table doesn't have expected structure
   }
 });
 

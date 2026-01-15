@@ -1,5 +1,6 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createCerebras } from "@ai-sdk/cerebras";
+import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
 import {
@@ -243,6 +244,16 @@ export function createLLMModel(params: {
     });
     // Use .chat() to force Chat Completions API
     return client.chat(modelName);
+  }
+
+  if (provider === "bedrock") {
+    // URL format: /v1/cerebras/:agentId (SDK appends /chat/completions)
+    const client = createAmazonBedrock({
+      apiKey,
+      baseURL: `http://localhost:${config.api.port}/v1/bedrock/${agentId}`,
+      headers,
+    });
+    return client(modelName);
   }
 
   throw new Error(`Unsupported provider: ${provider}`);

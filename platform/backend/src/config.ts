@@ -365,6 +365,15 @@ export default {
       baseUrl: process.env.ARCHESTRA_OLLAMA_BASE_URL,
       useV2Routes: process.env.ARCHESTRA_OLLAMA_USE_V2_ROUTES !== "false",
     },
+    bedrock: {
+      // Bedrock base url has custom region, e.g.
+      // https://bedrock-mantle.us-east-1.api.aws/v1
+      // Unlike with Anthopic and others, no fallback is possible.
+      // Base url has to be explicitly set to enable this provider.
+      enabled: Boolean(process.env.ARCHESTRA_BEDROCK_BASE_URL),
+      baseUrl: process.env.ARCHESTRA_BEDROCK_BASE_URL,
+      useV2Routes: process.env.ARCHESTRA_BEDROCK_USE_V2_ROUTES !== "false",
+    },
   },
   chat: {
     openai: {
@@ -387,6 +396,13 @@ export default {
     },
     ollama: {
       apiKey: process.env.ARCHESTRA_CHAT_OLLAMA_API_KEY || "",
+    },
+    bedrock: {
+      apiKey: process.env.ARCHESTRA_CHAT_BEDROCK_API_KEY || "",
+      // Bedrock is a marketplace for models,
+      // some of which are available to its OpenAI-compatible API we are using.
+      // Dedicated chat url is for getting the list of models dynamically.
+      baseUrl: process.env.ARCHESTRA_CHAT_BEDROCK_BASE_URL || "",
     },
     mcp: {
       remoteServerUrl: process.env.ARCHESTRA_CHAT_MCP_SERVER_URL || "",

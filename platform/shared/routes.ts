@@ -160,6 +160,11 @@ export const RouteId = {
     "ollamaChatCompletionsWithDefaultAgent",
   OllamaChatCompletionsWithAgent: "ollamaChatCompletionsWithAgent",
 
+  // Proxy Routes - Bedrock
+  BedrockChatCompletionsWithDefaultAgent:
+    "bedrockChatCompletionsWithDefaultAgent",
+  BedrockChatCompletionsWithAgent: "bedrockChatCompletionsWithAgent",
+
   // Chat Routes
   StreamChat: "streamChat",
   GetChatConversations: "getChatConversations",

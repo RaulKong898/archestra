@@ -48,6 +48,7 @@ import AgentLabelModel from "@/models/agent-label";
 import {
   Anthropic,
   ApiError,
+  Bedrock,
   Cerebras,
   Gemini,
   Ollama,
@@ -118,6 +119,12 @@ export function registerOpenApiSchemas() {
   });
   z.globalRegistry.add(Ollama.API.ChatCompletionResponseSchema, {
     id: "OllamaChatCompletionResponse",
+  });
+  z.globalRegistry.add(Bedrock.API.ChatCompletionRequestSchema, {
+    id: "BedrockChatCompletionRequest",
+  });
+  z.globalRegistry.add(Bedrock.API.ChatCompletionResponseSchema, {
+    id: "BedrockChatCompletionResponse",
   });
   z.globalRegistry.add(WebSocketMessageSchema, {
     id: "WebSocketMessage",

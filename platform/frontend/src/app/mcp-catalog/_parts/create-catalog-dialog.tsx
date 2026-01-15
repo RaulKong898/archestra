@@ -23,6 +23,7 @@ import {
 } from "@/lib/internal-mcp-catalog.query";
 import { cn } from "@/lib/utils";
 import { ArchestraCatalogTab } from "./archestra-catalog-tab";
+import { DockerRegistryCatalogTab } from "./docker-registry-catalog-tab";
 import { McpCatalogForm } from "./mcp-catalog-form";
 import type { McpCatalogFormValues } from "./mcp-catalog-form.types";
 import { transformFormToApiData } from "./mcp-catalog-form.utils";
@@ -33,7 +34,7 @@ interface CreateCatalogDialogProps {
   onSuccess?: () => void;
 }
 
-type TabType = "archestra-catalog" | "remote" | "local";
+type TabType = "archestra-catalog" | "docker-registry" | "remote" | "local";
 
 export function CreateCatalogDialog({
   isOpen,
@@ -83,6 +84,7 @@ export function CreateCatalogDialog({
           <div className="flex gap-4">
             {[
               { value: "archestra-catalog", label: "Online Catalog" },
+              { value: "docker-registry", label: "Docker Registry" },
               {
                 value: "remote",
                 label: "Remote (orchestrated not by Archestra)",
@@ -141,6 +143,14 @@ export function CreateCatalogDialog({
         <div className="flex-1 overflow-y-auto">
           {activeTab === "archestra-catalog" && (
             <ArchestraCatalogTab
+              catalogItems={catalogItems}
+              onClose={handleClose}
+              onSuccess={onSuccess}
+            />
+          )}
+
+          {activeTab === "docker-registry" && (
+            <DockerRegistryCatalogTab
               catalogItems={catalogItems}
               onClose={handleClose}
               onSuccess={onSuccess}

@@ -121,6 +121,7 @@ const PromptInputContent = ({
           placeholder="Type a message..."
           ref={textareaRef}
           className="px-4"
+          disableEnterSubmit={status !== "ready"}
         />
       </PromptInputBody>
       <PromptInputFooter>
@@ -161,7 +162,7 @@ const PromptInputContent = ({
             textareaRef={textareaRef}
             onTranscriptionChange={handleTranscriptionChange}
           />
-          <PromptInputSubmit className="h-8!" status={status} />
+          <PromptInputSubmit className="!h-8" status={status} />
         </div>
       </PromptInputFooter>
     </PromptInput>

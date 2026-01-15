@@ -939,31 +939,22 @@ export default function ChatPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={toggleArtifactPanel}
+                  onClick={toggleHideToolCalls}
                   className="text-xs"
                 >
-                  <FileText className="h-3 w-3 mr-1" />
-                  Show Artifact
+                  {hideToolCalls ? (
+                    <>
+                      <Eye className="h-3 w-3 mr-1" />
+                      Show tool calls
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="h-3 w-3 mr-1" />
+                      Hide tool calls
+                    </>
+                  )}
                 </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleHideToolCalls}
-                className="text-xs"
-              >
-                {hideToolCalls ? (
-                  <>
-                    <Eye className="h-3 w-3 mr-1" />
-                    Show tool calls
-                  </>
-                ) : (
-                  <>
-                    <EyeOff className="h-3 w-3 mr-1" />
-                    Hide tool calls
-                  </>
-                )}
-              </Button>
+              </div>
             </div>
           </div>
 

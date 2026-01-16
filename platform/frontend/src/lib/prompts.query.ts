@@ -45,12 +45,7 @@ export function usePromptVersions(id: string) {
 export function useCreatePrompt() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: {
-      name: string;
-      agentId: string;
-      userPrompt?: string;
-      systemPrompt?: string;
-    }) => {
+    mutationFn: async (data: archestraApiTypes.CreatePromptData["body"]) => {
       const response = await createPrompt({ body: data });
       return response.data;
     },
@@ -68,12 +63,7 @@ export function useUpdatePrompt() {
       data,
     }: {
       id: string;
-      data: {
-        name?: string;
-        agentId?: string;
-        userPrompt?: string;
-        systemPrompt?: string;
-      };
+      data: archestraApiTypes.UpdatePromptData["body"];
     }) => {
       const response = await updatePrompt({ path: { id }, body: data });
       return response.data;

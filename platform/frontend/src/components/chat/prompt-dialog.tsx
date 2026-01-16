@@ -24,7 +24,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useProfiles } from "@/lib/agent.query";
+import { useLlmProxies } from "@/lib/llm-proxy.query";
+import { useMcpGateways } from "@/lib/mcp-gateway-entity.query";
 import {
   usePromptAgents,
   useSyncPromptAgents,
@@ -50,7 +51,8 @@ export function PromptDialog({
   prompt,
   onViewVersionHistory,
 }: PromptDialogProps) {
-  const { data: allProfiles = [] } = useProfiles();
+  const { data: mcpGateways = [] } = useMcpGateways();
+  const { data: llmProxies = [] } = useLlmProxies();
   const { data: allPrompts = [] } = usePrompts();
   const createPrompt = useCreatePrompt();
   const updatePrompt = useUpdatePrompt();
@@ -58,7 +60,8 @@ export function PromptDialog({
   const { data: currentAgents = [] } = usePromptAgents(prompt?.id);
 
   const [name, setName] = useState("");
-  const [agentId, setProfileId] = useState("");
+  const [mcpGatewayId, setMcpGatewayId] = useState<string | null>(null);
+  const [llmProxyId, setLlmProxyId] = useState<string | null>(null);
   const [userPrompt, setUserPrompt] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [selectedAgentPromptIds, setSelectedAgentPromptIds] = useState<
@@ -70,13 +73,13 @@ export function PromptDialog({
     return allPrompts
       .filter((p) => p.id !== prompt?.id)
       .map((p) => {
-        const profile = allProfiles.find((prof) => prof.id === p.agentId);
+        const gateway = mcpGateways.find((g) => g.id === p.mcpGatewayId);
         return {
           value: p.id,
-          label: profile ? `${p.name} (${profile.name})` : p.name,
+          label: gateway ? `${p.name} (${gateway.name})` : p.name,
         };
       });
-  }, [allPrompts, allProfiles, prompt?.id]);
+  }, [allPrompts, mcpGateways, prompt?.id]);
 
   // Reset form when dialog opens/closes or prompt changes
   useEffect(() => {
@@ -84,13 +87,16 @@ export function PromptDialog({
       // edit
       if (prompt) {
         setName(prompt.name);
-        setProfileId(prompt.agentId);
+        setMcpGatewayId(prompt.mcpGatewayId ?? null);
+        setLlmProxyId(prompt.llmProxyId ?? null);
         setUserPrompt(prompt.userPrompt || "");
         setSystemPrompt(prompt.systemPrompt || "");
         // Note: agents are loaded separately via currentAgents query
       } else {
         // create
         setName("");
+        setMcpGatewayId(null);
+        setLlmProxyId(null);
         setUserPrompt("");
         setSystemPrompt("");
         setSelectedAgentPromptIds([]);
@@ -98,7 +104,8 @@ export function PromptDialog({
     } else {
       // reset form
       setName("");
-      setProfileId("");
+      setMcpGatewayId(null);
+      setLlmProxyId(null);
       setUserPrompt("");
       setSystemPrompt("");
       setSelectedAgentPromptIds([]);
@@ -116,23 +123,23 @@ export function PromptDialog({
     }
   }, [open, promptId, currentAgentIds]);
 
-  useEffect(() => {
-    if (open) {
-      // if on create and no agentId, set the first agent
-      if (!prompt && !agentId) {
-        setProfileId(allProfiles[0].id);
-      }
-    }
-  }, [open, prompt, allProfiles, agentId]);
-
   const handleSave = useCallback(async () => {
     // Trim values once at the start
     const trimmedName = name.trim();
     const trimmedUserPrompt = userPrompt.trim();
     const trimmedSystemPrompt = systemPrompt.trim();
 
-    if (!trimmedName || !agentId) {
-      toast.error("Name and Profile are required");
+    if (!trimmedName) {
+      toast.error("Name is required");
+      return;
+    }
+
+    // Use mcpGatewayId as agentId for backward compatibility
+    // (they have the same IDs from the migration)
+    const agentId = mcpGatewayId || mcpGateways[0]?.id;
+
+    if (!agentId) {
+      toast.error("MCP Gateway is required");
       return;
     }
 
@@ -146,6 +153,8 @@ export function PromptDialog({
           data: {
             name: trimmedName,
             agentId,
+            mcpGatewayId: mcpGatewayId || undefined,
+            llmProxyId: llmProxyId || undefined,
             userPrompt: trimmedUserPrompt || undefined,
             systemPrompt: trimmedSystemPrompt || undefined,
           },
@@ -156,6 +165,8 @@ export function PromptDialog({
         const created = await createPrompt.mutateAsync({
           name: trimmedName,
           agentId,
+          mcpGatewayId: mcpGatewayId || undefined,
+          llmProxyId: llmProxyId || undefined,
           userPrompt: trimmedUserPrompt || undefined,
           systemPrompt: trimmedSystemPrompt || undefined,
         });
@@ -183,7 +194,9 @@ export function PromptDialog({
     }
   }, [
     name,
-    agentId,
+    mcpGatewayId,
+    mcpGateways,
+    llmProxyId,
     userPrompt,
     systemPrompt,
     prompt,
@@ -227,25 +240,51 @@ export function PromptDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="agentId">MCP Gateway *</Label>
+            <Label htmlFor="mcpGatewayId">MCP Gateway</Label>
             <p className="text-sm text-muted-foreground">
               Select the MCP Gateway with the tools that will be available
             </p>
             <div className="flex flex-wrap items-center gap-2">
-              <Select value={agentId} onValueChange={setProfileId}>
+              <Select
+                value={mcpGatewayId ?? ""}
+                onValueChange={(v) => setMcpGatewayId(v || null)}
+              >
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="Select MCP Gateway..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {allProfiles.map((profile) => (
-                    <SelectItem key={profile.id} value={profile.id}>
-                      {profile.name}
+                  {mcpGateways.map((gateway) => (
+                    <SelectItem key={gateway.id} value={gateway.id}>
+                      {gateway.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {agentId && <ChatToolsDisplay agentId={agentId} readOnly />}
+              {mcpGatewayId && (
+                <ChatToolsDisplay agentId={mcpGatewayId} readOnly />
+              )}
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="llmProxyId">LLM Proxy</Label>
+            <p className="text-sm text-muted-foreground">
+              Select the LLM Proxy for policy evaluation and observability
+            </p>
+            <Select
+              value={llmProxyId ?? ""}
+              onValueChange={(v) => setLlmProxyId(v || null)}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Select LLM Proxy..." />
+              </SelectTrigger>
+              <SelectContent>
+                {llmProxies.map((proxy) => (
+                  <SelectItem key={proxy.id} value={proxy.id}>
+                    {proxy.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label>Agents</Label>
@@ -293,10 +332,7 @@ export function PromptDialog({
           <Button
             onClick={handleSave}
             disabled={
-              !name.trim() ||
-              !agentId ||
-              createPrompt.isPending ||
-              updatePrompt.isPending
+              !name.trim() || createPrompt.isPending || updatePrompt.isPending
             }
           >
             {(createPrompt.isPending || updatePrompt.isPending) && (

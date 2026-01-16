@@ -95,7 +95,7 @@ ALTER TABLE "tools" ADD CONSTRAINT "tools_catalog_id_name_agent_id_llm_proxy_id_
 -- for backward compatibility during the transition period.
 
 -- Step 1: Insert into mcp_gateways from agents
--- Use the organization_id from the first team association, or a default if none exists
+-- Use the organization_id from the first team association, or the first available organization as fallback
 INSERT INTO mcp_gateways (id, organization_id, name, is_default, created_at, updated_at)
 SELECT
   a.id,
@@ -104,7 +104,7 @@ SELECT
      JOIN team t ON t.id = at2.team_id
      WHERE at2.agent_id = a.id
      LIMIT 1),
-    'default'
+    (SELECT id FROM organization LIMIT 1)
   ) as organization_id,
   a.name,
   a.is_default,
@@ -121,7 +121,7 @@ SELECT
      JOIN team t ON t.id = at2.team_id
      WHERE at2.agent_id = a.id
      LIMIT 1),
-    'default'
+    (SELECT id FROM organization LIMIT 1)
   ) as organization_id,
   a.name,
   a.is_default,

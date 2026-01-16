@@ -776,13 +776,22 @@ class InteractionModel {
           userNames: sql<string>`STRING_AGG(DISTINCT ${schema.usersTable.name}, ',')`,
           // Get the request from the most recent "main" interaction in this session
           // Excludes: prompt suggestion generator, title generation, and utility requests
+          // Content extraction handles multiple provider formats:
+          // - OpenAI/Anthropic: messages[0].content (string)
+          // - Bedrock/Anthropic: messages[0].content[0].text (array)
+          // - Gemini: contents[0].parts[0].text
           lastInteractionRequest: sql<unknown>`(ARRAY_AGG(
             ${schema.interactionsTable.request}
             ORDER BY ${schema.interactionsTable.createdAt} DESC
           ) FILTER (WHERE
             ${schema.interactionsTable.request}::text NOT LIKE '%prompt suggestion generator%'
             AND ${schema.interactionsTable.request}::text NOT LIKE '%Please write a 5-10 word title%'
-            AND LENGTH(${schema.interactionsTable.request}->'messages'->0->>'content') > 20
+            AND LENGTH(COALESCE(
+              CASE WHEN jsonb_typeof(${schema.interactionsTable.request}->'messages'->0->'content') = 'string'
+                   THEN ${schema.interactionsTable.request}->'messages'->0->>'content' END,
+              ${schema.interactionsTable.request}->'messages'->0->'content'->0->>'text',
+              ${schema.interactionsTable.request}->'contents'->0->'parts'->0->>'text'
+            )) > 20
           ))[1]`,
           lastInteractionType: sql<string>`(ARRAY_AGG(
             ${schema.interactionsTable.type}
@@ -790,7 +799,12 @@ class InteractionModel {
           ) FILTER (WHERE
             ${schema.interactionsTable.request}::text NOT LIKE '%prompt suggestion generator%'
             AND ${schema.interactionsTable.request}::text NOT LIKE '%Please write a 5-10 word title%'
-            AND LENGTH(${schema.interactionsTable.request}->'messages'->0->>'content') > 20
+            AND LENGTH(COALESCE(
+              CASE WHEN jsonb_typeof(${schema.interactionsTable.request}->'messages'->0->'content') = 'string'
+                   THEN ${schema.interactionsTable.request}->'messages'->0->>'content' END,
+              ${schema.interactionsTable.request}->'messages'->0->'content'->0->>'text',
+              ${schema.interactionsTable.request}->'contents'->0->'parts'->0->>'text'
+            )) > 20
           ))[1]`,
           // Get conversation title if sessionId matches a conversation (for Archestra Chat sessions)
           conversationTitle: max(schema.conversationsTable.title),

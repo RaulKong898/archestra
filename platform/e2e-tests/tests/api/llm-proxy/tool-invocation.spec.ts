@@ -620,6 +620,89 @@ const zhipuaiConfig: ToolInvocationTestConfig = {
     ),
 };
 
+const bedrockConfig: ToolInvocationTestConfig = {
+  providerName: "Bedrock",
+
+  endpoint: (agentId) => `/v1/bedrock/${agentId}/converse`,
+
+  headers: (wiremockStub) => ({
+    "x-amz-access-key-id": wiremockStub,
+    "Content-Type": "application/json",
+  }),
+
+  buildRequest: (content, tools) => ({
+    modelId: "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+    messages: [{ role: "user", content: [{ text: content }] }],
+    toolConfig: {
+      tools: tools.map((t) => ({
+        toolSpec: {
+          name: t.name,
+          description: t.description,
+          inputSchema: { json: t.parameters },
+        },
+      })),
+    },
+  }),
+
+  trustedDataPolicyAttributePath: "$.content[0].text",
+
+  assertToolCallBlocked: (response) => {
+    expect(response.output).toBeDefined();
+    expect(response.output.message).toBeDefined();
+    expect(response.output.message.content).toBeDefined();
+    expect(response.output.message.content.length).toBeGreaterThan(0);
+
+    const textContent = response.output.message.content.find(
+      (c: { text?: string }) => c.text,
+    );
+    expect(textContent).toBeDefined();
+    expect(textContent.text).toContain("read_file");
+    expect(textContent.text).toContain("denied");
+
+    const toolUseContent = response.output.message.content.filter(
+      (c: { toolUse?: unknown }) => c.toolUse,
+    );
+    expect(toolUseContent.length).toBe(0);
+  },
+
+  assertToolCallsPresent: (response, expectedTools) => {
+    expect(response.output).toBeDefined();
+    expect(response.output.message).toBeDefined();
+    expect(response.output.message.content).toBeDefined();
+    expect(response.output.message.content.length).toBeGreaterThan(0);
+
+    const toolUseBlocks = response.output.message.content.filter(
+      (block: { toolUse?: unknown }) => block.toolUse,
+    );
+    expect(toolUseBlocks.length).toBe(expectedTools.length);
+
+    for (const toolName of expectedTools) {
+      const found = toolUseBlocks.find(
+        (block: { toolUse: { name: string } }) =>
+          block.toolUse.name === toolName,
+      );
+      expect(found).toBeDefined();
+    }
+  },
+
+  assertToolArgument: (response, toolName, argName, matcher) => {
+    const toolUseBlocks = response.output.message.content.filter(
+      (block: { toolUse?: unknown }) => block.toolUse,
+    );
+    const toolCall = toolUseBlocks.find(
+      (block: { toolUse: { name: string } }) => block.toolUse.name === toolName,
+    );
+    matcher(toolCall.toolUse.input[argName]);
+  },
+
+  findInteractionByContent: (interactions, content) =>
+    interactions.find((i) =>
+      i.request?.messages?.some((m: { content?: Array<{ text?: string }> }) =>
+        m.content?.some((c) => c.text?.includes(content)),
+      ),
+    ),
+};
+
 // =============================================================================
 // Test Suite
 // =============================================================================
@@ -632,6 +715,7 @@ const testConfigs: ToolInvocationTestConfig[] = [
   vllmConfig,
   ollamaConfig,
   zhipuaiConfig,
+  bedrockConfig,
 ];
 
 for (const config of testConfigs) {

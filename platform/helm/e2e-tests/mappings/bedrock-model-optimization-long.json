@@ -1,0 +1,43 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPath": "/bedrock/converse",
+    "headers": {
+      "x-amz-access-key-id": {
+        "contains": "bedrock-model-optimization-long"
+      }
+    },
+    "bodyPatterns": [
+      {
+        "contains": "e2e-test-bedrock-baseline"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "$metadata": {
+        "httpStatusCode": 200,
+        "requestId": "test-model-opt-long"
+      },
+      "output": {
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "text": "This is a response for long message (model not swapped)."
+            }
+          ]
+        }
+      },
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 1600,
+        "outputTokens": 15
+      }
+    }
+  }
+}

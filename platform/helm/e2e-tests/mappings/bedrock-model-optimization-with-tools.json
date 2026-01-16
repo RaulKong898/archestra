@@ -1,0 +1,43 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPath": "/bedrock/converse",
+    "headers": {
+      "x-amz-access-key-id": {
+        "contains": "bedrock-model-optimization-with-tools"
+      }
+    },
+    "bodyPatterns": [
+      {
+        "contains": "e2e-test-bedrock-optimized"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "$metadata": {
+        "httpStatusCode": 200,
+        "requestId": "test-model-opt-with-tools"
+      },
+      "output": {
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "text": "This is a response for request with tools (model swapped)."
+            }
+          ]
+        }
+      },
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 1200,
+        "outputTokens": 15
+      }
+    }
+  }
+}

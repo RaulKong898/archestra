@@ -1,0 +1,43 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPath": "/bedrock/converse",
+    "headers": {
+      "x-amz-access-key-id": {
+        "contains": "bedrock-model-optimization-no-tools"
+      }
+    },
+    "bodyPatterns": [
+      {
+        "contains": "e2e-test-bedrock-baseline"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "$metadata": {
+        "httpStatusCode": 200,
+        "requestId": "test-model-opt-no-tools"
+      },
+      "output": {
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "text": "This is a response for request without tools (model not swapped)."
+            }
+          ]
+        }
+      },
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 1200,
+        "outputTokens": 15
+      }
+    }
+  }
+}

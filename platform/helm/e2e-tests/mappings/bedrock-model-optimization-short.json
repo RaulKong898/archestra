@@ -1,0 +1,43 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPath": "/bedrock/converse",
+    "headers": {
+      "x-amz-access-key-id": {
+        "contains": "bedrock-model-optimization-short"
+      }
+    },
+    "bodyPatterns": [
+      {
+        "contains": "e2e-test-bedrock-optimized"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "$metadata": {
+        "httpStatusCode": 200,
+        "requestId": "test-model-opt-short"
+      },
+      "output": {
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "text": "This is a short response for model optimization test."
+            }
+          ]
+        }
+      },
+      "stopReason": "end_turn",
+      "usage": {
+        "inputTokens": 1500,
+        "outputTokens": 15
+      }
+    }
+  }
+}

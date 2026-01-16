@@ -226,6 +226,31 @@ const zhipuaiConfig: ToolPersistenceTestConfig = {
   }),
 };
 
+const bedrockConfig: ToolPersistenceTestConfig = {
+  providerName: "Bedrock",
+
+  endpoint: (agentId) => `/v1/bedrock/${agentId}/converse`,
+
+  headers: (wiremockStub) => ({
+    "x-amz-access-key-id": wiremockStub,
+    "Content-Type": "application/json",
+  }),
+
+  buildRequest: (content, tools) => ({
+    modelId: "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+    messages: [{ role: "user", content: [{ text: content }] }],
+    toolConfig: {
+      tools: tools.map((t) => ({
+        toolSpec: {
+          name: t.name,
+          description: t.description,
+          inputSchema: { json: t.parameters },
+        },
+      })),
+    },
+  }),
+};
+
 // =============================================================================
 // Test Suite
 // =============================================================================
@@ -238,6 +263,7 @@ const testConfigs: ToolPersistenceTestConfig[] = [
   vllmConfig,
   ollamaConfig,
   zhipuaiConfig,
+  bedrockConfig,
 ];
 
 for (const config of testConfigs) {

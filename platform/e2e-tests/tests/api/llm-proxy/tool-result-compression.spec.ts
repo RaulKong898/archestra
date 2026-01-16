@@ -316,6 +316,51 @@ const zhipuaiConfig: CompressionTestConfig = {
   }),
 };
 
+const bedrockConfig: CompressionTestConfig = {
+  providerName: "Bedrock",
+
+  endpoint: (profileId) => `/v1/bedrock/${profileId}/converse`,
+
+  headers: (wiremockStub) => ({
+    "x-amz-access-key-id": wiremockStub,
+    "Content-Type": "application/json",
+  }),
+
+  // Bedrock Converse API format: tool results are in user messages as toolResult blocks
+  buildRequestWithToolResult: () => ({
+    modelId: "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+    messages: [
+      {
+        role: "user",
+        content: [{ text: "What files are in the current directory?" }],
+      },
+      {
+        role: "assistant",
+        content: [
+          {
+            toolUse: {
+              toolUseId: "toolu_123",
+              name: "list_files",
+              input: { directory: "." },
+            },
+          },
+        ],
+      },
+      {
+        role: "user",
+        content: [
+          {
+            toolResult: {
+              toolUseId: "toolu_123",
+              content: [{ text: JSON.stringify(TOOL_RESULT_DATA) }],
+            },
+          },
+        ],
+      },
+    ],
+  }),
+};
+
 // =============================================================================
 // Test Suite
 // =============================================================================
@@ -328,6 +373,7 @@ const testConfigs: CompressionTestConfig[] = [
   vllmConfig,
   ollamaConfig,
   zhipuaiConfig,
+  bedrockConfig,
 ];
 
 for (const config of testConfigs) {

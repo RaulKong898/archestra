@@ -308,6 +308,42 @@ const zhipuaiConfig: ModelOptimizationTestConfig = {
   getModelFromResponse: (response) => response.model,
 };
 
+const bedrockConfig: ModelOptimizationTestConfig = {
+  providerName: "Bedrock",
+  provider: "bedrock",
+
+  endpoint: (agentId) => `/v1/bedrock/${agentId}/converse`,
+
+  headers: (wiremockStub) => ({
+    "x-amz-access-key-id": wiremockStub,
+    "Content-Type": "application/json",
+  }),
+
+  buildRequest: (content, tools) => {
+    const request: Record<string, unknown> = {
+      modelId: "e2e-test-bedrock-baseline",
+      messages: [{ role: "user", content: [{ text: content }] }],
+    };
+    if (tools && tools.length > 0) {
+      request.toolConfig = {
+        tools: tools.map((t) => ({
+          toolSpec: {
+            name: t.name,
+            description: t.description,
+            inputSchema: { json: t.parameters },
+          },
+        })),
+      };
+    }
+    return request;
+  },
+
+  baselineModel: "e2e-test-bedrock-baseline",
+  optimizedModel: "e2e-test-bedrock-optimized",
+
+  getModelFromResponse: (response) => response.modelId,
+};
+
 // =============================================================================
 // Helper Functions
 // =============================================================================
@@ -340,6 +376,7 @@ const testConfigs: ModelOptimizationTestConfig[] = [
   vllmConfig,
   ollamaConfig,
   zhipuaiConfig,
+  bedrockConfig,
 ];
 
 test.describe("LLMProxy-ModelOptimization", () => {

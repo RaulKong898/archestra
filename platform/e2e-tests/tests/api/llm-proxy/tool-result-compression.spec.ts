@@ -164,6 +164,47 @@ const geminiConfig: CompressionTestConfig = {
   }),
 };
 
+const cohereConfig: CompressionTestConfig = {
+  providerName: "Cohere",
+
+  endpoint: (profileId) => `/v1/cohere/${profileId}/chat`,
+
+  headers: (wiremockStub) => ({
+    Authorization: `Bearer ${wiremockStub}`,
+    "Content-Type": "application/json",
+  }),
+
+  // Cohere format: assistant has tool_calls and tool results are separate tool messages
+  buildRequestWithToolResult: () => ({
+    model: "command-r-plus-08-2024",
+    messages: [
+      {
+        role: "user",
+        content: [{ type: "text", text: "What files are in the current directory?" }],
+      },
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: "call_123",
+            type: "function",
+            function: {
+              name: "list_files",
+              arguments: '{"directory": "."}',
+            },
+          },
+        ],
+      },
+      {
+        role: "tool",
+        tool_call_id: "call_123",
+        content: JSON.stringify(TOOL_RESULT_DATA),
+      },
+    ],
+  }),
+};
+
 const cerebrasConfig: CompressionTestConfig = {
   providerName: "Cerebras",
 
@@ -324,6 +365,7 @@ const testConfigs: CompressionTestConfig[] = [
   openaiConfig,
   anthropicConfig,
   geminiConfig,
+  cohereConfig,
   cerebrasConfig,
   vllmConfig,
   ollamaConfig,
@@ -422,11 +464,11 @@ for (const config of testConfigs) {
       await updateOrganization(request, {
         convertToolResultsToToon: originalCompressionEnabled,
         compressionScope: originalCompressionScope,
-      }).catch(() => {});
+      }).catch(() => { });
 
       // Clean up test profile
       if (profileId) {
-        await deleteAgent(request, profileId).catch(() => {});
+        await deleteAgent(request, profileId).catch(() => { });
         profileId = "";
       }
     });

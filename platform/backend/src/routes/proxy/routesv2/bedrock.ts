@@ -18,19 +18,23 @@ async function handleBedrockRequest(params: {
   reply: FastifyReply;
   body: Bedrock.Types.ConverseRequest;
   agentId?: string;
-  modelIdFromPath?: string;
-  logMessage: string;
+  modelId: string;
+  streaming?: boolean;
 }) {
-  const { request, reply, body, agentId, modelIdFromPath, logMessage } = params;
+  const { request, reply, body, agentId, modelId, streaming = false } = params;
   const headers = request.headers as Bedrock.Types.ConverseHeaders;
 
   logger.info(
     {
       url: request.url,
-      ...(agentId && { agentId }),
-      ...(modelIdFromPath && { modelId: modelIdFromPath }),
+      agentId,
+      modelId,
+      streaming,
       headers: {
         ...headers,
+        "x-amz-access-key-id": headers["x-amz-access-key-id"]
+          ? "***"
+          : undefined,
         "x-amz-secret-access-key": headers["x-amz-secret-access-key"]
           ? "***"
           : undefined,
@@ -40,16 +44,13 @@ async function handleBedrockRequest(params: {
       },
       bodyKeys: Object.keys(body || {}),
     },
-    logMessage,
+    "[UnifiedProxy] Handling Bedrock request",
   );
 
   const externalAgentId = utils.externalAgentId.getExternalAgentId(headers);
   const userId = await utils.userId.getUserId(headers);
 
-  // Merge model ID from path into body if provided
-  const finalBody = modelIdFromPath
-    ? { ...body, modelId: decodeURIComponent(modelIdFromPath) }
-    : body;
+  const finalBody = { ...body, modelId };
 
   return handleLLMProxy(finalBody, headers, reply, bedrockAdapterFactory, {
     organizationId: request.organizationId,
@@ -59,75 +60,18 @@ async function handleBedrockRequest(params: {
   });
 }
 
+/**
+ * Bedrock Converse API routes following native AWS API format.
+ * Native Bedrock API: POST /model/{modelId}/converse
+ * @see https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html
+ */
 const bedrockProxyRoutesV2: FastifyPluginAsyncZod = async (fastify) => {
   const BEDROCK_PREFIX = `${PROXY_API_PREFIX}/bedrock`;
-  const CONVERSE_SUFFIX = "/converse";
 
   logger.info("[UnifiedProxy] Registering unified Amazon Bedrock routes");
 
   // =========================================================================
-  // LLM Proxy Routes - Used by external clients calling the proxy directly
-  // =========================================================================
-
-  /**
-   * Bedrock Converse API (default agent)
-   * POST /v1/bedrock/converse
-   */
-  fastify.post(
-    `${BEDROCK_PREFIX}${CONVERSE_SUFFIX}`,
-    {
-      bodyLimit: PROXY_BODY_LIMIT,
-      schema: {
-        operationId: RouteId.BedrockConverseWithDefaultAgent,
-        description: "Send a message to Amazon Bedrock using the default agent",
-        tags: ["llm-proxy"],
-        body: Bedrock.API.ConverseRequestSchema,
-        headers: Bedrock.API.ConverseHeadersSchema,
-        response: constructResponseSchema(Bedrock.API.ConverseResponseSchema),
-      },
-    },
-    (request, reply) =>
-      handleBedrockRequest({
-        request,
-        reply,
-        body: request.body,
-        logMessage: "[UnifiedProxy] Handling Bedrock request (default agent)",
-      }),
-  );
-
-  /**
-   * Bedrock Converse API (with agent)
-   * POST /v1/bedrock/:agentId/converse
-   */
-  fastify.post(
-    `${BEDROCK_PREFIX}/:agentId${CONVERSE_SUFFIX}`,
-    {
-      bodyLimit: PROXY_BODY_LIMIT,
-      schema: {
-        operationId: RouteId.BedrockConverseWithAgent,
-        description: "Send a message to Amazon Bedrock using a specific agent",
-        tags: ["llm-proxy"],
-        params: z.object({
-          agentId: UuidIdSchema,
-        }),
-        body: Bedrock.API.ConverseRequestSchema,
-        headers: Bedrock.API.ConverseHeadersSchema,
-        response: constructResponseSchema(Bedrock.API.ConverseResponseSchema),
-      },
-    },
-    (request, reply) =>
-      handleBedrockRequest({
-        request,
-        reply,
-        body: request.body,
-        agentId: request.params.agentId,
-        logMessage: "[UnifiedProxy] Handling Bedrock request (with agent)",
-      }),
-  );
-
-  // =========================================================================
-  // AI SDK Routes - Used by Vercel AI SDK for Chat feature
-  // The SDK generates URLs with model ID in the path
+  // Routes with agent ID - Used by AI SDK for Chat and external clients
   // =========================================================================
 
   /**
@@ -135,11 +79,11 @@ const bedrockProxyRoutesV2: FastifyPluginAsyncZod = async (fastify) => {
    * POST /v1/bedrock/:agentId/model/:modelId/converse
    */
   fastify.post(
-    `${BEDROCK_PREFIX}/:agentId/model/:modelId${CONVERSE_SUFFIX}`,
+    `${BEDROCK_PREFIX}/:agentId/model/:modelId/converse`,
     {
       bodyLimit: PROXY_BODY_LIMIT,
       schema: {
-        operationId: RouteId.BedrockConverseWithAgent + "_model",
+        operationId: `${RouteId.BedrockConverseWithAgent}_model`,
         description:
           "Send a message to Amazon Bedrock with agent and model ID in path",
         tags: ["llm-proxy"],
@@ -158,9 +102,7 @@ const bedrockProxyRoutesV2: FastifyPluginAsyncZod = async (fastify) => {
         reply,
         body: request.body as Bedrock.Types.ConverseRequest,
         agentId: request.params.agentId,
-        modelIdFromPath: request.params.modelId,
-        logMessage:
-          "[UnifiedProxy] Handling Bedrock request (agent + model in path)",
+        modelId: decodeURIComponent(request.params.modelId),
       }),
   );
 
@@ -173,7 +115,7 @@ const bedrockProxyRoutesV2: FastifyPluginAsyncZod = async (fastify) => {
     {
       bodyLimit: PROXY_BODY_LIMIT,
       schema: {
-        operationId: RouteId.BedrockConverseWithAgent + "_model_stream",
+        operationId: `${RouteId.BedrockConverseWithAgent}_model_stream`,
         description:
           "Stream a message to Amazon Bedrock with agent and model ID in path",
         tags: ["llm-proxy"],
@@ -192,14 +134,13 @@ const bedrockProxyRoutesV2: FastifyPluginAsyncZod = async (fastify) => {
         reply,
         body: request.body as Bedrock.Types.ConverseRequest,
         agentId: request.params.agentId,
-        modelIdFromPath: request.params.modelId,
-        logMessage:
-          "[UnifiedProxy] Handling Bedrock streaming request (agent + model in path)",
+        modelId: decodeURIComponent(request.params.modelId),
+        streaming: true,
       }),
   );
 
   // =========================================================================
-  // LLM Proxy Alternative Route - Model in path, default agent
+  // Routes without agent ID - Default agent, model in path
   // =========================================================================
 
   /**
@@ -207,11 +148,11 @@ const bedrockProxyRoutesV2: FastifyPluginAsyncZod = async (fastify) => {
    * POST /v1/bedrock/model/:modelId/converse
    */
   fastify.post(
-    `${BEDROCK_PREFIX}/model/:modelId${CONVERSE_SUFFIX}`,
+    `${BEDROCK_PREFIX}/model/:modelId/converse`,
     {
       bodyLimit: PROXY_BODY_LIMIT,
       schema: {
-        operationId: RouteId.BedrockConverseWithDefaultAgent + "_model",
+        operationId: `${RouteId.BedrockConverseWithDefaultAgent}_model`,
         description: "Send a message to Amazon Bedrock with model ID in path",
         tags: ["llm-proxy"],
         params: z.object({
@@ -227,8 +168,7 @@ const bedrockProxyRoutesV2: FastifyPluginAsyncZod = async (fastify) => {
         request,
         reply,
         body: request.body as Bedrock.Types.ConverseRequest,
-        modelIdFromPath: request.params.modelId,
-        logMessage: "[UnifiedProxy] Handling Bedrock request (model in path)",
+        modelId: decodeURIComponent(request.params.modelId),
       }),
   );
 };

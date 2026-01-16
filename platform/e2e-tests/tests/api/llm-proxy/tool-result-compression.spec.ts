@@ -316,10 +316,13 @@ const zhipuaiConfig: CompressionTestConfig = {
   }),
 };
 
+const BEDROCK_MODEL = "us.anthropic.claude-3-5-sonnet-20241022-v2:0";
+
 const bedrockConfig: CompressionTestConfig = {
   providerName: "Bedrock",
 
-  endpoint: (profileId) => `/v1/bedrock/${profileId}/converse`,
+  endpoint: (profileId) =>
+    `/v1/bedrock/${profileId}/model/${encodeURIComponent(BEDROCK_MODEL)}/converse`,
 
   headers: (wiremockStub) => ({
     "x-amz-access-key-id": wiremockStub,
@@ -328,7 +331,6 @@ const bedrockConfig: CompressionTestConfig = {
 
   // Bedrock Converse API format: tool results are in user messages as toolResult blocks
   buildRequestWithToolResult: () => ({
-    modelId: "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
     messages: [
       {
         role: "user",

@@ -1,7 +1,7 @@
 {
   "request": {
     "method": "POST",
-    "urlPath": "/bedrock/converse",
+    "urlPathPattern": "/bedrock/model/.*/converse",
     "headers": {
       "x-amz-access-key-id": {
         "contains": "bedrock-tool-persistence"

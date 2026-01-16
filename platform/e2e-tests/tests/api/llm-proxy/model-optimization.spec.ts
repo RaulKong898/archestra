@@ -308,11 +308,15 @@ const zhipuaiConfig: ModelOptimizationTestConfig = {
   getModelFromResponse: (response) => response.model,
 };
 
+const BEDROCK_BASELINE_MODEL = "e2e-test-bedrock-baseline";
+const BEDROCK_OPTIMIZED_MODEL = "e2e-test-bedrock-optimized";
+
 const bedrockConfig: ModelOptimizationTestConfig = {
   providerName: "Bedrock",
   provider: "bedrock",
 
-  endpoint: (agentId) => `/v1/bedrock/${agentId}/converse`,
+  endpoint: (agentId) =>
+    `/v1/bedrock/${agentId}/model/${encodeURIComponent(BEDROCK_BASELINE_MODEL)}/converse`,
 
   headers: (wiremockStub) => ({
     "x-amz-access-key-id": wiremockStub,
@@ -321,7 +325,6 @@ const bedrockConfig: ModelOptimizationTestConfig = {
 
   buildRequest: (content, tools) => {
     const request: Record<string, unknown> = {
-      modelId: "e2e-test-bedrock-baseline",
       messages: [{ role: "user", content: [{ text: content }] }],
     };
     if (tools && tools.length > 0) {
@@ -338,8 +341,8 @@ const bedrockConfig: ModelOptimizationTestConfig = {
     return request;
   },
 
-  baselineModel: "e2e-test-bedrock-baseline",
-  optimizedModel: "e2e-test-bedrock-optimized",
+  baselineModel: BEDROCK_BASELINE_MODEL,
+  optimizedModel: BEDROCK_OPTIMIZED_MODEL,
 
   getModelFromResponse: (response) => response.modelId,
 };

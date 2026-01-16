@@ -226,10 +226,13 @@ const zhipuaiConfig: ToolPersistenceTestConfig = {
   }),
 };
 
+const BEDROCK_MODEL = "us.anthropic.claude-3-5-sonnet-20241022-v2:0";
+
 const bedrockConfig: ToolPersistenceTestConfig = {
   providerName: "Bedrock",
 
-  endpoint: (agentId) => `/v1/bedrock/${agentId}/converse`,
+  endpoint: (agentId) =>
+    `/v1/bedrock/${agentId}/model/${encodeURIComponent(BEDROCK_MODEL)}/converse`,
 
   headers: (wiremockStub) => ({
     "x-amz-access-key-id": wiremockStub,
@@ -237,7 +240,6 @@ const bedrockConfig: ToolPersistenceTestConfig = {
   }),
 
   buildRequest: (content, tools) => ({
-    modelId: "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
     messages: [{ role: "user", content: [{ text: content }] }],
     toolConfig: {
       tools: tools.map((t) => ({

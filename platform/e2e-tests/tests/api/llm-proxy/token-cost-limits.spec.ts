@@ -219,10 +219,13 @@ const zhipuaiConfig: TokenCostLimitTestConfig = {
   },
 };
 
+const BEDROCK_TEST_MODEL = "test-bedrock-cost-limit";
+
 const bedrockConfig: TokenCostLimitTestConfig = {
   providerName: "Bedrock",
 
-  endpoint: (profileId) => `/v1/bedrock/${profileId}/converse`,
+  endpoint: (profileId) =>
+    `/v1/bedrock/${profileId}/model/${encodeURIComponent(BEDROCK_TEST_MODEL)}/converse`,
 
   headers: (wiremockStub) => ({
     "x-amz-access-key-id": wiremockStub,
@@ -230,17 +233,16 @@ const bedrockConfig: TokenCostLimitTestConfig = {
   }),
 
   buildRequest: (content) => ({
-    modelId: "test-bedrock-cost-limit",
     messages: [{ role: "user", content: [{ text: content }] }],
   }),
 
-  modelName: "test-bedrock-cost-limit",
+  modelName: BEDROCK_TEST_MODEL,
 
   // WireMock returns: inputTokens: 100, outputTokens: 20
   // Cost = (100 * 20000 + 20 * 30000) / 1,000,000 = $2.60
   tokenPrice: {
     provider: "bedrock",
-    model: "test-bedrock-cost-limit",
+    model: BEDROCK_TEST_MODEL,
     pricePerMillionInput: "20000.00",
     pricePerMillionOutput: "30000.00",
   },

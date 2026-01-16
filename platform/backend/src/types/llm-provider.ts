@@ -156,6 +156,7 @@ export interface LLMRequestAdapter<TRequest, TMessages = unknown> {
  * Adapter interface for LLM responses
  *
  * Wraps provider-specific response and provides uniform API for business logic.
+ * Returns response in original format.
  *
  * @typeParam TResponse - Provider-specific response type
  */
@@ -249,6 +250,7 @@ export interface ChunkProcessingResult {
  *
  * Handles parsing provider-specific chunks, accumulating state,
  * and formatting SSE events.
+ * Returns the stream in original format.
  *
  * @typeParam TChunk - Provider-specific stream chunk type
  * @typeParam TResponse - Provider-specific response type

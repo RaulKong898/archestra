@@ -454,7 +454,7 @@ async function fetchBedrockModels(credentials: string): Promise<ModelInfo[]> {
   }
 
   // Filter to only include models that support on-demand inference
-  return response.modelSummaries
+  const models = response.modelSummaries
     .filter(
       (model) => model.inferenceTypesSupported?.includes("ON_DEMAND") ?? false,
     )
@@ -468,6 +468,14 @@ async function fetchBedrockModels(credentials: string): Promise<ModelInfo[]> {
         provider: "bedrock" as const,
       };
     });
+
+  // Sort by provider name first, then alphabetically by display name
+  models.sort((a, b) => {
+    return a.displayName.localeCompare(b.displayName);
+  });
+
+  // Remove the temporary _originalProvider field before returning
+  return models;
 }
 
 /**
@@ -692,10 +700,12 @@ export async function fetchModelsForProvider({
         models = await modelFetchers[provider](apiKey);
       }
     } else if (provider === "bedrock") {
-      // Bedrock uses AWS credentials, may use default credential chain if no explicit credentials
-      models = await modelFetchers[provider](
-        apiKey || ":::" + config.chat.bedrock.region,
-      );
+      // Bedrock uses AWS credentials, only fetch if configured
+      if (config.llm.bedrock.enabled) {
+        models = await modelFetchers[provider](
+          apiKey || ":::" + config.chat.bedrock.region,
+        );
+      }
     }
     logger.info(
       { provider, modelCount: models.length },

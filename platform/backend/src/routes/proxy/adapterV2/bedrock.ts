@@ -960,6 +960,44 @@ export async function convertToolResultsToToon(
 }
 
 // =============================================================================
+// HELPER: Build Command Input
+// =============================================================================
+
+/**
+ * Convert BedrockRequest to AWS SDK command input format.
+ * Used by both ConverseCommand and ConverseStreamCommand.
+ */
+export function getCommandInput(request: BedrockRequest) {
+  return {
+    modelId: request.modelId,
+    messages: request.messages,
+    system: request.system?.map((s) => {
+      if ("text" in s) return { text: s.text };
+      return s;
+    }),
+    inferenceConfig: request.inferenceConfig,
+    toolConfig: request.toolConfig
+      ? {
+          tools: request.toolConfig.tools?.map((t) => ({
+            toolSpec: t.toolSpec
+              ? {
+                  name: t.toolSpec.name,
+                  description: t.toolSpec.description,
+                  inputSchema: t.toolSpec.inputSchema
+                    ? {
+                        json: t.toolSpec.inputSchema.json,
+                      }
+                    : undefined,
+                }
+              : undefined,
+          })),
+          toolChoice: request.toolConfig.toolChoice,
+        }
+      : undefined,
+  };
+}
+
+// =============================================================================
 // ADAPTER FACTORY
 // =============================================================================
 
@@ -1088,36 +1126,7 @@ export const bedrockAdapterFactory: LLMProvider<
     request: BedrockRequest,
   ): Promise<BedrockResponse> {
     const bedrockClient = client as BedrockRuntimeClient;
-
-    // Convert request to Bedrock Converse command format
-    // Using type assertions to handle AWS SDK complex union types
-    const commandInput = {
-      modelId: request.modelId,
-      messages: request.messages,
-      system: request.system?.map((s) => {
-        if ("text" in s) return { text: s.text };
-        return s;
-      }),
-      inferenceConfig: request.inferenceConfig,
-      toolConfig: request.toolConfig
-        ? {
-            tools: request.toolConfig.tools?.map((t) => ({
-              toolSpec: t.toolSpec
-                ? {
-                    name: t.toolSpec.name,
-                    description: t.toolSpec.description,
-                    inputSchema: t.toolSpec.inputSchema
-                      ? {
-                          json: t.toolSpec.inputSchema.json,
-                        }
-                      : undefined,
-                  }
-                : undefined,
-            })),
-            toolChoice: request.toolConfig.toolChoice,
-          }
-        : undefined,
-    };
+    const commandInput = getCommandInput(request);
 
     // biome-ignore lint/suspicious/noExplicitAny: AWS SDK types are complex, casting to any for flexibility
     const command = new ConverseCommand(commandInput as any);
@@ -1179,36 +1188,7 @@ export const bedrockAdapterFactory: LLMProvider<
     request: BedrockRequest,
   ): Promise<AsyncIterable<BedrockStreamEvent>> {
     const bedrockClient = client as BedrockRuntimeClient;
-
-    // Convert request to Bedrock ConverseStream command format
-    // Using type assertions to handle AWS SDK complex union types
-    const commandInput = {
-      modelId: request.modelId,
-      messages: request.messages,
-      system: request.system?.map((s) => {
-        if ("text" in s) return { text: s.text };
-        return s;
-      }),
-      inferenceConfig: request.inferenceConfig,
-      toolConfig: request.toolConfig
-        ? {
-            tools: request.toolConfig.tools?.map((t) => ({
-              toolSpec: t.toolSpec
-                ? {
-                    name: t.toolSpec.name,
-                    description: t.toolSpec.description,
-                    inputSchema: t.toolSpec.inputSchema
-                      ? {
-                          json: t.toolSpec.inputSchema.json,
-                        }
-                      : undefined,
-                  }
-                : undefined,
-            })),
-            toolChoice: request.toolConfig.toolChoice,
-          }
-        : undefined,
-    };
+    const commandInput = getCommandInput(request);
 
     // biome-ignore lint/suspicious/noExplicitAny: AWS SDK types are complex, casting to any for flexibility
     const command = new ConverseStreamCommand(commandInput as any);

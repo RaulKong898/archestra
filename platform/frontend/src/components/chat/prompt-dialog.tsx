@@ -5,7 +5,6 @@ import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ChatToolsDisplay } from "@/components/chat/chat-tools-display";
-import { ProfileSelector } from "@/components/chat/profile-selector";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,6 +16,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MultiSelect } from "@/components/ui/multi-select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useProfiles } from "@/lib/agent.query";
 import {
@@ -221,15 +227,23 @@ export function PromptDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="agentId">Tools *</Label>
+            <Label htmlFor="agentId">MCP Gateway *</Label>
             <p className="text-sm text-muted-foreground">
-              Select profile with the tools that will be available
+              Select the MCP Gateway with the tools that will be available
             </p>
             <div className="flex flex-wrap items-center gap-2">
-              <ProfileSelector
-                currentAgentId={agentId}
-                onProfileChange={setProfileId}
-              />
+              <Select value={agentId} onValueChange={setProfileId}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Select MCP Gateway..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {allProfiles.map((profile) => (
+                    <SelectItem key={profile.id} value={profile.id}>
+                      {profile.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {agentId && <ChatToolsDisplay agentId={agentId} readOnly />}
             </div>
           </div>

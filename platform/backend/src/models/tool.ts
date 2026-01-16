@@ -258,6 +258,7 @@ class ToolModel {
         description: schema.toolsTable.description,
         createdAt: schema.toolsTable.createdAt,
         updatedAt: schema.toolsTable.updatedAt,
+        llmProxyId: schema.toolsTable.llmProxyId,
         promptAgentId: schema.toolsTable.promptAgentId,
         policiesAutoConfiguredAt: schema.toolsTable.policiesAutoConfiguredAt,
         policiesAutoConfiguringStartedAt:
@@ -666,6 +667,54 @@ class ToolModel {
 
     // Assign tools to agent in bulk
     await AgentToolModel.createManyIfNotExists(agentId, toolIds);
+  }
+
+  /**
+   * Assign default Archestra tools (artifact_write, todo_write) to a new MCP Gateway
+   */
+  static async assignDefaultArchestraToolsToMcpGateway(
+    mcpGatewayId: string,
+  ): Promise<void> {
+    // Find the default tools by name
+    const defaultToolNames = [
+      TOOL_ARTIFACT_WRITE_FULL_NAME,
+      TOOL_TODO_WRITE_FULL_NAME,
+    ];
+
+    const defaultTools = await db
+      .select({ id: schema.toolsTable.id })
+      .from(schema.toolsTable)
+      .where(inArray(schema.toolsTable.name, defaultToolNames));
+
+    if (defaultTools.length === 0) {
+      // Tools not yet seeded, skip assignment
+      return;
+    }
+
+    const toolIds = defaultTools.map((t) => t.id);
+
+    // Check which tools are already assigned
+    const existingAssignments = await db
+      .select({ toolId: schema.mcpGatewayToolsTable.toolId })
+      .from(schema.mcpGatewayToolsTable)
+      .where(
+        and(
+          eq(schema.mcpGatewayToolsTable.mcpGatewayId, mcpGatewayId),
+          inArray(schema.mcpGatewayToolsTable.toolId, toolIds),
+        ),
+      );
+
+    const existingToolIds = new Set(existingAssignments.map((a) => a.toolId));
+    const newToolIds = toolIds.filter((toolId) => !existingToolIds.has(toolId));
+
+    if (newToolIds.length > 0) {
+      await db.insert(schema.mcpGatewayToolsTable).values(
+        newToolIds.map((toolId) => ({
+          mcpGatewayId,
+          toolId,
+        })),
+      );
+    }
   }
 
   /**

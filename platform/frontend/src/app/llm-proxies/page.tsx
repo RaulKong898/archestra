@@ -11,24 +11,24 @@ import {
   DEFAULT_SORT_BY,
   DEFAULT_SORT_DIRECTION,
 } from "@/lib/utils";
-import ProfilesPage from "./page.client";
+import LlmProxiesPage from "./page.client";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProfilesPageServer() {
+export default async function LlmProxiesPageServer() {
   let initialData: {
-    agents: archestraApiTypes.GetAgentsResponses["200"] | null;
+    llmProxies: archestraApiTypes.GetLlmProxiesResponses["200"] | null;
     teams: archestraApiTypes.GetTeamsResponses["200"];
   } = {
-    agents: null,
+    llmProxies: null,
     teams: [],
   };
   try {
     const headers = await getServerApiHeaders();
     initialData = {
-      agents:
+      llmProxies:
         (
-          await archestraApiSdk.getAgents({
+          await archestraApiSdk.getLlmProxies({
             headers,
             query: {
               limit: DEFAULT_AGENTS_PAGE_SIZE,
@@ -44,5 +44,5 @@ export default async function ProfilesPageServer() {
     console.error(error);
     return <ServerErrorFallback error={error as ErrorExtended} />;
   }
-  return <ProfilesPage initialData={initialData} />;
+  return <LlmProxiesPage initialData={initialData} />;
 }

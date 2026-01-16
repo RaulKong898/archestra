@@ -7,6 +7,8 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import agentsTable from "./agent";
+import llmProxiesTable from "./llm-proxy";
+import mcpGatewaysTable from "./mcp-gateway";
 
 /**
  * Represents a historical version of a prompt stored in the history JSONB array
@@ -25,6 +27,14 @@ const promptsTable = pgTable("prompts", {
   agentId: uuid("agent_id")
     .notNull()
     .references(() => agentsTable.id, { onDelete: "cascade" }),
+  // MCP Gateway for tool execution (optional)
+  mcpGatewayId: uuid("mcp_gateway_id").references(() => mcpGatewaysTable.id, {
+    onDelete: "set null",
+  }),
+  // LLM Proxy for policy evaluation and observability (optional)
+  llmProxyId: uuid("llm_proxy_id").references(() => llmProxiesTable.id, {
+    onDelete: "set null",
+  }),
   userPrompt: text("user_prompt"),
   systemPrompt: text("system_prompt"),
   version: integer("version").notNull().default(1),

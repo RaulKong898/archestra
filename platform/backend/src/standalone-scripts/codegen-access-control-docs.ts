@@ -33,6 +33,8 @@ function getResourceDescription(resource: Resource): string {
     tokenPrice: "Token pricing configuration",
     chatSettings: "Chat feature configuration and settings",
     prompt: "Reusable prompt templates and system prompts",
+    mcpGatewayEntity: "MCP Gateways for tool assignments and execution",
+    llmProxy: "LLM Proxies for policy evaluation and observability",
     ac: "RBAC roles",
   };
   return descriptions[resource] || "";

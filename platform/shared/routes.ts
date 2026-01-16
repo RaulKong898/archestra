@@ -277,6 +277,33 @@ export const RouteId = {
   RenewIncomingEmailSubscription: "renewIncomingEmailSubscription",
   DeleteIncomingEmailSubscription: "deleteIncomingEmailSubscription",
   GetPromptEmailAddress: "getPromptEmailAddress",
+
+  // MCP Gateway Entity Routes
+  GetMcpGatewayEntities: "getMcpGatewayEntities",
+  GetAllMcpGatewayEntities: "getAllMcpGatewayEntities",
+  CreateMcpGatewayEntity: "createMcpGatewayEntity",
+  GetMcpGatewayEntity: "getMcpGatewayEntity",
+  GetDefaultMcpGatewayEntity: "getDefaultMcpGatewayEntity",
+  UpdateMcpGatewayEntity: "updateMcpGatewayEntity",
+  DeleteMcpGatewayEntity: "deleteMcpGatewayEntity",
+  GetMcpGatewayEntityLabelKeys: "getMcpGatewayEntityLabelKeys",
+  GetMcpGatewayEntityLabelValues: "getMcpGatewayEntityLabelValues",
+  GetMcpGatewayEntityTools: "getMcpGatewayEntityTools",
+  AssignToolToMcpGatewayEntity: "assignToolToMcpGatewayEntity",
+  UnassignToolFromMcpGatewayEntity: "unassignToolFromMcpGatewayEntity",
+  UpdateMcpGatewayEntityTool: "updateMcpGatewayEntityTool",
+
+  // LLM Proxy Entity Routes
+  GetLlmProxies: "getLlmProxies",
+  GetAllLlmProxies: "getAllLlmProxies",
+  CreateLlmProxy: "createLlmProxy",
+  GetLlmProxy: "getLlmProxy",
+  GetDefaultLlmProxy: "getDefaultLlmProxy",
+  UpdateLlmProxy: "updateLlmProxy",
+  DeleteLlmProxy: "deleteLlmProxy",
+  GetLlmProxyLabelKeys: "getLlmProxyLabelKeys",
+  GetLlmProxyLabelValues: "getLlmProxyLabelValues",
+  GetLlmProxyTools: "getLlmProxyTools",
 } as const;
 
 export type RouteId = (typeof RouteId)[keyof typeof RouteId];

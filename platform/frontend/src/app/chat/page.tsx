@@ -22,7 +22,6 @@ import { BrowserPanel } from "@/components/chat/browser-panel";
 import { ChatMessages } from "@/components/chat/chat-messages";
 import { CombinedSelector } from "@/components/chat/combined-selector";
 import { ConversationArtifactPanel } from "@/components/chat/conversation-artifact";
-import { ProfileEditDialog } from "@/components/chat/profile-edit-dialog";
 import { PromptDialog } from "@/components/chat/prompt-dialog";
 import { PromptVersionHistoryDialog } from "@/components/chat/prompt-version-history-dialog";
 import { StreamTimeoutWarning } from "@/components/chat/stream-timeout-warning";
@@ -141,10 +140,6 @@ export default function ChatPage() {
     (typeof prompts)[number] | null
   >(null);
   const { data: editingPrompt } = usePrompt(editingPromptId || "");
-
-  // Profile edit dialog state
-  const [isProfileEditDialogOpen, setIsProfileEditDialogOpen] = useState(false);
-  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
 
   // Set initial agent from URL param or default when data loads
   useEffect(() => {
@@ -891,17 +886,12 @@ export default function ChatPage() {
 
           <div className="sticky top-0 z-10 bg-background border-b p-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              {/* Combined Agent/Profile selector */}
+              {/* Agent selector */}
               <CombinedSelector
                 currentPromptId={
                   conversationId
                     ? (conversation?.promptId ?? null)
                     : initialPromptId
-                }
-                currentAgentId={
-                  conversationId
-                    ? (conversation?.agentId ?? "")
-                    : (initialAgentId ?? allProfiles[0]?.id ?? "")
                 }
                 currentModel={
                   conversationId
@@ -912,14 +902,9 @@ export default function ChatPage() {
                 onPromptChange={
                   conversationId ? undefined : handleInitialPromptChange
                 }
-                onProfileChange={conversationId ? undefined : setInitialAgentId}
                 onEditAgent={(promptId) => {
                   setEditingPromptId(promptId);
                   setIsPromptDialogOpen(true);
-                }}
-                onEditProfile={(agentId) => {
-                  setEditingProfileId(agentId);
-                  setIsProfileEditDialogOpen(true);
                 }}
               />
             </div>
@@ -1239,17 +1224,6 @@ export default function ChatPage() {
           }
         }}
         prompt={versionHistoryPrompt}
-      />
-
-      <ProfileEditDialog
-        open={isProfileEditDialogOpen}
-        onOpenChange={(open) => {
-          setIsProfileEditDialogOpen(open);
-          if (!open) {
-            setEditingProfileId(null);
-          }
-        }}
-        profileId={editingProfileId}
       />
     </div>
   );

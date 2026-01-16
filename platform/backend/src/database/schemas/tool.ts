@@ -9,6 +9,7 @@ import {
 import type { ToolParametersContent } from "@/types";
 import agentsTable from "./agent";
 import mcpCatalogTable from "./internal-mcp-catalog";
+import llmProxiesTable from "./llm-proxy";
 import mcpServerTable from "./mcp-server";
 import promptAgentsTable from "./prompt-agent";
 
@@ -16,8 +17,14 @@ const toolsTable = pgTable(
   "tools",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    // agentId is nullable - null for MCP tools, set for proxy-sniffed tools
+    // agentId is nullable - null for MCP tools, set for proxy-sniffed tools (deprecated)
+    // Use llmProxyId instead for new auto-discovered tools
     agentId: uuid("agent_id").references(() => agentsTable.id, {
+      onDelete: "cascade",
+    }),
+    // llmProxyId links auto-discovered tools to their LLM Proxy
+    // null for MCP tools or agent delegation tools
+    llmProxyId: uuid("llm_proxy_id").references(() => llmProxiesTable.id, {
       onDelete: "cascade",
     }),
     // catalogId links MCP tools to their catalog item (shared across installations)
@@ -64,12 +71,14 @@ const toolsTable = pgTable(
   (table) => [
     // Unique constraint ensures:
     // - For MCP tools: one tool per (catalogId, name) combination
-    // - For proxy-sniffed tools: one tool per (agentId, name) combination
+    // - For proxy-sniffed tools (deprecated): one tool per (agentId, name) combination
+    // - For LLM Proxy auto-discovered tools: one tool per (llmProxyId, name) combination
     // - For agent delegation tools: one tool per promptAgentId
     unique().on(
       table.catalogId,
       table.name,
       table.agentId,
+      table.llmProxyId,
       table.promptAgentId,
     ),
   ],

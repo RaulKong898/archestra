@@ -8,14 +8,20 @@ import {
 } from "drizzle-orm/pg-core";
 import type { CommonToolCall } from "@/types";
 import agentsTable from "./agent";
+import mcpGatewaysTable from "./mcp-gateway";
 
 const mcpToolCallsTable = pgTable(
   "mcp_tool_calls",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    // agentId is deprecated - use mcpGatewayId instead
     agentId: uuid("agent_id")
       .notNull()
       .references(() => agentsTable.id, { onDelete: "cascade" }),
+    // mcpGatewayId links tool calls to their MCP Gateway for logging
+    mcpGatewayId: uuid("mcp_gateway_id").references(() => mcpGatewaysTable.id, {
+      onDelete: "cascade",
+    }),
     mcpServerName: varchar("mcp_server_name", { length: 255 }).notNull(),
     method: varchar("method", { length: 255 }).notNull(),
     toolCall: jsonb("tool_call").$type<CommonToolCall | null>(),

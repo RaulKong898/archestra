@@ -36,6 +36,8 @@ export const allAvailableActions: Record<Resource, Action[]> = {
   tokenPrice: ["create", "read", "update", "delete"],
   chatSettings: ["create", "read", "update", "delete"],
   prompt: ["create", "read", "update", "delete"],
+  mcpGatewayEntity: ["create", "read", "update", "delete", "admin"],
+  llmProxy: ["create", "read", "update", "delete", "admin"],
   /**
    * Better-auth access control resource - needed for organization role management
    * See: https://github.com/better-auth/better-auth/issues/2336#issuecomment-2820620809
@@ -64,6 +66,8 @@ export const editorPermissions: Record<Resource, Action[]> = {
   tokenPrice: ["create", "read", "update", "delete"],
   chatSettings: ["create", "read", "update", "delete"],
   prompt: ["create", "read", "update", "delete"],
+  mcpGatewayEntity: ["create", "read", "update", "delete"],
+  llmProxy: ["create", "read", "update", "delete"],
   // Empty arrays required for Record<Resource, Action[]> type compatibility
   member: [],
   invitation: [],
@@ -89,6 +93,8 @@ export const memberPermissions: Record<Resource, Action[]> = {
   tokenPrice: ["read"],
   chatSettings: ["read"],
   prompt: ["read"],
+  mcpGatewayEntity: ["read"],
+  llmProxy: ["read"],
   // Empty arrays required for Record<Resource, Action[]> type compatibility
   member: [],
   invitation: [],
@@ -671,6 +677,82 @@ export const requiredEndpointPermissionsMap: Partial<
     organization: ["update"],
   },
   [RouteId.GetPromptEmailAddress]: {}, // Any authenticated user can view prompt email addresses
+
+  // MCP Gateway Entity Routes
+  [RouteId.GetMcpGatewayEntities]: {
+    mcpGatewayEntity: ["read"],
+  },
+  [RouteId.GetAllMcpGatewayEntities]: {
+    mcpGatewayEntity: ["read"],
+  },
+  [RouteId.CreateMcpGatewayEntity]: {
+    mcpGatewayEntity: ["create"],
+  },
+  [RouteId.GetMcpGatewayEntity]: {
+    mcpGatewayEntity: ["read"],
+  },
+  [RouteId.GetDefaultMcpGatewayEntity]: {
+    mcpGatewayEntity: ["read"],
+  },
+  [RouteId.UpdateMcpGatewayEntity]: {
+    mcpGatewayEntity: ["update"],
+  },
+  [RouteId.DeleteMcpGatewayEntity]: {
+    mcpGatewayEntity: ["delete"],
+  },
+  [RouteId.GetMcpGatewayEntityLabelKeys]: {
+    mcpGatewayEntity: ["read"],
+  },
+  [RouteId.GetMcpGatewayEntityLabelValues]: {
+    mcpGatewayEntity: ["read"],
+  },
+  [RouteId.GetMcpGatewayEntityTools]: {
+    mcpGatewayEntity: ["read"],
+    tool: ["read"],
+  },
+  [RouteId.AssignToolToMcpGatewayEntity]: {
+    mcpGatewayEntity: ["update"],
+  },
+  [RouteId.UnassignToolFromMcpGatewayEntity]: {
+    mcpGatewayEntity: ["update"],
+  },
+  [RouteId.UpdateMcpGatewayEntityTool]: {
+    mcpGatewayEntity: ["update"],
+    tool: ["update"],
+  },
+
+  // LLM Proxy Entity Routes
+  [RouteId.GetLlmProxies]: {
+    llmProxy: ["read"],
+  },
+  [RouteId.GetAllLlmProxies]: {
+    llmProxy: ["read"],
+  },
+  [RouteId.CreateLlmProxy]: {
+    llmProxy: ["create"],
+  },
+  [RouteId.GetLlmProxy]: {
+    llmProxy: ["read"],
+  },
+  [RouteId.GetDefaultLlmProxy]: {
+    llmProxy: ["read"],
+  },
+  [RouteId.UpdateLlmProxy]: {
+    llmProxy: ["update"],
+  },
+  [RouteId.DeleteLlmProxy]: {
+    llmProxy: ["delete"],
+  },
+  [RouteId.GetLlmProxyLabelKeys]: {
+    llmProxy: ["read"],
+  },
+  [RouteId.GetLlmProxyLabelValues]: {
+    llmProxy: ["read"],
+  },
+  [RouteId.GetLlmProxyTools]: {
+    llmProxy: ["read"],
+    tool: ["read"],
+  },
 };
 
 /**
@@ -682,8 +764,12 @@ export const requiredPagePermissionsMap: Record<string, Permissions> = {
     conversation: ["read"],
   },
 
-  "/profiles": {
-    profile: ["read"],
+  "/mcp-gateways": {
+    mcpGatewayEntity: ["read"],
+  },
+
+  "/llm-proxies": {
+    llmProxy: ["read"],
   },
 
   "/logs": {

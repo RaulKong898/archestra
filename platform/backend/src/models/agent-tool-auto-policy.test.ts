@@ -86,6 +86,7 @@ const mockTool = {
   parameters: { type: "object", properties: {} },
   catalogId: null,
   promptAgentId: null,
+  llmProxyId: null,
   policiesAutoConfiguredAt: null,
   policiesAutoConfiguringStartedAt: null,
   policiesAutoConfiguredReasoning: null,

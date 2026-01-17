@@ -21,18 +21,16 @@ const openAiProxyRoutesV2: FastifyPluginAsyncZod = async (fastify) => {
     prefix: API_PREFIX,
     rewritePrefix: "",
     preHandler: (request, _reply, next) => {
-      if (
-        request.method === "POST" &&
-        request.url.includes(CHAT_COMPLETIONS_SUFFIX)
-      ) {
+      // TEMPORARY: Skip proxy for ALL POST requests to log parsed body
+      if (request.method === "POST") {
         logger.info(
           {
             method: request.method,
             url: request.url,
             action: "skip-proxy",
-            reason: "handled-by-custom-handler",
+            reason: "TEMP-logging-all-posts",
           },
-          "OpenAI proxy preHandler: skipping chat/completions route",
+          "OpenAI proxy preHandler: skipping to handler for logging",
         );
         next(new Error("skip"));
         return;
@@ -55,6 +53,8 @@ const openAiProxyRoutesV2: FastifyPluginAsyncZod = async (fastify) => {
             rewrittenUrl: request.raw.url,
             upstream: config.llm.openai.baseUrl,
             finalProxyUrl: `${config.llm.openai.baseUrl}/v1${remainingPath}`,
+            headers: request.headers,
+            body: request.body,
           },
           "OpenAI proxy preHandler: URL rewritten (UUID stripped)",
         );
@@ -91,9 +91,13 @@ const openAiProxyRoutesV2: FastifyPluginAsyncZod = async (fastify) => {
       },
     },
     async (request, reply) => {
-      logger.debug(
-        { url: request.url },
-        "[UnifiedProxy] Handling OpenAI request (default agent)",
+      logger.info(
+        {
+          url: request.url,
+          headers: request.headers,
+          body: request.body,
+        },
+        "[UnifiedProxy] OpenAI request received (default agent)",
       );
       const externalAgentId = utils.externalAgentId.getExternalAgentId(
         request.headers,
@@ -134,9 +138,14 @@ const openAiProxyRoutesV2: FastifyPluginAsyncZod = async (fastify) => {
       },
     },
     async (request, reply) => {
-      logger.debug(
-        { url: request.url, agentId: request.params.agentId },
-        "[UnifiedProxy] Handling OpenAI request (with agent)",
+      logger.info(
+        {
+          url: request.url,
+          agentId: request.params.agentId,
+          headers: request.headers,
+          body: request.body,
+        },
+        "[UnifiedProxy] OpenAI request received (with agent)",
       );
       const externalAgentId = utils.externalAgentId.getExternalAgentId(
         request.headers,
@@ -154,6 +163,26 @@ const openAiProxyRoutesV2: FastifyPluginAsyncZod = async (fastify) => {
           userId,
         },
       );
+    },
+  );
+
+  // TEMPORARY: Catch-all route to log any POST request body for /model/ paths
+  fastify.post(
+    `${API_PREFIX}/:agentId/model/*`,
+    {
+      bodyLimit: PROXY_BODY_LIMIT,
+    },
+    async (request, reply) => {
+      logger.info(
+        {
+          url: request.url,
+          params: request.params,
+          headers: request.headers,
+          body: request.body,
+        },
+        "[TEMP] OpenAI catch-all: logging request body",
+      );
+      return reply.status(200).send({ logged: true, url: request.url });
     },
   );
 };

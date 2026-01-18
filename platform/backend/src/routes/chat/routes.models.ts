@@ -469,12 +469,17 @@ async function fetchBedrockModels(credentials: string): Promise<ModelInfo[]> {
       };
     });
 
-  // Sort by provider name first, then alphabetically by display name
+  // Sort: Nova models first, then rest alphabetically by display name because
+  // Claude models which normally come first alphabetically require special opt-in.
   models.sort((a, b) => {
+    const aIsNova = a.id.toLowerCase().includes("nova");
+    const bIsNova = b.id.toLowerCase().includes("nova");
+
+    if (aIsNova && !bIsNova) return -1;
+    if (!aIsNova && bIsNova) return 1;
     return a.displayName.localeCompare(b.displayName);
   });
 
-  // Remove the temporary _originalProvider field before returning
   return models;
 }
 

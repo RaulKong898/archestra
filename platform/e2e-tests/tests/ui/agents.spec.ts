@@ -41,15 +41,18 @@ test(
     await page.waitForLoadState("networkidle");
 
     // Poll for the profile to appear in the table (handles async creation)
-    const profileLocator = page
-      .getByTestId(E2eTestId.AgentsTable)
-      .getByText(AGENT_NAME);
+    // The table might take time to load due to API calls
+    const agentsTable = page.getByTestId(E2eTestId.AgentsTable);
+    const profileLocator = agentsTable.getByText(AGENT_NAME);
 
     await expect(async () => {
       await page.reload();
       await page.waitForLoadState("networkidle");
-      await expect(profileLocator).toBeVisible({ timeout: 5000 });
-    }).toPass({ timeout: 30_000, intervals: [2000, 3000, 5000] });
+      // First ensure the table is visible
+      await expect(agentsTable).toBeVisible({ timeout: 10000 });
+      // Then check for the profile in the table
+      await expect(profileLocator).toBeVisible({ timeout: 10000 });
+    }).toPass({ timeout: 60_000, intervals: [2000, 3000, 5000, 10000] });
 
     // Delete created profile - click the delete button directly
     await page

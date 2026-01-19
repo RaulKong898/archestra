@@ -442,7 +442,7 @@ describe("processIncomingEmail", () => {
     };
 
     await expect(processIncomingEmail(email, mockProvider)).rejects.toThrow(
-      `No teams found for agent ${agent.id}`,
+      `No teams found for LLM proxy ${agent.id}`,
     );
   });
 

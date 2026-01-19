@@ -36,8 +36,8 @@ interface McpToolsDialogProps {
     id: string;
     name: string;
     description: string | null;
-    assignedAgentCount: number;
-    assignedAgents: Array<{ id: string; name: string }>;
+    assignedMcpGatewayCount: number;
+    assignedMcpGateways: Array<{ id: string; name: string }>;
     parameters: Record<string, unknown>;
     createdAt: string;
   }>;
@@ -193,7 +193,7 @@ export function McpToolsDialog({
                 </>
               ) : (
                 <span className="text-sm text-muted-foreground">
-                  Select tools to bulk assign to profiles
+                  Select tools to bulk assign to MCP Gateways
                 </span>
               )}
             </div>
@@ -205,7 +205,7 @@ export function McpToolsDialog({
                 className="gap-2"
               >
                 <Users className="h-4 w-4" />
-                Bulk Assign to Profiles
+                Bulk Assign to MCP Gateways
               </Button>
               {hasSelection && (
                 <>
@@ -262,7 +262,7 @@ export function McpToolsDialog({
                   <TableHead>Name</TableHead>
                   <TableHead>Description</TableHead>
                   <TableHead className="text-center">
-                    Assigned Profiles
+                    Assigned MCP Gateways
                   </TableHead>
                   <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
@@ -286,7 +286,7 @@ export function McpToolsDialog({
                       </span>
                     </TableCell>
                     <TableCell className="text-center">
-                      {tool.assignedAgents.length === 0 ? (
+                      {tool.assignedMcpGateways.length === 0 ? (
                         <span className="text-sm text-muted-foreground">
                           None
                         </span>
@@ -295,15 +295,15 @@ export function McpToolsDialog({
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span className="text-sm text-muted-foreground cursor-help truncate max-w-[150px] inline-block">
-                                {tool.assignedAgents
-                                  .map((a) => a.name)
+                                {tool.assignedMcpGateways
+                                  .map((g) => g.name)
                                   .join(", ")}
                               </span>
                             </TooltipTrigger>
                             <TooltipContent>
                               <div className="space-y-1">
-                                {tool.assignedAgents.map((agent) => (
-                                  <div key={agent.id}>{agent.name}</div>
+                                {tool.assignedMcpGateways.map((gateway) => (
+                                  <div key={gateway.id}>{gateway.name}</div>
                                 ))}
                               </div>
                             </TooltipContent>
@@ -316,7 +316,7 @@ export function McpToolsDialog({
                         variant="ghost"
                         size="sm"
                         onClick={() => onAssignTool(tool)}
-                        title="Assign Tool to Profiles"
+                        title="Assign Tool to MCP Gateways"
                       >
                         <UserPlus className="h-4 w-4" />
                       </Button>

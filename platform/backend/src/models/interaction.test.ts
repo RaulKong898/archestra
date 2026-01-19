@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, test } from "@/test";
-import AgentModel from "./agent";
 import InteractionModel from "./interaction";
 import TeamModel from "./team";
 
@@ -92,9 +91,11 @@ describe("InteractionModel", () => {
   });
 
   describe("getAllInteractionsForProfile", () => {
-    test("returns all interactions for a specific agent", async () => {
+    test("returns all interactions for a specific agent", async ({
+      makeAgent,
+    }) => {
       // Create another agent
-      const otherAgent = await AgentModel.create({
+      const otherAgent = await makeAgent({
         name: "Other Agent",
         teams: [],
       });
@@ -162,14 +163,14 @@ describe("InteractionModel", () => {
   });
 
   describe("Access Control", () => {
-    test("admin can see all interactions", async ({ makeAdmin }) => {
+    test("admin can see all interactions", async ({ makeAdmin, makeAgent }) => {
       const admin = await makeAdmin();
 
-      const agent1 = await AgentModel.create({
+      const agent1 = await makeAgent({
         name: "Agent 1",
         teams: [],
       });
-      const agent2 = await AgentModel.create({
+      const agent2 = await makeAgent({
         name: "Agent 2",
         teams: [],
       });
@@ -214,6 +215,7 @@ describe("InteractionModel", () => {
       makeAdmin,
       makeOrganization,
       makeTeam,
+      makeAgent,
     }) => {
       const user1 = await makeUser();
       const user2 = await makeUser();
@@ -227,12 +229,12 @@ describe("InteractionModel", () => {
       const team2 = await makeTeam(org.id, admin.id, { name: "Team 2" });
       await TeamModel.addMember(team2.id, user2.id);
 
-      // Create agents with team assignments
-      const agent1 = await AgentModel.create({
+      // Create agents with team assignments (using makeAgent to ensure llm_proxy_team is populated)
+      const agent1 = await makeAgent({
         name: "Agent 1",
         teams: [team1.id],
       });
-      const agent2 = await AgentModel.create({
+      const agent2 = await makeAgent({
         name: "Agent 2",
         teams: [team2.id],
       });
@@ -273,10 +275,13 @@ describe("InteractionModel", () => {
       expect(interactions.data[0].profileId).toBe(agent1.id);
     });
 
-    test("member with no access sees no interactions", async ({ makeUser }) => {
+    test("member with no access sees no interactions", async ({
+      makeUser,
+      makeAgent,
+    }) => {
       const user = await makeUser();
 
-      const agent1 = await AgentModel.create({ name: "Agent 1", teams: [] });
+      const agent1 = await makeAgent({ name: "Agent 1", teams: [] });
 
       await InteractionModel.create({
         profileId: agent1.id,
@@ -300,10 +305,13 @@ describe("InteractionModel", () => {
       expect(interactions.data).toHaveLength(0);
     });
 
-    test("findById returns interaction for admin", async ({ makeAdmin }) => {
+    test("findById returns interaction for admin", async ({
+      makeAdmin,
+      makeAgent,
+    }) => {
       const admin = await makeAdmin();
 
-      const agent = await AgentModel.create({ name: "Test Agent", teams: [] });
+      const agent = await makeAgent({ name: "Test Agent", teams: [] });
 
       const interaction = await InteractionModel.create({
         profileId: agent.id,
@@ -332,6 +340,7 @@ describe("InteractionModel", () => {
       makeAdmin,
       makeOrganization,
       makeTeam,
+      makeAgent,
     }) => {
       const user = await makeUser();
       const admin = await makeAdmin();
@@ -341,7 +350,8 @@ describe("InteractionModel", () => {
       const team = await makeTeam(org.id, admin.id);
       await TeamModel.addMember(team.id, user.id);
 
-      const agent = await AgentModel.create({
+      // Using makeAgent to ensure llm_proxy_team is populated
+      const agent = await makeAgent({
         name: "Test Agent",
         teams: [team.id],
       });
@@ -370,10 +380,11 @@ describe("InteractionModel", () => {
 
     test("findById returns null for user without profile access", async ({
       makeUser,
+      makeAgent,
     }) => {
       const user = await makeUser();
 
-      const agent = await AgentModel.create({ name: "Test Agent", teams: [] });
+      const agent = await makeAgent({ name: "Test Agent", teams: [] });
 
       const interaction = await InteractionModel.create({
         profileId: agent.id,
@@ -398,11 +409,11 @@ describe("InteractionModel", () => {
   });
 
   describe("findAllPaginated filters", () => {
-    test("filters by profileId", async ({ makeAdmin }) => {
+    test("filters by profileId", async ({ makeAdmin, makeAgent }) => {
       const admin = await makeAdmin();
 
-      const agent1 = await AgentModel.create({ name: "Agent 1", teams: [] });
-      const agent2 = await AgentModel.create({ name: "Agent 2", teams: [] });
+      const agent1 = await makeAgent({ name: "Agent 1", teams: [] });
+      const agent2 = await makeAgent({ name: "Agent 2", teams: [] });
 
       await InteractionModel.create({
         profileId: agent1.id,
@@ -442,10 +453,10 @@ describe("InteractionModel", () => {
       expect(interactions.data[0].profileId).toBe(agent1.id);
     });
 
-    test("filters by externalAgentId", async ({ makeAdmin }) => {
+    test("filters by externalAgentId", async ({ makeAdmin, makeAgent }) => {
       const admin = await makeAdmin();
 
-      const agent = await AgentModel.create({ name: "Agent", teams: [] });
+      const agent = await makeAgent({ name: "Agent", teams: [] });
 
       await InteractionModel.create({
         profileId: agent.id,
@@ -503,11 +514,12 @@ describe("InteractionModel", () => {
 
     test("filters by both profileId and externalAgentId", async ({
       makeAdmin,
+      makeAgent,
     }) => {
       const admin = await makeAdmin();
 
-      const agent1 = await AgentModel.create({ name: "Agent 1", teams: [] });
-      const agent2 = await AgentModel.create({ name: "Agent 2", teams: [] });
+      const agent1 = await makeAgent({ name: "Agent 1", teams: [] });
+      const agent2 = await makeAgent({ name: "Agent 2", teams: [] });
 
       // Agent 1 with external ID
       await InteractionModel.create({
@@ -571,6 +583,7 @@ describe("InteractionModel", () => {
       makeAdmin,
       makeOrganization,
       makeTeam,
+      makeAgent,
     }) => {
       const user = await makeUser();
       const admin = await makeAdmin();
@@ -579,11 +592,12 @@ describe("InteractionModel", () => {
       const team = await makeTeam(org.id, admin.id);
       await TeamModel.addMember(team.id, user.id);
 
-      const accessibleAgent = await AgentModel.create({
+      // Using makeAgent to ensure llm_proxy_team is populated
+      const accessibleAgent = await makeAgent({
         name: "Accessible Agent",
         teams: [team.id],
       });
-      const inaccessibleAgent = await AgentModel.create({
+      const inaccessibleAgent = await makeAgent({
         name: "Inaccessible Agent",
         teams: [],
       });
@@ -631,12 +645,12 @@ describe("InteractionModel", () => {
       expect(interactions.data[0].profileId).toBe(accessibleAgent.id);
     });
 
-    test("filters by userId", async ({ makeAdmin, makeUser }) => {
+    test("filters by userId", async ({ makeAdmin, makeUser, makeAgent }) => {
       const admin = await makeAdmin();
       const user1 = await makeUser();
       const user2 = await makeUser();
 
-      const agent = await AgentModel.create({ name: "Agent", teams: [] });
+      const agent = await makeAgent({ name: "Agent", teams: [] });
 
       // Interaction with user1
       await InteractionModel.create({
@@ -696,9 +710,9 @@ describe("InteractionModel", () => {
   });
 
   describe("date range filtering", () => {
-    test("filters by startDate", async ({ makeAdmin }) => {
+    test("filters by startDate", async ({ makeAdmin, makeAgent }) => {
       const admin = await makeAdmin();
-      const agent = await AgentModel.create({ name: "Agent", teams: [] });
+      const agent = await makeAgent({ name: "Agent", teams: [] });
 
       // Create interactions with different timestamps
       const now = new Date();
@@ -746,9 +760,9 @@ describe("InteractionModel", () => {
       expect(interactions.data.length).toBeGreaterThanOrEqual(1);
     });
 
-    test("filters by endDate", async ({ makeAdmin }) => {
+    test("filters by endDate", async ({ makeAdmin, makeAgent }) => {
       const admin = await makeAdmin();
-      const agent = await AgentModel.create({ name: "Agent", teams: [] });
+      const agent = await makeAgent({ name: "Agent", teams: [] });
 
       // Create interactions
       await InteractionModel.create({
@@ -784,9 +798,10 @@ describe("InteractionModel", () => {
 
     test("filters by date range (startDate and endDate)", async ({
       makeAdmin,
+      makeAgent,
     }) => {
       const admin = await makeAdmin();
-      const agent = await AgentModel.create({ name: "Agent", teams: [] });
+      const agent = await makeAgent({ name: "Agent", teams: [] });
 
       // Create an interaction
       await InteractionModel.create({
@@ -825,10 +840,13 @@ describe("InteractionModel", () => {
       ).toBe(true);
     });
 
-    test("date filter works with other filters", async ({ makeAdmin }) => {
+    test("date filter works with other filters", async ({
+      makeAdmin,
+      makeAgent,
+    }) => {
       const admin = await makeAdmin();
-      const agent1 = await AgentModel.create({ name: "Agent 1", teams: [] });
-      const agent2 = await AgentModel.create({ name: "Agent 2", teams: [] });
+      const agent1 = await makeAgent({ name: "Agent 1", teams: [] });
+      const agent2 = await makeAgent({ name: "Agent 2", teams: [] });
 
       // Create interactions for both agents
       await InteractionModel.create({
@@ -875,9 +893,9 @@ describe("InteractionModel", () => {
   });
 
   describe("getSessions date filtering", () => {
-    test("filters sessions by date range", async ({ makeAdmin }) => {
+    test("filters sessions by date range", async ({ makeAdmin, makeAgent }) => {
       const admin = await makeAdmin();
-      const agent = await AgentModel.create({ name: "Agent", teams: [] });
+      const agent = await makeAgent({ name: "Agent", teams: [] });
 
       // Create interaction
       await InteractionModel.create({
@@ -913,12 +931,13 @@ describe("InteractionModel", () => {
     test("returns unique user IDs with names", async ({
       makeAdmin,
       makeUser,
+      makeAgent,
     }) => {
       const admin = await makeAdmin();
       const user1 = await makeUser({ name: "User One" });
       const user2 = await makeUser({ name: "User Two" });
 
-      const agent = await AgentModel.create({ name: "Agent", teams: [] });
+      const agent = await makeAgent({ name: "Agent", teams: [] });
 
       // Create interactions for both users
       await InteractionModel.create({
@@ -976,11 +995,12 @@ describe("InteractionModel", () => {
     test("excludes interactions without userId", async ({
       makeAdmin,
       makeUser,
+      makeAgent,
     }) => {
       const admin = await makeAdmin();
       const user = await makeUser({ name: "Test User" });
 
-      const agent = await AgentModel.create({ name: "Agent", teams: [] });
+      const agent = await makeAgent({ name: "Agent", teams: [] });
 
       // Interaction with userId
       await InteractionModel.create({
@@ -1022,6 +1042,7 @@ describe("InteractionModel", () => {
       makeAdmin,
       makeOrganization,
       makeTeam,
+      makeAgent,
     }) => {
       const user = await makeUser({ name: "Regular User" });
       const otherUser = await makeUser({ name: "Other User" });
@@ -1031,11 +1052,12 @@ describe("InteractionModel", () => {
       const team = await makeTeam(org.id, admin.id);
       await TeamModel.addMember(team.id, user.id);
 
-      const accessibleAgent = await AgentModel.create({
+      // Using makeAgent to ensure llm_proxy_team is populated
+      const accessibleAgent = await makeAgent({
         name: "Accessible Agent",
         teams: [team.id],
       });
-      const inaccessibleAgent = await AgentModel.create({
+      const inaccessibleAgent = await makeAgent({
         name: "Inaccessible Agent",
         teams: [],
       });

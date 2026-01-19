@@ -348,7 +348,7 @@ describe("ToolModel", () => {
     });
   });
 
-  describe("getMcpToolsAssignedToAgent", () => {
+  describe("getMcpToolsAssignedToMcpGateway", () => {
     test("returns empty array when no tools provided", async ({
       makeAgent,
       makeUser,
@@ -356,7 +356,10 @@ describe("ToolModel", () => {
       const _user = await makeUser();
       const agent = await makeAgent();
 
-      const result = await ToolModel.getMcpToolsAssignedToAgent([], agent.id);
+      const result = await ToolModel.getMcpToolsAssignedToMcpGateway(
+        [],
+        agent.id,
+      );
       expect(result).toEqual([]);
     });
 
@@ -376,7 +379,7 @@ describe("ToolModel", () => {
         parameters: {},
       });
 
-      const result = await ToolModel.getMcpToolsAssignedToAgent(
+      const result = await ToolModel.getMcpToolsAssignedToMcpGateway(
         ["proxy_tool", "non_existent"],
         agent.id,
       );
@@ -389,6 +392,7 @@ describe("ToolModel", () => {
       makeInternalMcpCatalog,
       makeMcpServer,
       makeTool,
+      makeMcpGatewayTool,
     }) => {
       const user = await makeUser();
       const agent = await makeAgent();
@@ -420,10 +424,10 @@ describe("ToolModel", () => {
         mcpServerId: mcpServer.id,
       });
 
-      // Assign tool to agent
-      await AgentToolModel.create(agent.id, mcpTool.id);
+      // Assign tool to MCP gateway (agent.id is used as MCP gateway id)
+      await makeMcpGatewayTool(agent.id, mcpTool.id);
 
-      const result = await ToolModel.getMcpToolsAssignedToAgent(
+      const result = await ToolModel.getMcpToolsAssignedToMcpGateway(
         ["github_mcp_server__list_issues"],
         agent.id,
       );
@@ -450,6 +454,7 @@ describe("ToolModel", () => {
       makeInternalMcpCatalog,
       makeMcpServer,
       makeTool,
+      makeMcpGatewayTool,
     }) => {
       const user = await makeUser();
       const agent = await makeAgent();
@@ -483,12 +488,12 @@ describe("ToolModel", () => {
         mcpServerId: mcpServer.id,
       });
 
-      // Assign both tools to agent
-      await AgentToolModel.create(agent.id, tool1.id);
-      await AgentToolModel.create(agent.id, tool2.id);
+      // Assign both tools to MCP gateway
+      await makeMcpGatewayTool(agent.id, tool1.id);
+      await makeMcpGatewayTool(agent.id, tool2.id);
 
       // Request only one tool
-      const result = await ToolModel.getMcpToolsAssignedToAgent(
+      const result = await ToolModel.getMcpToolsAssignedToMcpGateway(
         ["tool_one"],
         agent.id,
       );
@@ -503,6 +508,7 @@ describe("ToolModel", () => {
       makeInternalMcpCatalog,
       makeMcpServer,
       makeTool,
+      makeMcpGatewayTool,
     }) => {
       const user = await makeUser();
       const agent1 = await makeAgent({ name: "Agent1" });
@@ -526,11 +532,11 @@ describe("ToolModel", () => {
         mcpServerId: mcpServer.id,
       });
 
-      // Assign tool to agent1 only
-      await AgentToolModel.create(agent1.id, mcpTool.id);
+      // Assign tool to agent1's MCP gateway only
+      await makeMcpGatewayTool(agent1.id, mcpTool.id);
 
       // Request tool for agent2 (should return empty)
-      const result = await ToolModel.getMcpToolsAssignedToAgent(
+      const result = await ToolModel.getMcpToolsAssignedToMcpGateway(
         ["exclusive_tool"],
         agent2.id,
       );
@@ -544,6 +550,7 @@ describe("ToolModel", () => {
       makeInternalMcpCatalog,
       makeMcpServer,
       makeTool,
+      makeMcpGatewayTool,
     }) => {
       const user = await makeUser();
       const agent = await makeAgent();
@@ -576,10 +583,10 @@ describe("ToolModel", () => {
         mcpServerId: mcpServer.id,
       });
 
-      // Assign MCP tool to agent
-      await AgentToolModel.create(agent.id, mcpTool.id);
+      // Assign MCP tool to agent's MCP gateway
+      await makeMcpGatewayTool(agent.id, mcpTool.id);
 
-      const result = await ToolModel.getMcpToolsAssignedToAgent(
+      const result = await ToolModel.getMcpToolsAssignedToMcpGateway(
         ["proxy_tool", "mcp_tool"],
         agent.id,
       );
@@ -595,6 +602,7 @@ describe("ToolModel", () => {
       makeInternalMcpCatalog,
       makeMcpServer,
       makeTool,
+      makeMcpGatewayTool,
     }) => {
       const user = await makeUser();
       const agent = await makeAgent();
@@ -636,11 +644,11 @@ describe("ToolModel", () => {
         mcpServerId: server2.id,
       });
 
-      // Assign both tools to agent
-      await AgentToolModel.create(agent.id, githubTool.id);
-      await AgentToolModel.create(agent.id, otherTool.id);
+      // Assign both tools to agent's MCP gateway
+      await makeMcpGatewayTool(agent.id, githubTool.id);
+      await makeMcpGatewayTool(agent.id, otherTool.id);
 
-      const result = await ToolModel.getMcpToolsAssignedToAgent(
+      const result = await ToolModel.getMcpToolsAssignedToMcpGateway(
         ["github_list_issues", "other_tool"],
         agent.id,
       );
@@ -696,16 +704,19 @@ describe("ToolModel", () => {
   });
 
   describe("findByMcpServerId", () => {
-    test("returns tools with assigned agents efficiently", async ({
+    test("returns tools with assigned MCP Gateways efficiently", async ({
       makeUser,
-      makeAgent,
+      makeOrganization,
+      makeMcpGateway,
+      makeMcpGatewayTool,
       makeInternalMcpCatalog,
       makeMcpServer,
       makeTool,
     }) => {
       const user = await makeUser();
-      const agent1 = await makeAgent({ name: "Agent 1" });
-      const agent2 = await makeAgent({ name: "Agent 2" });
+      const org = await makeOrganization();
+      const gateway1 = await makeMcpGateway(org.id, { name: "Gateway 1" });
+      const gateway2 = await makeMcpGateway(org.id, { name: "Gateway 2" });
 
       const catalogItem = await makeInternalMcpCatalog({
         name: "test-catalog",
@@ -734,23 +745,29 @@ describe("ToolModel", () => {
         mcpServerId: mcpServer.id,
       });
 
-      // Assign tools to agents
-      await AgentToolModel.create(agent1.id, tool1.id);
-      await AgentToolModel.create(agent1.id, tool2.id);
-      await AgentToolModel.create(agent2.id, tool1.id);
+      // Assign tools to MCP Gateways
+      await makeMcpGatewayTool(gateway1.id, tool1.id);
+      await makeMcpGatewayTool(gateway1.id, tool2.id);
+      await makeMcpGatewayTool(gateway2.id, tool1.id);
 
       const result = await ToolModel.findByMcpServerId(mcpServer.id);
 
       expect(result).toHaveLength(2);
 
       const tool1Result = result.find((t) => t.name === "tool1");
-      expect(tool1Result?.assignedAgentCount).toBe(2);
-      expect(tool1Result?.assignedAgents.map((a) => a.id)).toContain(agent1.id);
-      expect(tool1Result?.assignedAgents.map((a) => a.id)).toContain(agent2.id);
+      expect(tool1Result?.assignedMcpGatewayCount).toBe(2);
+      expect(tool1Result?.assignedMcpGateways.map((g) => g.id)).toContain(
+        gateway1.id,
+      );
+      expect(tool1Result?.assignedMcpGateways.map((g) => g.id)).toContain(
+        gateway2.id,
+      );
 
       const tool2Result = result.find((t) => t.name === "tool2");
-      expect(tool2Result?.assignedAgentCount).toBe(1);
-      expect(tool2Result?.assignedAgents.map((a) => a.id)).toContain(agent1.id);
+      expect(tool2Result?.assignedMcpGatewayCount).toBe(1);
+      expect(tool2Result?.assignedMcpGateways.map((g) => g.id)).toContain(
+        gateway1.id,
+      );
     });
 
     test("returns empty array when MCP server has no tools", async ({
@@ -776,16 +793,19 @@ describe("ToolModel", () => {
   });
 
   describe("findByCatalogId", () => {
-    test("returns tools with assigned agents for catalog efficiently", async ({
+    test("returns tools with assigned MCP Gateways for catalog efficiently", async ({
       makeUser,
-      makeAgent,
+      makeOrganization,
+      makeMcpGateway,
+      makeMcpGatewayTool,
       makeInternalMcpCatalog,
       makeMcpServer,
       makeTool,
     }) => {
       const user = await makeUser();
-      const agent1 = await makeAgent({ name: "Agent 1" });
-      const agent2 = await makeAgent({ name: "Agent 2" });
+      const org = await makeOrganization();
+      const gateway1 = await makeMcpGateway(org.id, { name: "Gateway 1" });
+      const gateway2 = await makeMcpGateway(org.id, { name: "Gateway 2" });
 
       const catalogItem = await makeInternalMcpCatalog({
         name: "shared-catalog",
@@ -822,28 +842,28 @@ describe("ToolModel", () => {
         mcpServerId: mcpServer2.id,
       });
 
-      // Assign tools to agents
-      await AgentToolModel.create(agent1.id, tool1.id);
-      await AgentToolModel.create(agent2.id, tool1.id);
-      await AgentToolModel.create(agent1.id, tool2.id);
+      // Assign tools to MCP Gateways
+      await makeMcpGatewayTool(gateway1.id, tool1.id);
+      await makeMcpGatewayTool(gateway2.id, tool1.id);
+      await makeMcpGatewayTool(gateway1.id, tool2.id);
 
       const result = await ToolModel.findByCatalogId(catalogItem.id);
 
       expect(result).toHaveLength(2);
 
       const sharedToolResult = result.find((t) => t.name === "shared_tool");
-      expect(sharedToolResult?.assignedAgentCount).toBe(2);
-      expect(sharedToolResult?.assignedAgents.map((a) => a.id)).toContain(
-        agent1.id,
+      expect(sharedToolResult?.assignedMcpGatewayCount).toBe(2);
+      expect(sharedToolResult?.assignedMcpGateways.map((g) => g.id)).toContain(
+        gateway1.id,
       );
-      expect(sharedToolResult?.assignedAgents.map((a) => a.id)).toContain(
-        agent2.id,
+      expect(sharedToolResult?.assignedMcpGateways.map((g) => g.id)).toContain(
+        gateway2.id,
       );
 
       const anotherToolResult = result.find((t) => t.name === "another_tool");
-      expect(anotherToolResult?.assignedAgentCount).toBe(1);
-      expect(anotherToolResult?.assignedAgents.map((a) => a.id)).toContain(
-        agent1.id,
+      expect(anotherToolResult?.assignedMcpGatewayCount).toBe(1);
+      expect(anotherToolResult?.assignedMcpGateways.map((g) => g.id)).toContain(
+        gateway1.id,
       );
     });
 

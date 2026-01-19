@@ -29,8 +29,8 @@ const SessionSummarySchema = z.object({
   firstRequestTime: z.date(),
   lastRequestTime: z.date(),
   models: z.array(z.string()),
-  profileId: z.string(),
-  profileName: z.string().nullable(),
+  llmProxyId: z.string().nullable(),
+  llmProxyName: z.string().nullable(),
   externalAgentIds: z.array(z.string()),
   externalAgentIdLabels: z.array(z.string().nullable()), // Resolved prompt names
   userNames: z.array(z.string()),
@@ -173,8 +173,8 @@ const interactionRoutes: FastifyPluginAsyncZod = async (fastify) => {
         tags: ["Interaction"],
         querystring: z
           .object({
-            profileId: UuidIdSchema.optional().describe(
-              "Filter by profile ID (internal Archestra profile)",
+            llmProxyId: UuidIdSchema.optional().describe(
+              "Filter by LLM Proxy ID",
             ),
             userId: z
               .string()
@@ -201,7 +201,7 @@ const interactionRoutes: FastifyPluginAsyncZod = async (fastify) => {
     async (
       {
         query: {
-          profileId,
+          llmProxyId,
           userId,
           sessionId,
           startDate,
@@ -226,7 +226,7 @@ const interactionRoutes: FastifyPluginAsyncZod = async (fastify) => {
           userId: user.id,
           email: user.email,
           isAgentAdmin,
-          profileId,
+          llmProxyId,
           filterUserId: userId,
           sessionId,
           startDate,
@@ -241,7 +241,7 @@ const interactionRoutes: FastifyPluginAsyncZod = async (fastify) => {
         user.id,
         isAgentAdmin,
         {
-          profileId,
+          llmProxyId,
           userId,
           sessionId,
           startDate: startDate ? new Date(startDate) : undefined,

@@ -38,8 +38,10 @@ import type {
   ToolWithAssignments,
   UpdateTool,
 } from "@/types";
-import AgentTeamModel from "./agent-team";
 import AgentToolModel from "./agent-tool";
+import LlmProxyTeamModel from "./llm-proxy-team";
+import McpGatewayTeamModel from "./mcp-gateway-team";
+import McpGatewayToolModel from "./mcp-gateway-tool";
 import McpServerModel from "./mcp-server";
 import ToolInvocationPolicyModel from "./tool-invocation-policy";
 import TrustedDataPolicyModel from "./trusted-data-policy";
@@ -230,10 +232,10 @@ class ToolModel {
     }
 
     // Check access control for non-agent admins
-    if (tool.agentId && userId && !isAgentAdmin) {
-      const hasAccess = await AgentTeamModel.userHasAgentAccess(
+    if (tool.llmProxyId && userId && !isAgentAdmin) {
+      const hasAccess = await LlmProxyTeamModel.userHasLlmProxyAccess(
         userId,
-        tool.agentId,
+        tool.llmProxyId,
         false,
       );
       if (!hasAccess) {
@@ -265,9 +267,9 @@ class ToolModel {
           schema.toolsTable.policiesAutoConfiguringStartedAt,
         policiesAutoConfiguredReasoning:
           schema.toolsTable.policiesAutoConfiguredReasoning,
-        agent: {
-          id: schema.agentsTable.id,
-          name: schema.agentsTable.name,
+        llmProxy: {
+          id: schema.llmProxiesTable.id,
+          name: schema.llmProxiesTable.name,
         },
         mcpServer: {
           id: schema.mcpServersTable.id,
@@ -276,8 +278,8 @@ class ToolModel {
       })
       .from(schema.toolsTable)
       .leftJoin(
-        schema.agentsTable,
-        eq(schema.toolsTable.agentId, schema.agentsTable.id),
+        schema.llmProxiesTable,
+        eq(schema.toolsTable.llmProxyId, schema.llmProxiesTable.id),
       )
       .leftJoin(
         schema.mcpServersTable,
@@ -289,23 +291,21 @@ class ToolModel {
     /**
      * Apply access control filtering for users that are not agent admins
      *
-     * If the user is not an admin, we basically allow them to see all tools that are assigned to agents
-     * they have access to, plus all "MCP tools" (tools that are not assigned to any agent).
+     * If the user is not an admin, we basically allow them to see all tools that are assigned to LLM Proxies
+     * they have access to, plus all "MCP tools" (tools that are not assigned to any LLM Proxy).
      */
     if (userId && !isAgentAdmin) {
-      const accessibleAgentIds = await AgentTeamModel.getUserAccessibleAgentIds(
-        userId,
-        false,
-      );
+      const accessibleLlmProxyIds =
+        await LlmProxyTeamModel.getUserAccessibleLlmProxyIds(userId, false);
 
       const mcpServerSourceClause = isNotNull(schema.toolsTable.mcpServerId);
 
-      if (accessibleAgentIds.length === 0) {
+      if (accessibleLlmProxyIds.length === 0) {
         query = query.where(mcpServerSourceClause);
       } else {
         query = query.where(
           or(
-            inArray(schema.toolsTable.agentId, accessibleAgentIds),
+            inArray(schema.toolsTable.llmProxyId, accessibleLlmProxyIds),
             mcpServerSourceClause,
           ),
         );
@@ -330,10 +330,10 @@ class ToolModel {
     }
 
     // Check access control for non-admins
-    if (tool.agentId && userId && !isAgentAdmin) {
-      const hasAccess = await AgentTeamModel.userHasAgentAccess(
+    if (tool.llmProxyId && userId && !isAgentAdmin) {
+      const hasAccess = await LlmProxyTeamModel.userHasLlmProxyAccess(
         userId,
-        tool.agentId,
+        tool.llmProxyId,
         false,
       );
       if (!hasAccess) {
@@ -346,8 +346,8 @@ class ToolModel {
 
   /**
    * Get all tools for an agent (both proxy-sniffed and MCP tools)
-   * Proxy-sniffed tools are those with agentId set directly
-   * MCP tools are those assigned via the agent_tools junction table
+   * Proxy-sniffed tools are those with llmProxyId set directly
+   * MCP tools are those assigned via the mcp_gateway_tools junction table
    */
   static async getToolsByAgent(agentId: string): Promise<Tool[]> {
     // Get tool IDs assigned via junction table (MCP tools)
@@ -393,6 +393,70 @@ class ToolModel {
     // - Have catalogId set (MCP server tools and Archestra builtin tools)
     // - Have promptAgentId set (agent delegation tools)
     // Excludes proxy-discovered tools which have agentId set and both catalogId and promptAgentId null
+    const tools = await db
+      .select()
+      .from(schema.toolsTable)
+      .where(
+        and(
+          inArray(schema.toolsTable.id, assignedToolIds),
+          or(
+            isNotNull(schema.toolsTable.catalogId),
+            isNotNull(schema.toolsTable.promptAgentId),
+          ),
+        ),
+      )
+      .orderBy(desc(schema.toolsTable.createdAt));
+
+    return tools;
+  }
+
+  /**
+   * Get all tools for an MCP Gateway (both proxy-sniffed and MCP tools)
+   * Proxy-sniffed tools are those with llmProxyId set directly
+   * MCP tools are those assigned via the mcp_gateway_tools junction table
+   */
+  static async getToolsByMcpGateway(mcpGatewayId: string): Promise<Tool[]> {
+    // Get tool IDs assigned via junction table (MCP tools)
+    const assignedToolIds =
+      await McpGatewayToolModel.findToolIdsByMcpGateway(mcpGatewayId);
+
+    // Query for tools that are either:
+    // 1. Directly associated with the gateway via llmProxyId (proxy-sniffed)
+    // 2. Assigned via junction table (MCP tools)
+    const conditions = [eq(schema.toolsTable.llmProxyId, mcpGatewayId)];
+
+    if (assignedToolIds.length > 0) {
+      conditions.push(inArray(schema.toolsTable.id, assignedToolIds));
+    }
+
+    const tools = await db
+      .select()
+      .from(schema.toolsTable)
+      .where(or(...conditions))
+      .orderBy(desc(schema.toolsTable.createdAt));
+
+    return tools;
+  }
+
+  /**
+   * Get only MCP tools assigned to an MCP Gateway (those from connected MCP servers)
+   * Includes:
+   * - MCP server tools (catalogId set, including Archestra builtin tools)
+   * - Agent delegation tools (promptAgentId set)
+   * Excludes: proxy-discovered tools (llmProxyId set, catalogId null, promptAgentId null)
+   */
+  static async getMcpToolsByMcpGateway(mcpGatewayId: string): Promise<Tool[]> {
+    // Get tool IDs assigned via junction table (MCP tools)
+    const assignedToolIds =
+      await McpGatewayToolModel.findToolIdsByMcpGateway(mcpGatewayId);
+
+    if (assignedToolIds.length === 0) {
+      return [];
+    }
+
+    // Return tools that are assigned via junction table AND either:
+    // - Have catalogId set (MCP server tools and Archestra builtin tools)
+    // - Have promptAgentId set (agent delegation tools)
     const tools = await db
       .select()
       .from(schema.toolsTable)
@@ -718,22 +782,24 @@ class ToolModel {
   }
 
   /**
-   * Get names of all MCP tools assigned to an agent
+   * Get names of all MCP tools assigned to an MCP Gateway
    * Used to prevent autodiscovery of tools already available via MCP servers
    */
-  static async getMcpToolNamesByAgent(agentId: string): Promise<string[]> {
+  static async getMcpToolNamesByMcpGateway(
+    mcpGatewayId: string,
+  ): Promise<string[]> {
     const mcpTools = await db
       .select({
         name: schema.toolsTable.name,
       })
       .from(schema.toolsTable)
       .innerJoin(
-        schema.agentToolsTable,
-        eq(schema.agentToolsTable.toolId, schema.toolsTable.id),
+        schema.mcpGatewayToolsTable,
+        eq(schema.mcpGatewayToolsTable.toolId, schema.toolsTable.id),
       )
       .where(
         and(
-          eq(schema.agentToolsTable.agentId, agentId),
+          eq(schema.mcpGatewayToolsTable.mcpGatewayId, mcpGatewayId),
           isNotNull(schema.toolsTable.mcpServerId), // Only MCP tools
         ),
       );
@@ -742,11 +808,11 @@ class ToolModel {
   }
 
   /**
-   * Get MCP tools assigned to an agent
+   * Get MCP tools assigned to an MCP Gateway
    */
-  static async getMcpToolsAssignedToAgent(
+  static async getMcpToolsAssignedToMcpGateway(
     toolNames: string[],
-    agentId: string,
+    mcpGatewayId: string,
   ): Promise<
     Array<{
       toolName: string;
@@ -770,24 +836,24 @@ class ToolModel {
       .select({
         toolName: schema.toolsTable.name,
         responseModifierTemplate:
-          schema.agentToolsTable.responseModifierTemplate,
+          schema.mcpGatewayToolsTable.responseModifierTemplate,
         mcpServerSecretId: schema.mcpServersTable.secretId,
         mcpServerName: schema.mcpServersTable.name,
         mcpServerCatalogId: schema.mcpServersTable.catalogId,
         credentialSourceMcpServerId:
-          schema.agentToolsTable.credentialSourceMcpServerId,
+          schema.mcpGatewayToolsTable.credentialSourceMcpServerId,
         executionSourceMcpServerId:
-          schema.agentToolsTable.executionSourceMcpServerId,
+          schema.mcpGatewayToolsTable.executionSourceMcpServerId,
         useDynamicTeamCredential:
-          schema.agentToolsTable.useDynamicTeamCredential,
+          schema.mcpGatewayToolsTable.useDynamicTeamCredential,
         mcpServerId: schema.mcpServersTable.id,
         catalogId: schema.toolsTable.catalogId,
         catalogName: schema.internalMcpCatalogTable.name,
       })
       .from(schema.toolsTable)
       .innerJoin(
-        schema.agentToolsTable,
-        eq(schema.agentToolsTable.toolId, schema.toolsTable.id),
+        schema.mcpGatewayToolsTable,
+        eq(schema.mcpGatewayToolsTable.toolId, schema.toolsTable.id),
       )
       .leftJoin(
         schema.mcpServersTable,
@@ -799,7 +865,7 @@ class ToolModel {
       )
       .where(
         and(
-          eq(schema.agentToolsTable.agentId, agentId),
+          eq(schema.mcpGatewayToolsTable.mcpGatewayId, mcpGatewayId),
           inArray(schema.toolsTable.name, toolNames),
           isNotNull(schema.toolsTable.catalogId), // Only MCP tools (have catalogId)
         ),
@@ -809,7 +875,7 @@ class ToolModel {
   }
 
   /**
-   * Get all tools for a specific MCP server with their assignment counts and assigned agents
+   * Get all tools for a specific MCP server with their assignment counts and assigned MCP Gateways
    */
   static async findByMcpServerId(mcpServerId: string): Promise<
     Array<{
@@ -818,8 +884,8 @@ class ToolModel {
       description: string | null;
       parameters: Record<string, unknown>;
       createdAt: Date;
-      assignedAgentCount: number;
-      assignedAgents: Array<{ id: string; name: string }>;
+      assignedMcpGatewayCount: number;
+      assignedMcpGateways: Array<{ id: string; name: string }>;
     }>
   > {
     const tools = await db
@@ -836,19 +902,22 @@ class ToolModel {
 
     const toolIds = tools.map((tool) => tool.id);
 
-    // Get all agent assignments for these tools in one query to avoid N+1
+    // Get all MCP Gateway assignments for these tools in one query to avoid N+1
     const assignments = await db
       .select({
-        toolId: schema.agentToolsTable.toolId,
-        agentId: schema.agentToolsTable.agentId,
-        agentName: schema.agentsTable.name,
+        toolId: schema.mcpGatewayToolsTable.toolId,
+        mcpGatewayId: schema.mcpGatewayToolsTable.mcpGatewayId,
+        mcpGatewayName: schema.mcpGatewaysTable.name,
       })
-      .from(schema.agentToolsTable)
+      .from(schema.mcpGatewayToolsTable)
       .innerJoin(
-        schema.agentsTable,
-        eq(schema.agentToolsTable.agentId, schema.agentsTable.id),
+        schema.mcpGatewaysTable,
+        eq(
+          schema.mcpGatewayToolsTable.mcpGatewayId,
+          schema.mcpGatewaysTable.id,
+        ),
       )
-      .where(inArray(schema.agentToolsTable.toolId, toolIds));
+      .where(inArray(schema.mcpGatewayToolsTable.toolId, toolIds));
 
     // Group assignments by tool ID
     const assignmentsByTool = new Map<
@@ -863,29 +932,29 @@ class ToolModel {
     for (const assignment of assignments) {
       const toolAssignments = assignmentsByTool.get(assignment.toolId) || [];
       toolAssignments.push({
-        id: assignment.agentId,
-        name: assignment.agentName,
+        id: assignment.mcpGatewayId,
+        name: assignment.mcpGatewayName,
       });
       assignmentsByTool.set(assignment.toolId, toolAssignments);
     }
 
-    // Build tools with their assigned agents
-    const toolsWithAgents = tools.map((tool) => {
-      const assignedAgents = assignmentsByTool.get(tool.id) || [];
+    // Build tools with their assigned MCP Gateways
+    const toolsWithGateways = tools.map((tool) => {
+      const assignedMcpGateways = assignmentsByTool.get(tool.id) || [];
 
       return {
         ...tool,
         parameters: tool.parameters ?? {},
-        assignedAgentCount: assignedAgents.length,
-        assignedAgents,
+        assignedMcpGatewayCount: assignedMcpGateways.length,
+        assignedMcpGateways,
       };
     });
 
-    return toolsWithAgents;
+    return toolsWithGateways;
   }
 
   /**
-   * Get all tools for a specific catalog item with their assignment counts and assigned agents
+   * Get all tools for a specific catalog item with their assignment counts and assigned MCP Gateways
    * Used to show tools across all installations of the same catalog item
    */
   static async findByCatalogId(catalogId: string): Promise<
@@ -895,8 +964,8 @@ class ToolModel {
       description: string | null;
       parameters: Record<string, unknown>;
       createdAt: Date;
-      assignedAgentCount: number;
-      assignedAgents: Array<{ id: string; name: string }>;
+      assignedMcpGatewayCount: number;
+      assignedMcpGateways: Array<{ id: string; name: string }>;
     }>
   > {
     const tools = await db
@@ -913,19 +982,22 @@ class ToolModel {
 
     const toolIds = tools.map((tool) => tool.id);
 
-    // Get all agent assignments for these tools in one query to avoid N+1
+    // Get all MCP Gateway assignments for these tools in one query to avoid N+1
     const assignments = await db
       .select({
-        toolId: schema.agentToolsTable.toolId,
-        agentId: schema.agentToolsTable.agentId,
-        agentName: schema.agentsTable.name,
+        toolId: schema.mcpGatewayToolsTable.toolId,
+        mcpGatewayId: schema.mcpGatewayToolsTable.mcpGatewayId,
+        mcpGatewayName: schema.mcpGatewaysTable.name,
       })
-      .from(schema.agentToolsTable)
+      .from(schema.mcpGatewayToolsTable)
       .innerJoin(
-        schema.agentsTable,
-        eq(schema.agentToolsTable.agentId, schema.agentsTable.id),
+        schema.mcpGatewaysTable,
+        eq(
+          schema.mcpGatewayToolsTable.mcpGatewayId,
+          schema.mcpGatewaysTable.id,
+        ),
       )
-      .where(inArray(schema.agentToolsTable.toolId, toolIds));
+      .where(inArray(schema.mcpGatewayToolsTable.toolId, toolIds));
 
     // Group assignments by tool ID
     const assignmentsByTool = new Map<
@@ -940,25 +1012,25 @@ class ToolModel {
     for (const assignment of assignments) {
       const toolAssignments = assignmentsByTool.get(assignment.toolId) || [];
       toolAssignments.push({
-        id: assignment.agentId,
-        name: assignment.agentName,
+        id: assignment.mcpGatewayId,
+        name: assignment.mcpGatewayName,
       });
       assignmentsByTool.set(assignment.toolId, toolAssignments);
     }
 
-    // Build tools with their assigned agents
-    const toolsWithAgents = tools.map((tool) => {
-      const assignedAgents = assignmentsByTool.get(tool.id) || [];
+    // Build tools with their assigned MCP Gateways
+    const toolsWithGateways = tools.map((tool) => {
+      const assignedMcpGateways = assignmentsByTool.get(tool.id) || [];
 
       return {
         ...tool,
         parameters: tool.parameters ?? {},
-        assignedAgentCount: assignedAgents.length,
-        assignedAgents,
+        assignedMcpGatewayCount: assignedMcpGateways.length,
+        assignedMcpGateways,
       };
     });
 
-    return toolsWithAgents;
+    return toolsWithGateways;
   }
 
   /**
@@ -1016,7 +1088,7 @@ class ToolModel {
   }
 
   /**
-   * Bulk create proxy-sniffed tools for an agent (tools discovered via LLM proxy)
+   * Bulk create proxy-sniffed tools for an LLM Proxy (tools discovered via LLM proxy)
    * Fetches existing tools in a single query, then bulk inserts only new tools
    * Returns all tools (existing + newly created) to avoid N+1 queries
    */
@@ -1026,7 +1098,7 @@ class ToolModel {
       description?: string | null;
       parameters?: Record<string, unknown>;
     }>,
-    agentId: string,
+    llmProxyId: string,
   ): Promise<Tool[]> {
     if (tools.length === 0) {
       return [];
@@ -1034,13 +1106,17 @@ class ToolModel {
 
     const toolNames = tools.map((t) => t.name);
 
-    // Fetch all existing tools for this agent in a single query
+    // Fetch all existing tools for this LLM Proxy in a single query
+    // Check both llmProxyId (new) and agentId (deprecated) for backward compatibility
     const existingTools = await db
       .select()
       .from(schema.toolsTable)
       .where(
         and(
-          eq(schema.toolsTable.agentId, agentId),
+          or(
+            eq(schema.toolsTable.llmProxyId, llmProxyId),
+            eq(schema.toolsTable.agentId, llmProxyId),
+          ),
           isNull(schema.toolsTable.catalogId),
           inArray(schema.toolsTable.name, toolNames),
         ),
@@ -1063,7 +1139,9 @@ class ToolModel {
           parameters: tool.parameters ?? {},
           catalogId: null,
           mcpServerId: null,
-          agentId,
+          // Set both agentId (deprecated) and llmProxyId for backward compatibility
+          agentId: llmProxyId,
+          llmProxyId,
         });
       }
     }
@@ -1094,7 +1172,10 @@ class ToolModel {
             .from(schema.toolsTable)
             .where(
               and(
-                eq(schema.toolsTable.agentId, agentId),
+                or(
+                  eq(schema.toolsTable.llmProxyId, llmProxyId),
+                  eq(schema.toolsTable.agentId, llmProxyId),
+                ),
                 isNull(schema.toolsTable.catalogId),
                 inArray(schema.toolsTable.name, missingNames),
               ),
@@ -1196,23 +1277,23 @@ class ToolModel {
   }
 
   /**
-   * Get agent delegation tools with profile info for user access filtering
-   * Returns tools along with the profile ID of the delegated-to prompt
+   * Get agent delegation tools with LLM Proxy info for user access filtering
+   * Returns tools along with the LLM Proxy ID of the delegated-to prompt
    */
   static async getAgentDelegationToolsWithDetails(promptId: string): Promise<
     Array<{
       tool: Tool;
-      profileId: string;
+      llmProxyId: string;
       agentPromptId: string;
       agentPromptName: string;
       agentPromptSystemPrompt: string | null;
     }>
   > {
-    // Join tools with prompt_agents and prompts to get profile info
+    // Join tools with prompt_agents and prompts to get LLM Proxy info
     const results = await db
       .select({
         tool: schema.toolsTable,
-        profileId: schema.agentsTable.id,
+        llmProxyId: schema.llmProxiesTable.id,
         agentPromptId: schema.promptAgentsTable.agentPromptId,
         agentPromptName: schema.promptsTable.name,
         agentPromptSystemPrompt: schema.promptsTable.systemPrompt,
@@ -1227,8 +1308,8 @@ class ToolModel {
         eq(schema.promptAgentsTable.agentPromptId, schema.promptsTable.id),
       )
       .innerJoin(
-        schema.agentsTable,
-        eq(schema.promptsTable.agentId, schema.agentsTable.id),
+        schema.llmProxiesTable,
+        eq(schema.promptsTable.llmProxyId, schema.llmProxiesTable.id),
       )
       .where(eq(schema.promptAgentsTable.promptId, promptId));
 
@@ -1327,19 +1408,19 @@ class ToolModel {
       );
     }
 
-    // Apply access control filtering for users that are not agent admins
-    // Get accessible agent IDs for filtering assignments
-    let accessibleAgentIds: string[] | undefined;
+    // Apply access control filtering for users that are not MCP Gateway admins
+    // Get accessible MCP Gateway IDs for filtering assignments
+    let accessibleMcpGatewayIds: string[] | undefined;
     let accessibleMcpServerIds: Set<string> | undefined;
     if (userId && !isAgentAdmin) {
-      const [agentIds, mcpServers] = await Promise.all([
-        AgentTeamModel.getUserAccessibleAgentIds(userId, false),
+      const [mcpGatewayIds, mcpServers] = await Promise.all([
+        McpGatewayTeamModel.getUserAccessibleMcpGatewayIds(userId, false),
         McpServerModel.findAll(userId, false),
       ]);
-      accessibleAgentIds = agentIds;
+      accessibleMcpGatewayIds = mcpGatewayIds;
       accessibleMcpServerIds = new Set(mcpServers.map((s) => s.id));
 
-      if (accessibleAgentIds.length === 0) {
+      if (accessibleMcpGatewayIds.length === 0) {
         return createPaginatedResult([], 0, {
           limit: pagination.limit ?? 20,
           offset: pagination.offset ?? 0,
@@ -1352,16 +1433,19 @@ class ToolModel {
       toolWhereConditions.length > 0 ? and(...toolWhereConditions) : undefined;
 
     // Subquery to get tools that have at least one assignment (with access control)
-    const assignmentConditions = accessibleAgentIds
+    const assignmentConditions = accessibleMcpGatewayIds
       ? and(
-          eq(schema.agentToolsTable.toolId, schema.toolsTable.id),
-          inArray(schema.agentToolsTable.agentId, accessibleAgentIds),
+          eq(schema.mcpGatewayToolsTable.toolId, schema.toolsTable.id),
+          inArray(
+            schema.mcpGatewayToolsTable.mcpGatewayId,
+            accessibleMcpGatewayIds,
+          ),
         )
-      : eq(schema.agentToolsTable.toolId, schema.toolsTable.id);
+      : eq(schema.mcpGatewayToolsTable.toolId, schema.toolsTable.id);
 
     // Count subquery for assignment count (with access control)
     const assignmentCountSubquery = sql<number>`(
-      SELECT COUNT(*) FROM ${schema.agentToolsTable}
+      SELECT COUNT(*) FROM ${schema.mcpGatewayToolsTable}
       WHERE ${assignmentConditions}
     )`;
 
@@ -1413,7 +1497,7 @@ class ToolModel {
           // Tools with at least one assignment OR agent delegation tools
           sql`(
             EXISTS (
-              SELECT 1 FROM ${schema.agentToolsTable}
+              SELECT 1 FROM ${schema.mcpGatewayToolsTable}
               WHERE ${assignmentConditions}
             )
             OR ${schema.toolsTable.promptAgentId} IS NOT NULL
@@ -1434,7 +1518,7 @@ class ToolModel {
           // Tools with at least one assignment OR agent delegation tools
           sql`(
             EXISTS (
-              SELECT 1 FROM ${schema.agentToolsTable}
+              SELECT 1 FROM ${schema.mcpGatewayToolsTable}
               WHERE ${assignmentConditions}
             )
             OR ${schema.toolsTable.promptAgentId} IS NOT NULL
@@ -1452,13 +1536,16 @@ class ToolModel {
     // Get all assignments for these tools in one query
     const toolIds = toolsWithCount.map((t) => t.id as string);
     const assignmentWhereConditions = [
-      inArray(schema.agentToolsTable.toolId, toolIds),
+      inArray(schema.mcpGatewayToolsTable.toolId, toolIds),
     ];
 
     // Apply access control to assignments
-    if (accessibleAgentIds) {
+    if (accessibleMcpGatewayIds) {
       assignmentWhereConditions.push(
-        inArray(schema.agentToolsTable.agentId, accessibleAgentIds),
+        inArray(
+          schema.mcpGatewayToolsTable.mcpGatewayId,
+          accessibleMcpGatewayIds,
+        ),
       );
     }
 
@@ -1476,30 +1563,33 @@ class ToolModel {
 
     const assignments = await db
       .select({
-        toolId: schema.agentToolsTable.toolId,
-        agentToolId: schema.agentToolsTable.id,
-        agentId: schema.agentsTable.id,
-        agentName: schema.agentsTable.name,
+        toolId: schema.mcpGatewayToolsTable.toolId,
+        mcpGatewayToolId: schema.mcpGatewayToolsTable.id,
+        mcpGatewayId: schema.mcpGatewaysTable.id,
+        mcpGatewayName: schema.mcpGatewaysTable.name,
         credentialSourceMcpServerId:
-          schema.agentToolsTable.credentialSourceMcpServerId,
+          schema.mcpGatewayToolsTable.credentialSourceMcpServerId,
         credentialOwnerEmail: credentialOwnerAlias.email,
         executionSourceMcpServerId:
-          schema.agentToolsTable.executionSourceMcpServerId,
+          schema.mcpGatewayToolsTable.executionSourceMcpServerId,
         executionOwnerEmail: executionOwnerAlias.email,
         useDynamicTeamCredential:
-          schema.agentToolsTable.useDynamicTeamCredential,
+          schema.mcpGatewayToolsTable.useDynamicTeamCredential,
         responseModifierTemplate:
-          schema.agentToolsTable.responseModifierTemplate,
+          schema.mcpGatewayToolsTable.responseModifierTemplate,
       })
-      .from(schema.agentToolsTable)
+      .from(schema.mcpGatewayToolsTable)
       .innerJoin(
-        schema.agentsTable,
-        eq(schema.agentToolsTable.agentId, schema.agentsTable.id),
+        schema.mcpGatewaysTable,
+        eq(
+          schema.mcpGatewayToolsTable.mcpGatewayId,
+          schema.mcpGatewaysTable.id,
+        ),
       )
       .leftJoin(
         credentialMcpServerAlias,
         eq(
-          schema.agentToolsTable.credentialSourceMcpServerId,
+          schema.mcpGatewayToolsTable.credentialSourceMcpServerId,
           credentialMcpServerAlias.id,
         ),
       )
@@ -1510,7 +1600,7 @@ class ToolModel {
       .leftJoin(
         executionMcpServerAlias,
         eq(
-          schema.agentToolsTable.executionSourceMcpServerId,
+          schema.mcpGatewayToolsTable.executionSourceMcpServerId,
           executionMcpServerAlias.id,
         ),
       )
@@ -1524,8 +1614,8 @@ class ToolModel {
     const assignmentsByToolId = new Map<
       string,
       Array<{
-        agentToolId: string;
-        agent: { id: string; name: string };
+        mcpGatewayToolId: string;
+        mcpGateway: { id: string; name: string };
         credentialSourceMcpServerId: string | null;
         credentialOwnerEmail: string | null;
         executionSourceMcpServerId: string | null;
@@ -1550,10 +1640,10 @@ class ToolModel {
         accessibleMcpServerIds.has(assignment.executionSourceMcpServerId);
 
       existing.push({
-        agentToolId: assignment.agentToolId,
-        agent: {
-          id: assignment.agentId,
-          name: assignment.agentName,
+        mcpGatewayToolId: assignment.mcpGatewayToolId,
+        mcpGateway: {
+          id: assignment.mcpGatewayId,
+          name: assignment.mcpGatewayName,
         },
         credentialSourceMcpServerId: assignment.credentialSourceMcpServerId,
         credentialOwnerEmail: credentialServerAccessible

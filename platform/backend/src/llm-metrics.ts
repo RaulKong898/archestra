@@ -12,8 +12,17 @@ import type { GoogleGenAI } from "@google/genai";
 import type { SupportedProvider } from "@shared";
 import client from "prom-client";
 import logger from "@/logging";
-import type { Agent } from "@/types";
 import * as utils from "./routes/proxy/utils";
+
+/**
+ * Interface for profile data needed by metrics.
+ * Both Agent and LlmProxy satisfy this interface.
+ */
+export interface MetricsProfile {
+  id: string;
+  name: string;
+  labels?: Array<{ key: string; value: string }>;
+}
 
 type Fetch = (
   input: string | URL | Request,
@@ -157,7 +166,7 @@ export function initializeMetrics(labelKeys: string[]): void {
  * @param externalAgentId Optional external agent ID from X-Archestra-Agent-Id header
  */
 function buildMetricLabels(
-  profile: Agent,
+  profile: MetricsProfile,
   additionalLabels: Record<string, string>,
   model?: string,
   externalAgentId?: string,
@@ -194,7 +203,7 @@ function buildMetricLabels(
  */
 export function reportLLMTokens(
   provider: SupportedProvider,
-  profile: Agent,
+  profile: MetricsProfile,
   usage: { input?: number; output?: number },
   model: string | undefined,
   externalAgentId?: string,
@@ -240,7 +249,7 @@ export function reportLLMTokens(
  */
 export function reportBlockedTools(
   provider: SupportedProvider,
-  profile: Agent,
+  profile: MetricsProfile,
   count: number,
   model?: string,
   externalAgentId?: string,
@@ -267,7 +276,7 @@ export function reportBlockedTools(
  */
 export function reportLLMCost(
   provider: SupportedProvider,
-  profile: Agent,
+  profile: MetricsProfile,
   model: string,
   cost: number | null | undefined,
   externalAgentId?: string,
@@ -297,7 +306,7 @@ export function reportLLMCost(
  */
 export function reportTimeToFirstToken(
   provider: SupportedProvider,
-  profile: Agent,
+  profile: MetricsProfile,
   model: string | undefined,
   ttftSeconds: number,
   externalAgentId?: string,
@@ -329,7 +338,7 @@ export function reportTimeToFirstToken(
  */
 export function reportTokensPerSecond(
   provider: SupportedProvider,
-  profile: Agent,
+  profile: MetricsProfile,
   model: string | undefined,
   outputTokens: number,
   durationSeconds: number,
@@ -358,7 +367,7 @@ export function reportTokensPerSecond(
  */
 export function getObservableFetch(
   provider: SupportedProvider,
-  profile: Agent,
+  profile: MetricsProfile,
   externalAgentId?: string,
 ): Fetch {
   return async function observableFetch(
@@ -488,7 +497,7 @@ export function getObservableFetch(
  */
 export function getObservableGenAI(
   genAI: GoogleGenAI,
-  profile: Agent,
+  profile: MetricsProfile,
   externalAgentId?: string,
 ) {
   const originalGenerateContent = genAI.models.generateContent;

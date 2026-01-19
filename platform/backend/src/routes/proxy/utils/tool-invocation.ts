@@ -1,7 +1,7 @@
 import { isArchestraMcpServerTool } from "@shared";
 import logger from "@/logging";
 import {
-  AgentTeamModel,
+  LlmProxyTeamModel,
   OrganizationModel,
   TeamModel,
   ToolInvocationPolicyModel,
@@ -167,62 +167,67 @@ ${contentMessage}`;
 };
 
 /**
- * Resolve the global tool policy for an agent.
- * 1. Try to get organizationId from agent's teams
- * 2. Fallback to first organization in database if agent has no teams
+ * Resolve the global tool policy for an LLM proxy.
+ * 1. Try to get organizationId from LLM proxy's teams
+ * 2. Fallback to first organization in database if LLM proxy has no teams
  *
- * @param agentId - The agent ID to resolve policy for
+ * @param llmProxyId - The LLM proxy ID to resolve policy for
  * @returns The global tool policy ("permissive" or "restrictive"), defaults to "permissive"
  */
 export async function getGlobalToolPolicy(
-  agentId: string,
+  llmProxyId: string,
 ): Promise<GlobalToolPolicy> {
   const fallbackPolicy: GlobalToolPolicy = "permissive";
-  const agentTeamIds = await AgentTeamModel.getTeamsForAgent(agentId);
+  const llmProxyTeamIds =
+    await LlmProxyTeamModel.getTeamsForLlmProxy(llmProxyId);
 
-  // Agent has teams - get organization from first team
-  if (agentTeamIds.length > 0) {
-    const teams = await TeamModel.findByIds(agentTeamIds);
+  // LLM proxy has teams - get organization from first team
+  if (llmProxyTeamIds.length > 0) {
+    const teams = await TeamModel.findByIds(llmProxyTeamIds);
     if (teams.length > 0 && teams[0].organizationId) {
       const organizationId = teams[0].organizationId;
       logger.debug(
-        { agentId, organizationId },
+        { llmProxyId, organizationId },
         "GlobalToolPolicy: resolved organizationId from team",
       );
 
       const organization = await OrganizationModel.getById(organizationId);
       if (!organization) {
         logger.warn(
-          { agentId, organizationId },
+          { llmProxyId, organizationId },
           `GlobalToolPolicy: organization not found, defaulting to ${fallbackPolicy}`,
         );
         return fallbackPolicy;
       }
 
       logger.debug(
-        { agentId, organizationId, policy: organization.globalToolPolicy },
+        { llmProxyId, organizationId, policy: organization.globalToolPolicy },
         "GlobalToolPolicy: resolved policy from organization",
       );
       return organization.globalToolPolicy;
     }
   }
 
-  // Agent has no teams - fallback to first organization (avoid double fetch)
+  // LLM proxy has no teams - fallback to first organization (avoid double fetch)
   const firstOrg = await OrganizationModel.getFirst();
   if (!firstOrg) {
     logger.warn(
-      { agentId },
+      { llmProxyId },
       `GlobalToolPolicy: could not resolve organization, defaulting to ${fallbackPolicy}`,
     );
     return fallbackPolicy;
   }
 
   logger.debug(
-    { agentId, organizationId: firstOrg.id },
-    "GlobalToolPolicy: agent has no teams - using fallback organization",
+    { llmProxyId, organizationId: firstOrg.id },
+    "GlobalToolPolicy: LLM proxy has no teams - using fallback organization",
   );
   logger.debug(
-    { agentId, organizationId: firstOrg.id, policy: firstOrg.globalToolPolicy },
+    {
+      llmProxyId,
+      organizationId: firstOrg.id,
+      policy: firstOrg.globalToolPolicy,
+    },
     "GlobalToolPolicy: resolved policy from organization",
   );
 

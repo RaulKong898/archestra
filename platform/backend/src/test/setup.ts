@@ -102,24 +102,44 @@ beforeEach(async () => {
     await pgliteClient.exec(truncateSql);
   }
 
-  // Re-insert the default agent that tests expect to exist
-  // This matches what the migrations create (initially 'Default Agent', renamed to 'Default Profile')
+  // Re-insert the default test data that tests expect to exist
+  // This includes organization, agents, llm_proxies, and mcp_gateways tables
+  // Note: We use a fixed UUID for the default profile so tests can reference it consistently
   const seedSql = `
-    INSERT INTO agents (id, name, is_demo, is_default, created_at, updated_at)
+    -- Create a default test organization first
+    INSERT INTO organization (id, name, slug, created_at)
     VALUES (
-      gen_random_uuid(),
-      'Default Profile',
-      false,
-      true,
-      NOW(),
+      'test-org-id',
+      'Test Organization',
+      'test-org',
       NOW()
     )
-    ON CONFLICT DO NOTHING;
+    ON CONFLICT (id) DO NOTHING;
+
+    -- Create the default agent (for backward compatibility)
+    -- Use gen_random_uuid() since the id column is UUID type
+    INSERT INTO agents (id, name, is_demo, is_default, created_at, updated_at)
+    SELECT gen_random_uuid(), 'Default Profile', false, true, NOW(), NOW()
+    WHERE NOT EXISTS (SELECT 1 FROM agents WHERE is_default = true);
+
+    -- Create the default LLM Proxy (for new code paths)
+    -- Use the same ID as the default agent for consistency
+    INSERT INTO llm_proxies (id, organization_id, name, is_default, consider_context_untrusted, created_at, updated_at)
+    SELECT a.id, 'test-org-id', 'Default Profile', true, false, NOW(), NOW()
+    FROM agents a WHERE a.is_default = true
+    ON CONFLICT (id) DO NOTHING;
+
+    -- Create the default MCP Gateway (for new code paths)
+    -- Use the same ID as the default agent for consistency
+    INSERT INTO mcp_gateways (id, organization_id, name, is_default, created_at, updated_at)
+    SELECT a.id, 'test-org-id', 'Default Profile', true, NOW(), NOW()
+    FROM agents a WHERE a.is_default = true
+    ON CONFLICT (id) DO NOTHING;
   `;
   try {
     await pgliteClient.exec(seedSql);
-  } catch {
-    // Ignore if default agent already exists or table doesn't have expected structure
+  } catch (_error) {
+    // Seed errors are silently ignored - seed data might not be needed for all tests
   }
 });
 

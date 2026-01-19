@@ -4,7 +4,7 @@ import {
   isArchestraMcpServerTool,
   MCP_SERVER_TOOL_NAME_SEPARATOR,
 } from "@shared";
-import { AgentModel, InternalMcpCatalogModel } from "@/models";
+import { InternalMcpCatalogModel, LlmProxyModel } from "@/models";
 import { beforeEach, describe, expect, test, vi } from "@/test";
 import type { Agent } from "@/types";
 import {
@@ -112,6 +112,7 @@ describe("executeArchestraTool", () => {
         id: testProfile.id,
         name: testProfile.name,
       },
+      organizationId: "test-org-id",
     };
   });
 
@@ -315,9 +316,9 @@ describe("executeArchestraTool", () => {
     });
 
     test("should handle errors gracefully", async () => {
-      // Mock the AgentModel.create method to throw an error
-      const originalCreate = AgentModel.create;
-      AgentModel.create = vi
+      // Mock the LlmProxyModel.create method to throw an error
+      const originalCreate = LlmProxyModel.create;
+      LlmProxyModel.create = vi
         .fn()
         .mockRejectedValue(new Error("Database error"));
 
@@ -334,7 +335,7 @@ describe("executeArchestraTool", () => {
       expect((result.content[0] as any).text).toContain("Database error");
 
       // Restore the original method
-      AgentModel.create = originalCreate;
+      LlmProxyModel.create = originalCreate;
     });
   });
 

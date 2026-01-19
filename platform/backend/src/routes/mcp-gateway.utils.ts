@@ -22,9 +22,9 @@ import mcpClient, { type TokenAuthContext } from "@/clients/mcp-client";
 import config from "@/config";
 import logger from "@/logging";
 import {
-  AgentModel,
-  AgentTeamModel,
   isArchestraPrefixedToken,
+  McpGatewayModel,
+  McpGatewayTeamModel,
   McpToolCallModel,
   TeamModel,
   TeamTokenModel,
@@ -121,14 +121,15 @@ export async function createAgentServer(
     },
   );
 
-  // Use cached agent data if available, otherwise fetch it
+  // Use cached MCP Gateway data if available, otherwise fetch it
+  // Note: agentId parameter represents MCP Gateway ID in this context
   let agent = cachedAgent;
   if (!agent) {
-    const fetchedAgent = await AgentModel.findById(agentId);
-    if (!fetchedAgent) {
-      throw new Error(`Agent not found: ${agentId}`);
+    const fetchedGateway = await McpGatewayModel.findById(agentId);
+    if (!fetchedGateway) {
+      throw new Error(`MCP Gateway not found: ${agentId}`);
     }
-    agent = fetchedAgent;
+    agent = fetchedGateway;
   }
 
   // Create a map of Archestra tool names to their titles
@@ -385,18 +386,30 @@ export async function validateTeamToken(
     return null;
   }
 
-  // Check if profile is accessible via this token
+  // Check if profile (MCP Gateway) is accessible via this token
   if (!token.isOrganizationToken) {
     // Team token: profile must be assigned to this team
-    const profileTeamIds = await AgentTeamModel.getTeamsForAgent(profileId);
-    const hasAccess = token.teamId && profileTeamIds.includes(token.teamId);
+    // Note: profileId represents MCP Gateway ID in this context
+    const profileTeamIds =
+      await McpGatewayTeamModel.getTeamDetailsForMcpGateway(profileId);
+    const profileTeamIdList = profileTeamIds.map((t) => t.id);
+    const hasAccess = token.teamId && profileTeamIdList.includes(token.teamId);
     logger.debug(
-      { profileId, tokenTeamId: token.teamId, profileTeamIds, hasAccess },
+      {
+        profileId,
+        tokenTeamId: token.teamId,
+        profileTeamIds: profileTeamIdList,
+        hasAccess,
+      },
       "validateTeamToken: checking team access",
     );
     if (!hasAccess) {
       logger.warn(
-        { profileId, tokenTeamId: token.teamId, profileTeamIds },
+        {
+          profileId,
+          tokenTeamId: token.teamId,
+          profileTeamIds: profileTeamIdList,
+        },
         "Profile not accessible via team token",
       );
       return null;
@@ -456,9 +469,12 @@ export async function validateUserToken(
     };
   }
 
-  // Non-admin: user can access profile if they are a member of any team assigned to the profile
+  // Non-admin: user can access profile (MCP Gateway) if they are a member of any team assigned to it
+  // Note: profileId represents MCP Gateway ID in this context
   const userTeamIds = await TeamModel.getUserTeamIds(token.userId);
-  const profileTeamIds = await AgentTeamModel.getTeamsForAgent(profileId);
+  const profileTeamDetails =
+    await McpGatewayTeamModel.getTeamDetailsForMcpGateway(profileId);
+  const profileTeamIds = profileTeamDetails.map((t) => t.id);
   const hasAccess = userTeamIds.some((teamId) =>
     profileTeamIds.includes(teamId),
   );

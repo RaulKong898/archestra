@@ -8,7 +8,7 @@ import type {
   LimitType,
   UpdateLimit,
 } from "@/types";
-import AgentTeamModel from "./agent-team";
+import LlmProxyTeamModel from "./llm-proxy-team";
 import TokenPriceModel from "./token-price";
 
 class LimitModel {
@@ -511,31 +511,32 @@ export class LimitValidationService {
    * Returns null if allowed, or [refusalMessage, contentMessage] if blocked
    */
   static async checkLimitsBeforeRequest(
-    agentId: string,
+    llmProxyId: string,
   ): Promise<null | [string, string]> {
     try {
       logger.info(
-        `[LimitValidation] Starting limit check for agent: ${agentId}`,
+        `[LimitValidation] Starting limit check for LLM proxy: ${llmProxyId}`,
       );
 
-      // Get agent's teams to check team and organization limits
-      const agentTeamIds = await AgentTeamModel.getTeamsForAgent(agentId);
+      // Get LLM proxy's teams to check team and organization limits
+      const llmProxyTeamIds =
+        await LlmProxyTeamModel.getTeamsForLlmProxy(llmProxyId);
       logger.info(
-        `[LimitValidation] Agent ${agentId} belongs to teams: ${agentTeamIds.join(", ")}`,
+        `[LimitValidation] LLM proxy ${llmProxyId} belongs to teams: ${llmProxyTeamIds.join(", ")}`,
       );
 
       // Get organization ID for cleanup (either from teams or fallback)
       let organizationId: string | null = null;
-      if (agentTeamIds.length > 0) {
+      if (llmProxyTeamIds.length > 0) {
         const teams = await db
           .select()
           .from(schema.teamsTable)
-          .where(inArray(schema.teamsTable.id, agentTeamIds));
+          .where(inArray(schema.teamsTable.id, llmProxyTeamIds));
         if (teams.length > 0 && teams[0].organizationId) {
           organizationId = teams[0].organizationId;
         }
       } else {
-        // If agent has no teams, check if there are any organization limits to apply
+        // If LLM proxy has no teams, check if there are any organization limits to apply
         const existingOrgLimits = await db
           .select({ entityId: schema.limitsTable.entityId })
           .from(schema.limitsTable)
@@ -554,31 +555,34 @@ export class LimitValidationService {
         await LimitModel.cleanupLimitsIfNeeded(organizationId);
       }
 
-      // Check agent-level limits first (highest priority)
+      // Check LLM proxy-level limits first (highest priority)
+      // Note: Uses "agent" entity type for backward compatibility with database
       logger.info(
-        `[LimitValidation] Checking agent-level limits for: ${agentId}`,
+        `[LimitValidation] Checking LLM proxy-level limits for: ${llmProxyId}`,
       );
-      const agentLimitViolation =
-        await LimitValidationService.checkEntityLimits("agent", agentId);
-      if (agentLimitViolation) {
+      const llmProxyLimitViolation =
+        await LimitValidationService.checkEntityLimits("agent", llmProxyId);
+      if (llmProxyLimitViolation) {
         logger.info(
-          `[LimitValidation] BLOCKED by agent-level limit for: ${agentId}`,
+          `[LimitValidation] BLOCKED by LLM proxy-level limit for: ${llmProxyId}`,
         );
-        return agentLimitViolation;
+        return llmProxyLimitViolation;
       }
-      logger.info(`[LimitValidation] Agent-level limits OK for: ${agentId}`);
+      logger.info(
+        `[LimitValidation] LLM proxy-level limits OK for: ${llmProxyId}`,
+      );
 
       // Check team-level limits
-      if (agentTeamIds.length > 0) {
+      if (llmProxyTeamIds.length > 0) {
         logger.info(
-          `[LimitValidation] Checking team-level limits for agent: ${agentId}`,
+          `[LimitValidation] Checking team-level limits for LLM proxy: ${llmProxyId}`,
         );
         const teams = await db
           .select()
           .from(schema.teamsTable)
-          .where(inArray(schema.teamsTable.id, agentTeamIds));
+          .where(inArray(schema.teamsTable.id, llmProxyTeamIds));
         logger.info(
-          `[LimitValidation] Found ${teams.length} teams for agent ${agentId}: ${teams.map((t) => `${t.id}(org:${t.organizationId})`).join(", ")}`,
+          `[LimitValidation] Found ${teams.length} teams for LLM proxy ${llmProxyId}: ${teams.map((t) => `${t.id}(org:${t.organizationId})`).join(", ")}`,
         );
 
         for (const team of teams) {
@@ -620,9 +624,9 @@ export class LimitValidationService {
         }
       } else {
         logger.info(
-          `[LimitValidation] Agent ${agentId} has no teams, checking fallback organization limits`,
+          `[LimitValidation] LLM proxy ${llmProxyId} has no teams, checking fallback organization limits`,
         );
-        // If agent has no teams, check if there are any organization limits to apply
+        // If LLM proxy has no teams, check if there are any organization limits to apply
         const existingOrgLimits = await db
           .select({ entityId: schema.limitsTable.entityId })
           .from(schema.limitsTable)
@@ -653,7 +657,7 @@ export class LimitValidationService {
         }
       }
       logger.info(
-        `[LimitValidation] All limits OK for agent: ${agentId} - ALLOWING request`,
+        `[LimitValidation] All limits OK for LLM proxy: ${llmProxyId} - ALLOWING request`,
       );
       return null; // No limits exceeded
     } catch (error) {

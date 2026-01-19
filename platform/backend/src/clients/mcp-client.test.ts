@@ -1,12 +1,6 @@
 import { vi } from "vitest";
 import config from "@/config";
-import {
-  AgentModel,
-  AgentToolModel,
-  InternalMcpCatalogModel,
-  McpServerModel,
-  ToolModel,
-} from "@/models";
+import { InternalMcpCatalogModel, McpServerModel, ToolModel } from "@/models";
 import { secretManager } from "@/secrets-manager";
 import { beforeEach, describe, expect, test } from "@/test";
 import mcpClient from "./mcp-client";
@@ -52,10 +46,14 @@ describe("McpClient", () => {
   let agentId: string;
   let mcpServerId: string;
   let catalogId: string;
+  // biome-ignore lint/suspicious/noExplicitAny: Fixture functions passed via test context
+  let makeMcpGatewayToolFn: any;
 
-  beforeEach(async () => {
-    // Create test agent
-    const agent = await AgentModel.create({ name: "Test Agent", teams: [] });
+  beforeEach(async ({ makeAgent, makeMcpGatewayTool }) => {
+    makeMcpGatewayToolFn = makeMcpGatewayTool;
+
+    // Create test agent (using makeAgent to ensure llm_proxies and mcp_gateways entries)
+    const agent = await makeAgent({ name: "Test Agent", teams: [] });
     agentId = agent.id;
 
     // Create secret with access token
@@ -118,8 +116,8 @@ describe("McpClient", () => {
           mcpServerId,
         });
 
-        // Assign tool to agent with response modifier
-        await AgentToolModel.create(agentId, tool.id, {
+        // Assign tool to MCP gateway with response modifier
+        await makeMcpGatewayToolFn(agentId, tool.id, {
           credentialSourceMcpServerId: mcpServerId,
           responseModifierTemplate:
             'Modified: {{{lookup (lookup response 0) "text"}}}',
@@ -167,7 +165,7 @@ describe("McpClient", () => {
           mcpServerId,
         });
 
-        await AgentToolModel.create(agentId, tool.id, {
+        await makeMcpGatewayToolFn(agentId, tool.id, {
           credentialSourceMcpServerId: mcpServerId,
           responseModifierTemplate:
             '{{#with (lookup response 0)}}{"formatted": true, "data": "{{{this.text}}}"}{{/with}}',
@@ -203,7 +201,7 @@ describe("McpClient", () => {
           mcpServerId,
         });
 
-        await AgentToolModel.create(agentId, tool.id, {
+        await makeMcpGatewayToolFn(agentId, tool.id, {
           credentialSourceMcpServerId: mcpServerId,
           responseModifierTemplate: `{{#with (lookup response 0)}}{{#with (json this.text)}}
   {
@@ -253,7 +251,7 @@ describe("McpClient", () => {
           mcpServerId,
         });
 
-        await AgentToolModel.create(agentId, tool.id, {
+        await makeMcpGatewayToolFn(agentId, tool.id, {
           credentialSourceMcpServerId: mcpServerId,
           responseModifierTemplate: "{{{json response}}}",
         });
@@ -290,7 +288,7 @@ describe("McpClient", () => {
         });
 
         // Invalid Handlebars template
-        await AgentToolModel.create(agentId, tool.id, {
+        await makeMcpGatewayToolFn(agentId, tool.id, {
           credentialSourceMcpServerId: mcpServerId,
           responseModifierTemplate: "{{#invalid",
         });
@@ -328,7 +326,7 @@ describe("McpClient", () => {
           mcpServerId,
         });
 
-        await AgentToolModel.create(agentId, tool.id, {
+        await makeMcpGatewayToolFn(agentId, tool.id, {
           credentialSourceMcpServerId: mcpServerId,
           responseModifierTemplate:
             'Type: {{lookup (lookup response 0) "type"}}',
@@ -363,7 +361,7 @@ describe("McpClient", () => {
         });
 
         // Assign tool without response modifier template
-        await AgentToolModel.create(agentId, tool.id, {
+        await makeMcpGatewayToolFn(agentId, tool.id, {
           credentialSourceMcpServerId: mcpServerId,
           responseModifierTemplate: null,
         });
@@ -408,13 +406,13 @@ describe("McpClient", () => {
           mcpServerId,
         });
 
-        await AgentToolModel.create(agentId, tool1.id, {
+        await makeMcpGatewayToolFn(agentId, tool1.id, {
           credentialSourceMcpServerId: mcpServerId,
           responseModifierTemplate:
             'Template 1: {{lookup (lookup response 0) "text"}}',
         });
 
-        await AgentToolModel.create(agentId, tool2.id, {
+        await makeMcpGatewayToolFn(agentId, tool2.id, {
           credentialSourceMcpServerId: mcpServerId,
           responseModifierTemplate:
             'Template 2: {{lookup (lookup response 0) "text"}}',
@@ -502,7 +500,7 @@ describe("McpClient", () => {
             mcpServerId,
           });
 
-          await AgentToolModel.create(agentId, tool.id, {
+          await makeMcpGatewayToolFn(agentId, tool.id, {
             credentialSourceMcpServerId: mcpServerId,
           });
 
@@ -580,7 +578,7 @@ describe("McpClient", () => {
             mcpServerId,
           });
 
-          await AgentToolModel.create(agentId, tool.id, {
+          await makeMcpGatewayToolFn(agentId, tool.id, {
             credentialSourceMcpServerId: mcpServerId,
           });
 
@@ -670,7 +668,7 @@ describe("McpClient", () => {
           mcpServerId: localMcpServerId,
         });
 
-        await AgentToolModel.create(agentId, tool.id, {
+        await makeMcpGatewayToolFn(agentId, tool.id, {
           executionSourceMcpServerId: localMcpServerId,
         });
 
@@ -722,7 +720,7 @@ describe("McpClient", () => {
           mcpServerId: localMcpServerId,
         });
 
-        await AgentToolModel.create(agentId, tool.id, {
+        await makeMcpGatewayToolFn(agentId, tool.id, {
           executionSourceMcpServerId: localMcpServerId,
         });
 
@@ -759,7 +757,7 @@ describe("McpClient", () => {
           mcpServerId: localMcpServerId,
         });
 
-        await AgentToolModel.create(agentId, tool.id, {
+        await makeMcpGatewayToolFn(agentId, tool.id, {
           executionSourceMcpServerId: localMcpServerId,
           responseModifierTemplate:
             'Result: {{{lookup (lookup response 0) "text"}}}',
@@ -803,7 +801,7 @@ describe("McpClient", () => {
           mcpServerId: localMcpServerId,
         });
 
-        await AgentToolModel.create(agentId, tool.id, {
+        await makeMcpGatewayToolFn(agentId, tool.id, {
           executionSourceMcpServerId: localMcpServerId,
         });
 
@@ -882,7 +880,7 @@ describe("McpClient", () => {
             mcpServerId: localMcpServerId,
           });
 
-          await AgentToolModel.create(agentId, tool.id, {
+          await makeMcpGatewayToolFn(agentId, tool.id, {
             executionSourceMcpServerId: localMcpServerId,
           });
 

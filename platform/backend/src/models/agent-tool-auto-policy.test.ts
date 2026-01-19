@@ -92,7 +92,7 @@ const mockTool = {
   policiesAutoConfiguredReasoning: null,
   createdAt: new Date(),
   updatedAt: new Date(),
-  agent: null,
+  llmProxy: null,
   mcpServer: { id: "server-1", name: "test-server" },
 };
 

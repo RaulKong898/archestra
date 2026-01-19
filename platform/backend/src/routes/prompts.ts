@@ -2,7 +2,7 @@ import { RouteId } from "@shared";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { hasPermission } from "@/auth";
-import { AgentTeamModel, PromptModel, ToolModel } from "@/models";
+import { LlmProxyTeamModel, PromptModel, ToolModel } from "@/models";
 import {
   ApiError,
   constructResponseSchema,
@@ -34,16 +34,17 @@ const promptRoutes: FastifyPluginAsyncZod = async (fastify) => {
         headers,
       );
 
-      // Get accessible agent IDs for this user
-      const accessibleAgentIds = await AgentTeamModel.getUserAccessibleAgentIds(
-        user.id,
-        isAgentAdmin,
-      );
+      // Get accessible LLM Proxy IDs for this user
+      const accessibleLlmProxyIds =
+        await LlmProxyTeamModel.getUserAccessibleLlmProxyIds(
+          user.id,
+          isAgentAdmin,
+        );
 
-      // Filter prompts to only those assigned to accessible agents
+      // Filter prompts to only those assigned to accessible LLM Proxies
       const prompts = await PromptModel.findByOrganizationIdAndAccessibleAgents(
         organizationId,
-        accessibleAgentIds,
+        accessibleLlmProxyIds,
       );
 
       return reply.send(prompts);
@@ -198,12 +199,15 @@ const promptRoutes: FastifyPluginAsyncZod = async (fastify) => {
         await ToolModel.getAgentDelegationToolsWithDetails(id);
 
       // Filter by user access
-      const userAccessibleAgentIds =
-        await AgentTeamModel.getUserAccessibleAgentIds(user.id, isAgentAdmin);
+      const userAccessibleLlmProxyIds =
+        await LlmProxyTeamModel.getUserAccessibleLlmProxyIds(
+          user.id,
+          isAgentAdmin,
+        );
 
       // Return tools with agentPromptId for mapping
       const accessibleTools = allToolsWithDetails
-        .filter((t) => userAccessibleAgentIds.includes(t.profileId))
+        .filter((t) => userAccessibleLlmProxyIds.includes(t.llmProxyId))
         .map((t) => ({
           ...t.tool,
           agentPromptId: t.agentPromptId,

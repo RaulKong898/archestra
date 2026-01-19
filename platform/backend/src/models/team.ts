@@ -371,6 +371,35 @@ class TeamModel {
     }));
   }
 
+  /**
+   * Get all teams for an LLM Proxy with their compression settings
+   */
+  static async getTeamsForLlmProxy(llmProxyId: string): Promise<Team[]> {
+    logger.debug(
+      { llmProxyId },
+      "TeamModel.getTeamsForLlmProxy: fetching LLM Proxy teams",
+    );
+    const llmProxyTeams = await db
+      .select({
+        team: schema.teamsTable,
+      })
+      .from(schema.llmProxyTeamsTable)
+      .innerJoin(
+        schema.teamsTable,
+        eq(schema.llmProxyTeamsTable.teamId, schema.teamsTable.id),
+      )
+      .where(eq(schema.llmProxyTeamsTable.llmProxyId, llmProxyId));
+
+    logger.debug(
+      { llmProxyId, count: llmProxyTeams.length },
+      "TeamModel.getTeamsForLlmProxy: completed",
+    );
+    return llmProxyTeams.map((result) => ({
+      ...result.team,
+      members: [], // Members not needed for compression logic
+    }));
+  }
+
   // ==========================================
   // External Group Sync Methods
   // ==========================================

@@ -4,15 +4,7 @@ import type { archestraApiTypes } from "@shared";
 import { archestraApiSdk } from "@shared";
 import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef, SortingState } from "@tanstack/react-table";
-import {
-  ChevronDown,
-  ChevronUp,
-  Plus,
-  Search,
-  Tag,
-  Wrench,
-  X,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, Search, Tag, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -366,26 +358,7 @@ function McpGateways({
           <SortIcon isSorted={column.getIsSorted()} />
         </Button>
       ),
-      cell: ({ row }) => {
-        return (
-          <div className="flex items-center gap-2">
-            {row.original.tools?.length ?? 0}
-            <PermissionButton
-              permissions={{ mcpGatewayEntity: ["update"] }}
-              tooltip="Manage Tools"
-              aria-label="Manage Tools"
-              variant="outline"
-              size="icon-sm"
-              onClick={() => {
-                // TODO: Open tools assignment dialog
-                toast.info("Tools management coming soon");
-              }}
-            >
-              <Wrench className="h-4 w-4" />
-            </PermissionButton>
-          </div>
-        );
-      },
+      cell: ({ row }) => row.original.tools?.length ?? 0,
     },
     {
       id: "team",

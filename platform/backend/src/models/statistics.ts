@@ -9,7 +9,7 @@ import type {
   StatisticsTimeSeriesData,
   TeamStatistics,
 } from "@/types";
-import AgentTeamModel from "./agent-team";
+import LlmProxyTeamModel from "./llm-proxy-team";
 
 class StatisticsModel {
   /**
@@ -269,19 +269,17 @@ class StatisticsModel {
   static async getTeamStatistics(
     timeframe: StatisticsTimeFrame,
     userId?: string,
-    isAgentAdmin?: boolean,
+    isLlmProxyAdmin?: boolean,
   ): Promise<TeamStatistics[]> {
     const interval = StatisticsModel.getTimeframeInterval(timeframe);
     const timeBucket = StatisticsModel.getTimeBucket(timeframe);
 
-    // Get accessible agent IDs for users that are not agent admins
-    let accessibleAgentIds: string[] = [];
-    if (userId && !isAgentAdmin) {
-      accessibleAgentIds = await AgentTeamModel.getUserAccessibleAgentIds(
-        userId,
-        false,
-      );
-      if (accessibleAgentIds.length === 0) {
+    // Get accessible LLM Proxy IDs for users that are not LLM Proxy admins
+    let accessibleLlmProxyIds: string[] = [];
+    if (userId && !isLlmProxyAdmin) {
+      accessibleLlmProxyIds =
+        await LlmProxyTeamModel.getUserAccessibleLlmProxyIds(userId, false);
+      if (accessibleLlmProxyIds.length === 0) {
         return [];
       }
     }
@@ -300,16 +298,16 @@ class StatisticsModel {
       })
       .from(schema.interactionsTable)
       .innerJoin(
-        schema.agentsTable,
-        eq(schema.interactionsTable.profileId, schema.agentsTable.id),
+        schema.llmProxiesTable,
+        eq(schema.interactionsTable.llmProxyId, schema.llmProxiesTable.id),
       )
       .innerJoin(
-        schema.agentTeamsTable,
-        eq(schema.agentsTable.id, schema.agentTeamsTable.agentId),
+        schema.llmProxyTeamsTable,
+        eq(schema.llmProxiesTable.id, schema.llmProxyTeamsTable.llmProxyId),
       )
       .innerJoin(
         schema.teamsTable,
-        eq(schema.agentTeamsTable.teamId, schema.teamsTable.id),
+        eq(schema.llmProxyTeamsTable.teamId, schema.teamsTable.id),
       )
       .where(
         and(
@@ -336,8 +334,8 @@ class StatisticsModel {
                     ]
                   : [];
               })()),
-          ...(accessibleAgentIds.length > 0
-            ? [inArray(schema.agentsTable.id, accessibleAgentIds)]
+          ...(accessibleLlmProxyIds.length > 0
+            ? [inArray(schema.llmProxiesTable.id, accessibleLlmProxyIds)]
             : []),
         ),
       )
@@ -381,16 +379,16 @@ class StatisticsModel {
       )
       .groupBy(schema.teamsTable.id);
 
-    // Get agent counts per team
-    const teamAgentCounts = await db
+    // Get LLM Proxy counts per team
+    const teamLlmProxyCounts = await db
       .select({
         teamId: schema.teamsTable.id,
-        agentCount: sql<number>`CAST(COUNT(DISTINCT ${schema.agentTeamsTable.agentId}) AS INTEGER)`,
+        llmProxyCount: sql<number>`CAST(COUNT(DISTINCT ${schema.llmProxyTeamsTable.llmProxyId}) AS INTEGER)`,
       })
       .from(schema.teamsTable)
       .leftJoin(
-        schema.agentTeamsTable,
-        eq(schema.teamsTable.id, schema.agentTeamsTable.teamId),
+        schema.llmProxyTeamsTable,
+        eq(schema.teamsTable.id, schema.llmProxyTeamsTable.teamId),
       )
       .groupBy(schema.teamsTable.id);
 
@@ -405,14 +403,15 @@ class StatisticsModel {
         const memberCount =
           teamMemberCounts.find((t) => t.teamId === row.teamId)?.memberCount ||
           0;
-        const agentCount =
-          teamAgentCounts.find((t) => t.teamId === row.teamId)?.agentCount || 0;
+        const llmProxyCount =
+          teamLlmProxyCounts.find((t) => t.teamId === row.teamId)
+            ?.llmProxyCount || 0;
 
         teamMap.set(row.teamId, {
           teamId: row.teamId,
           teamName: row.teamName,
           members: memberCount,
-          agents: agentCount,
+          agents: llmProxyCount, // Using LLM Proxy count (agents field kept for API compatibility)
           requests: 0,
           inputTokens: 0,
           outputTokens: 0,
@@ -437,24 +436,23 @@ class StatisticsModel {
   }
 
   /**
-   * Get agent statistics
+   * Get agent statistics (LLM Proxy statistics)
+   * Note: Uses LLM Proxy data but keeps "agent" naming for API compatibility
    */
   static async getAgentStatistics(
     timeframe: StatisticsTimeFrame,
     userId?: string,
-    isAgentAdmin?: boolean,
+    isLlmProxyAdmin?: boolean,
   ): Promise<AgentStatistics[]> {
     const interval = StatisticsModel.getTimeframeInterval(timeframe);
     const timeBucket = StatisticsModel.getTimeBucket(timeframe);
 
-    // Get accessible agent IDs for users that are non-agent admins
-    let accessibleAgentIds: string[] = [];
-    if (userId && !isAgentAdmin) {
-      accessibleAgentIds = await AgentTeamModel.getUserAccessibleAgentIds(
-        userId,
-        false,
-      );
-      if (accessibleAgentIds.length === 0) {
+    // Get accessible LLM Proxy IDs for users that are non-LLM Proxy admins
+    let accessibleLlmProxyIds: string[] = [];
+    if (userId && !isLlmProxyAdmin) {
+      accessibleLlmProxyIds =
+        await LlmProxyTeamModel.getUserAccessibleLlmProxyIds(userId, false);
+      if (accessibleLlmProxyIds.length === 0) {
         return [];
       }
     }
@@ -462,8 +460,8 @@ class StatisticsModel {
     // Use stored cost from interactions instead of recalculating with average prices
     const query = db
       .select({
-        agentId: schema.agentsTable.id,
-        agentName: schema.agentsTable.name,
+        agentId: schema.llmProxiesTable.id,
+        agentName: schema.llmProxiesTable.name,
         teamName: schema.teamsTable.name,
         timeBucket: sql<string>`DATE_TRUNC(${sql.raw(`'${timeBucket}'`)}, ${schema.interactionsTable.createdAt})`,
         requests: sql<number>`CAST(COUNT(*) AS INTEGER)`,
@@ -473,16 +471,16 @@ class StatisticsModel {
       })
       .from(schema.interactionsTable)
       .innerJoin(
-        schema.agentsTable,
-        eq(schema.interactionsTable.profileId, schema.agentsTable.id),
+        schema.llmProxiesTable,
+        eq(schema.interactionsTable.llmProxyId, schema.llmProxiesTable.id),
       )
       .leftJoin(
-        schema.agentTeamsTable,
-        eq(schema.agentsTable.id, schema.agentTeamsTable.agentId),
+        schema.llmProxyTeamsTable,
+        eq(schema.llmProxiesTable.id, schema.llmProxyTeamsTable.llmProxyId),
       )
       .leftJoin(
         schema.teamsTable,
-        eq(schema.agentTeamsTable.teamId, schema.teamsTable.id),
+        eq(schema.llmProxyTeamsTable.teamId, schema.teamsTable.id),
       )
       .where(
         and(
@@ -509,14 +507,14 @@ class StatisticsModel {
                     ]
                   : [];
               })()),
-          ...(accessibleAgentIds.length > 0
-            ? [inArray(schema.agentsTable.id, accessibleAgentIds)]
+          ...(accessibleLlmProxyIds.length > 0
+            ? [inArray(schema.llmProxiesTable.id, accessibleLlmProxyIds)]
             : []),
         ),
       )
       .groupBy(
-        schema.agentsTable.id,
-        schema.agentsTable.name,
+        schema.llmProxiesTable.id,
+        schema.llmProxiesTable.name,
         schema.teamsTable.name,
         sql`DATE_TRUNC(${sql.raw(`'${timeBucket}'`)}, ${schema.interactionsTable.createdAt})`,
       )
@@ -539,7 +537,7 @@ class StatisticsModel {
     if (timeframe === "1h") {
     }
 
-    // Aggregate data by agent
+    // Aggregate data by LLM Proxy (using agent naming for API compatibility)
     const agentMap = new Map<string, AgentStatistics>();
 
     for (const row of timeSeriesData) {
@@ -580,20 +578,18 @@ class StatisticsModel {
   static async getModelStatistics(
     timeframe: StatisticsTimeFrame,
     userId?: string,
-    isAgentAdmin?: boolean,
+    isLlmProxyAdmin?: boolean,
   ): Promise<ModelStatistics[]> {
     const interval = StatisticsModel.getTimeframeInterval(timeframe);
     const timeBucket = StatisticsModel.getTimeBucket(timeframe);
 
-    // Get accessible agent IDs for users that are non-agent admins
-    let accessibleAgentIds: string[] = [];
-    if (userId && !isAgentAdmin) {
-      accessibleAgentIds = await AgentTeamModel.getUserAccessibleAgentIds(
-        userId,
-        false,
-      );
+    // Get accessible LLM Proxy IDs for users that are non-LLM Proxy admins
+    let accessibleLlmProxyIds: string[] = [];
+    if (userId && !isLlmProxyAdmin) {
+      accessibleLlmProxyIds =
+        await LlmProxyTeamModel.getUserAccessibleLlmProxyIds(userId, false);
 
-      if (accessibleAgentIds.length === 0) {
+      if (accessibleLlmProxyIds.length === 0) {
         return [];
       }
     }
@@ -610,8 +606,8 @@ class StatisticsModel {
       })
       .from(schema.interactionsTable)
       .innerJoin(
-        schema.agentsTable,
-        eq(schema.interactionsTable.profileId, schema.agentsTable.id),
+        schema.llmProxiesTable,
+        eq(schema.interactionsTable.llmProxyId, schema.llmProxiesTable.id),
       )
       .where(
         and(
@@ -638,8 +634,8 @@ class StatisticsModel {
                     ]
                   : [];
               })()),
-          ...(accessibleAgentIds.length > 0
-            ? [inArray(schema.agentsTable.id, accessibleAgentIds)]
+          ...(accessibleLlmProxyIds.length > 0
+            ? [inArray(schema.llmProxiesTable.id, accessibleLlmProxyIds)]
             : []),
         ),
       )
@@ -778,20 +774,18 @@ class StatisticsModel {
   static async getCostSavingsStatistics(
     timeframe: StatisticsTimeFrame,
     userId?: string,
-    isAgentAdmin?: boolean,
+    isLlmProxyAdmin?: boolean,
   ): Promise<CostSavingsStatistics> {
     const interval = StatisticsModel.getTimeframeInterval(timeframe);
     const timeBucket = StatisticsModel.getTimeBucket(timeframe);
 
-    // Get accessible agent IDs for users that are non-agent admins
-    let accessibleAgentIds: string[] = [];
-    if (userId && !isAgentAdmin) {
-      accessibleAgentIds = await AgentTeamModel.getUserAccessibleAgentIds(
-        userId,
-        false,
-      );
+    // Get accessible LLM Proxy IDs for users that are non-LLM Proxy admins
+    let accessibleLlmProxyIds: string[] = [];
+    if (userId && !isLlmProxyAdmin) {
+      accessibleLlmProxyIds =
+        await LlmProxyTeamModel.getUserAccessibleLlmProxyIds(userId, false);
 
-      if (accessibleAgentIds.length === 0) {
+      if (accessibleLlmProxyIds.length === 0) {
         return {
           totalBaselineCost: 0,
           totalActualCost: 0,
@@ -812,8 +806,8 @@ class StatisticsModel {
       })
       .from(schema.interactionsTable)
       .innerJoin(
-        schema.agentsTable,
-        eq(schema.interactionsTable.profileId, schema.agentsTable.id),
+        schema.llmProxiesTable,
+        eq(schema.interactionsTable.llmProxyId, schema.llmProxiesTable.id),
       )
       .where(
         and(
@@ -840,8 +834,8 @@ class StatisticsModel {
                     ]
                   : [];
               })()),
-          ...(accessibleAgentIds.length > 0
-            ? [inArray(schema.agentsTable.id, accessibleAgentIds)]
+          ...(accessibleLlmProxyIds.length > 0
+            ? [inArray(schema.llmProxiesTable.id, accessibleLlmProxyIds)]
             : []),
         ),
       )

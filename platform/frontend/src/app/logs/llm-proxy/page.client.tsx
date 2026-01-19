@@ -126,7 +126,7 @@ function SessionRow({
 }) {
   const router = useRouter();
 
-  const agent = agents?.find((a) => a.id === session.profileId);
+  const agent = agents?.find((a) => a.id === session.llmProxyId);
   const isSingleInteraction =
     session.sessionId === null && session.interactionId;
 
@@ -279,7 +279,7 @@ function SessionRow({
         <div className="flex flex-wrap gap-1">
           <Badge variant="secondary" className="text-xs">
             <Layers className="h-3 w-3 mr-1" />
-            {agent?.name ?? session.profileName ?? "Unknown"}
+            {agent?.name ?? session.llmProxyName ?? "Unknown"}
           </Badge>
           {session.userNames.map((userName) => (
             <Badge key={userName} variant="outline" className="text-xs">
@@ -511,7 +511,7 @@ function SessionsTable({
             <TableBody>
               {sessions.map((session, index) => (
                 <SessionRow
-                  key={`${session.sessionId ?? "single"}-${session.profileId}-${index}`}
+                  key={`${session.sessionId ?? "single"}-${session.llmProxyId}-${index}`}
                   session={session}
                   agents={agents}
                 />

@@ -224,6 +224,28 @@ class LlmProxyTeamModel {
   }
 
   /**
+   * Get team IDs for a specific LLM Proxy
+   * Returns array of team IDs (strings)
+   */
+  static async getTeamsForLlmProxy(llmProxyId: string): Promise<string[]> {
+    logger.debug(
+      { llmProxyId },
+      "LlmProxyTeamModel.getTeamsForLlmProxy: fetching teams",
+    );
+    const proxyTeams = await db
+      .select({ teamId: schema.llmProxyTeamsTable.teamId })
+      .from(schema.llmProxyTeamsTable)
+      .where(eq(schema.llmProxyTeamsTable.llmProxyId, llmProxyId));
+
+    const teamIds = proxyTeams.map((pt) => pt.teamId);
+    logger.debug(
+      { llmProxyId, count: teamIds.length },
+      "LlmProxyTeamModel.getTeamsForLlmProxy: completed",
+    );
+    return teamIds;
+  }
+
+  /**
    * Get team details for multiple LLM Proxies in one query to avoid N+1
    */
   static async getTeamDetailsForLlmProxies(

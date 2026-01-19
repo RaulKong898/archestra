@@ -34,6 +34,8 @@ class PromptModel {
         organizationId,
         name: input.name,
         agentId: input.agentId,
+        // Auto-set llmProxyId from agentId if not provided (backward compatibility)
+        llmProxyId: input.llmProxyId ?? input.agentId,
         userPrompt: input.userPrompt || null,
         systemPrompt: input.systemPrompt || null,
         version: 1,

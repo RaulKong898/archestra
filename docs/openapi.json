@@ -31953,7 +31953,7 @@
                         "type": "string",
                         "format": "date-time"
                       },
-                      "agent": {
+                      "llmProxy": {
                         "type": "object",
                         "properties": {
                           "id": {
@@ -31991,7 +31991,7 @@
                       "artifact",
                       "createdAt",
                       "updatedAt",
-                      "agent",
+                      "llmProxy",
                       "messages"
                     ],
                     "additionalProperties": false
@@ -32377,7 +32377,7 @@
                       "type": "string",
                       "format": "date-time"
                     },
-                    "agent": {
+                    "llmProxy": {
                       "type": "object",
                       "properties": {
                         "id": {
@@ -32415,7 +32415,7 @@
                     "artifact",
                     "createdAt",
                     "updatedAt",
-                    "agent",
+                    "llmProxy",
                     "messages"
                   ],
                   "additionalProperties": false
@@ -32762,7 +32762,7 @@
                       "type": "string",
                       "format": "date-time"
                     },
-                    "agent": {
+                    "llmProxy": {
                       "type": "object",
                       "properties": {
                         "id": {
@@ -32800,7 +32800,7 @@
                     "artifact",
                     "createdAt",
                     "updatedAt",
-                    "agent",
+                    "llmProxy",
                     "messages"
                   ],
                   "additionalProperties": false
@@ -33191,7 +33191,7 @@
                       "type": "string",
                       "format": "date-time"
                     },
-                    "agent": {
+                    "llmProxy": {
                       "type": "object",
                       "properties": {
                         "id": {
@@ -33229,7 +33229,7 @@
                     "artifact",
                     "createdAt",
                     "updatedAt",
-                    "agent",
+                    "llmProxy",
                     "messages"
                   ],
                   "additionalProperties": false
@@ -34106,7 +34106,7 @@
                       "type": "string",
                       "format": "date-time"
                     },
-                    "agent": {
+                    "llmProxy": {
                       "type": "object",
                       "properties": {
                         "id": {
@@ -34144,7 +34144,7 @@
                     "artifact",
                     "createdAt",
                     "updatedAt",
-                    "agent",
+                    "llmProxy",
                     "messages"
                   ],
                   "additionalProperties": false
@@ -34519,7 +34519,7 @@
                       "type": "string",
                       "format": "date-time"
                     },
-                    "agent": {
+                    "llmProxy": {
                       "type": "object",
                       "properties": {
                         "id": {
@@ -34557,7 +34557,7 @@
                     "artifact",
                     "createdAt",
                     "updatedAt",
-                    "agent",
+                    "llmProxy",
                     "messages"
                   ],
                   "additionalProperties": false
@@ -41765,9 +41765,9 @@
               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$"
             },
             "in": "query",
-            "name": "profileId",
+            "name": "llmProxyId",
             "required": false,
-            "description": "Filter by profile ID (internal Archestra profile)"
+            "description": "Filter by LLM Proxy ID"
           },
           {
             "schema": {
@@ -41888,10 +41888,11 @@
                               "type": "string"
                             }
                           },
-                          "profileId": {
+                          "llmProxyId": {
+                            "nullable": true,
                             "type": "string"
                           },
-                          "profileName": {
+                          "llmProxyName": {
                             "nullable": true,
                             "type": "string"
                           },
@@ -41942,8 +41943,8 @@
                           "firstRequestTime",
                           "lastRequestTime",
                           "models",
-                          "profileId",
-                          "profileName",
+                          "llmProxyId",
+                          "llmProxyName",
                           "externalAgentIds",
                           "externalAgentIdLabels",
                           "userNames",
@@ -47244,10 +47245,10 @@
                         "type": "string",
                         "format": "date-time"
                       },
-                      "assignedAgentCount": {
+                      "assignedMcpGatewayCount": {
                         "type": "number"
                       },
-                      "assignedAgents": {
+                      "assignedMcpGateways": {
                         "type": "array",
                         "items": {
                           "type": "object",
@@ -47273,8 +47274,8 @@
                       "description",
                       "parameters",
                       "createdAt",
-                      "assignedAgentCount",
-                      "assignedAgents"
+                      "assignedMcpGatewayCount",
+                      "assignedMcpGateways"
                     ],
                     "additionalProperties": false
                   }
@@ -47911,7 +47912,8 @@
               "enum": [
                 "organization",
                 "team",
-                "agent"
+                "agent",
+                "llm_proxy"
               ]
             },
             "in": "query",
@@ -47960,7 +47962,8 @@
                         "enum": [
                           "organization",
                           "team",
-                          "agent"
+                          "agent",
+                          "llm_proxy"
                         ]
                       },
                       "entityId": {
@@ -48284,7 +48287,8 @@
                     "enum": [
                       "organization",
                       "team",
-                      "agent"
+                      "agent",
+                      "llm_proxy"
                     ]
                   },
                   "entityId": {
@@ -48353,7 +48357,8 @@
                       "enum": [
                         "organization",
                         "team",
-                        "agent"
+                        "agent",
+                        "llm_proxy"
                       ]
                     },
                     "entityId": {
@@ -48670,7 +48675,8 @@
                       "enum": [
                         "organization",
                         "team",
-                        "agent"
+                        "agent",
+                        "llm_proxy"
                       ]
                     },
                     "entityId": {
@@ -48966,7 +48972,8 @@
                     "enum": [
                       "organization",
                       "team",
-                      "agent"
+                      "agent",
+                      "llm_proxy"
                     ]
                   },
                   "entityId": {
@@ -49040,7 +49047,8 @@
                       "enum": [
                         "organization",
                         "team",
-                        "agent"
+                        "agent",
+                        "llm_proxy"
                       ]
                     },
                     "entityId": {
@@ -63563,10 +63571,10 @@
                         "type": "string",
                         "format": "date-time"
                       },
-                      "assignedAgentCount": {
+                      "assignedMcpGatewayCount": {
                         "type": "number"
                       },
-                      "assignedAgents": {
+                      "assignedMcpGateways": {
                         "type": "array",
                         "items": {
                           "type": "object",
@@ -63592,8 +63600,8 @@
                       "description",
                       "parameters",
                       "createdAt",
-                      "assignedAgentCount",
-                      "assignedAgents"
+                      "assignedMcpGatewayCount",
+                      "assignedMcpGateways"
                     ],
                     "additionalProperties": false
                   }
@@ -83735,7 +83743,7 @@
                         "type": "string",
                         "format": "date-time"
                       },
-                      "agent": {
+                      "llmProxy": {
                         "nullable": true,
                         "type": "object",
                         "properties": {
@@ -83782,7 +83790,7 @@
                       "policiesAutoConfiguredReasoning",
                       "createdAt",
                       "updatedAt",
-                      "agent",
+                      "llmProxy",
                       "mcpServer"
                     ],
                     "additionalProperties": false
@@ -84151,10 +84159,10 @@
                             "items": {
                               "type": "object",
                               "properties": {
-                                "agentToolId": {
+                                "mcpGatewayToolId": {
                                   "type": "string"
                                 },
-                                "agent": {
+                                "mcpGateway": {
                                   "type": "object",
                                   "properties": {
                                     "id": {
@@ -84195,8 +84203,8 @@
                                 }
                               },
                               "required": [
-                                "agentToolId",
-                                "agent",
+                                "mcpGatewayToolId",
+                                "mcpGateway",
                                 "credentialSourceMcpServerId",
                                 "credentialOwnerEmail",
                                 "executionSourceMcpServerId",

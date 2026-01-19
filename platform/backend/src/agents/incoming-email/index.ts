@@ -2,7 +2,7 @@ import { executeA2AMessage } from "@/agents/a2a-executor";
 import { CacheKey, cacheManager } from "@/cache-manager";
 import config from "@/config";
 import logger from "@/logging";
-import { AgentTeamModel, PromptModel, TeamModel } from "@/models";
+import { LlmProxyTeamModel, PromptModel, TeamModel } from "@/models";
 import IncomingEmailSubscriptionModel from "@/models/incoming-email-subscription";
 import type {
   AgentIncomingEmailProvider,
@@ -487,15 +487,18 @@ export async function processIncomingEmail(
     throw new Error(`Prompt ${promptId} not found`);
   }
 
-  // Get organization from agent's team
-  const agentTeamIds = await AgentTeamModel.getTeamsForAgent(prompt.agentId);
-  if (agentTeamIds.length === 0) {
-    throw new Error(`No teams found for agent ${prompt.agentId}`);
+  // Get organization from LLM proxy's team
+  // Note: prompt.agentId refers to the LLM Proxy ID
+  const llmProxyTeamIds = await LlmProxyTeamModel.getTeamsForLlmProxy(
+    prompt.agentId,
+  );
+  if (llmProxyTeamIds.length === 0) {
+    throw new Error(`No teams found for LLM proxy ${prompt.agentId}`);
   }
 
-  const teams = await TeamModel.findByIds(agentTeamIds);
+  const teams = await TeamModel.findByIds(llmProxyTeamIds);
   if (teams.length === 0 || !teams[0].organizationId) {
-    throw new Error(`No organization found for agent ${prompt.agentId}`);
+    throw new Error(`No organization found for LLM proxy ${prompt.agentId}`);
   }
   const organization = teams[0].organizationId;
 

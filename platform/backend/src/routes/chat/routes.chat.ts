@@ -174,7 +174,7 @@ const chatRoutes: FastifyPluginAsyncZod = async (fastify) => {
       // Pass undefined if no custom selection (use all tools)
       // Pass the actual array (even if empty) if there is custom selection
       const mcpTools = await getChatMcpTools({
-        agentName: conversation.agent.name,
+        agentName: conversation.llmProxy.name,
         agentId: conversation.agentId,
         userId: user.id,
         userIsProfileAdmin,

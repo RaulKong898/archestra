@@ -1,13 +1,7 @@
 import logger from "@/logging";
-import {
-  AgentTeamModel,
-  OptimizationRuleModel,
-  TeamModel,
-  TokenPriceModel,
-} from "@/models";
+import { OptimizationRuleModel, TeamModel, TokenPriceModel } from "@/models";
 import { getTokenizer } from "@/tokenizers";
 import type {
-  Agent,
   Anthropic,
   Cerebras,
   Gemini,
@@ -15,6 +9,15 @@ import type {
   Vllm,
   Zhipuai,
 } from "@/types";
+
+/**
+ * Interface for profile data needed by cost optimization.
+ * Both Agent and LlmProxy satisfy this interface.
+ */
+interface ProfileWithTeams {
+  id: string;
+  teams: Array<{ id: string }>;
+}
 
 type ProviderMessages = {
   anthropic: Anthropic.Types.MessagesRequest["messages"];
@@ -33,43 +36,43 @@ type ProviderMessages = {
 export async function getOptimizedModel<
   Provider extends keyof ProviderMessages,
 >(
-  agent: Agent,
+  profile: ProfileWithTeams,
   messages: ProviderMessages[Provider],
   provider: Provider,
   hasTools: boolean,
 ): Promise<string | null> {
-  const agentId = agent.id;
+  const profileId = profile.id;
+  const teamIds = profile.teams.map((t) => t.id);
 
-  // Get organizationId the same way limits do: from agent's teams OR fallback
+  // Get organizationId from profile's teams OR fallback
   let organizationId: string | null = null;
-  const agentTeamIds = await AgentTeamModel.getTeamsForAgent(agentId);
 
-  if (agentTeamIds.length > 0) {
-    // Get organizationId from agent's first team
-    const teams = await TeamModel.findByIds(agentTeamIds);
+  if (teamIds.length > 0) {
+    // Get organizationId from profile's first team
+    const teams = await TeamModel.findByIds(teamIds);
     if (teams.length > 0 && teams[0].organizationId) {
       organizationId = teams[0].organizationId;
       logger.info(
-        { agentId, organizationId },
+        { profileId, organizationId },
         "[CostOptimization] resolved organizationId from team",
       );
     }
   } else {
-    // If agent has no teams, check if there are any organization optimization rules to apply (fallback)
+    // If profile has no teams, check if there are any organization optimization rules to apply (fallback)
     // TODO: this fallback doesn't work if there are multiple organizations.
     organizationId = await OptimizationRuleModel.getFirstOrganizationId();
 
     if (organizationId) {
       logger.info(
-        { agentId, organizationId },
-        "[CostOptimization] agent has no teams - using fallback organization",
+        { profileId, organizationId },
+        "[CostOptimization] profile has no teams - using fallback organization",
       );
     }
   }
 
   if (!organizationId) {
     logger.warn(
-      { agentId },
+      { profileId },
       "[CostOptimization] could not resolve organizationId",
     );
     return null;
@@ -84,7 +87,7 @@ export async function getOptimizedModel<
 
   if (rules.length === 0) {
     logger.info(
-      { agentId, organizationId, provider },
+      { profileId, organizationId, provider },
       "[CostOptimization] no optimization rules configured",
     );
     return null;
@@ -107,11 +110,14 @@ export async function getOptimizedModel<
 
   if (optimizedModel) {
     logger.info(
-      { agentId, optimizedModel },
+      { profileId, optimizedModel },
       "[CostOptimization] optimization rule matched",
     );
   } else {
-    logger.info({ agentId }, "[CostOptimization] no optimization rule matched");
+    logger.info(
+      { profileId },
+      "[CostOptimization] no optimization rule matched",
+    );
   }
 
   return optimizedModel;

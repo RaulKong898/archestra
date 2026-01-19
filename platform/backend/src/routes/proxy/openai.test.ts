@@ -5,7 +5,7 @@ import {
   type ZodTypeProvider,
 } from "fastify-type-provider-zod";
 import config from "@/config";
-import { AgentModel, TokenPriceModel } from "@/models";
+import { TokenPriceModel } from "@/models";
 import { afterEach, beforeEach, describe, expect, test } from "@/test";
 import type { OpenAi } from "@/types";
 import openAiProxyRoutes from "./openai";
@@ -60,7 +60,7 @@ describe("OpenAI proxy streaming", () => {
 });
 
 describe("OpenAI cost tracking", () => {
-  test("stores cost and baselineCost in interaction", async () => {
+  test("stores cost and baselineCost in interaction", async ({ makeAgent }) => {
     const app = Fastify().withTypeProvider<ZodTypeProvider>();
     app.setValidatorCompiler(validatorCompiler);
     app.setSerializerCompiler(serializerCompiler);
@@ -77,7 +77,7 @@ describe("OpenAI cost tracking", () => {
     });
 
     // Create a test agent with cost optimization enabled
-    const agent = await AgentModel.create({
+    const agent = await makeAgent({
       name: "Test Cost Agent",
       teams: [],
     });
@@ -115,7 +115,9 @@ describe("OpenAI cost tracking", () => {
 });
 
 describe("OpenAI streaming mode", () => {
-  test("streaming mode completes normally and records interaction", async () => {
+  test("streaming mode completes normally and records interaction", async ({
+    makeAgent,
+  }) => {
     const app = Fastify().withTypeProvider<ZodTypeProvider>();
     app.setValidatorCompiler(validatorCompiler);
     app.setSerializerCompiler(serializerCompiler);
@@ -132,7 +134,7 @@ describe("OpenAI streaming mode", () => {
     });
 
     // Create a test agent
-    const agent = await AgentModel.create({
+    const agent = await makeAgent({
       name: "Test Streaming Agent",
       teams: [],
     });
@@ -191,7 +193,7 @@ describe("OpenAI streaming mode", () => {
   test(
     "streaming mode interrupted still records interaction",
     { timeout: 10000 },
-    async () => {
+    async ({ makeAgent }) => {
       const app = Fastify().withTypeProvider<ZodTypeProvider>();
       app.setValidatorCompiler(validatorCompiler);
       app.setSerializerCompiler(serializerCompiler);
@@ -216,7 +218,7 @@ describe("OpenAI streaming mode", () => {
         });
 
         // Create a test agent
-        const agent = await AgentModel.create({
+        const agent = await makeAgent({
           name: "Test Interrupted Streaming Agent",
           teams: [],
         });
@@ -273,7 +275,7 @@ describe("OpenAI streaming mode", () => {
   test(
     "streaming mode interrupted before usage still records interaction",
     { timeout: 10000 },
-    async () => {
+    async ({ makeAgent }) => {
       const app = Fastify().withTypeProvider<ZodTypeProvider>();
       app.setValidatorCompiler(validatorCompiler);
       app.setSerializerCompiler(serializerCompiler);
@@ -298,7 +300,7 @@ describe("OpenAI streaming mode", () => {
         });
 
         // Create a test agent
-        const agent = await AgentModel.create({
+        const agent = await makeAgent({
           name: "Test Interrupted Before Usage Agent",
           teams: [],
         });

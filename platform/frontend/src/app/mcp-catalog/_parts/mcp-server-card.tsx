@@ -231,7 +231,7 @@ export function McpServerCard({
       return <LoadingSpinner className="w-3 h-3 inline-block ml-2" />;
     return !tools
       ? 0
-      : tools.filter((tool) => tool.assignedAgentCount > 0).length;
+      : tools.filter((tool) => tool.assignedMcpGatewayCount > 0).length;
   };
 
   const isRemoteVariant = variant === "remote";
@@ -381,7 +381,7 @@ export function McpServerCard({
       <div className="flex items-center gap-2">
         <Wrench className="h-4 w-4 text-muted-foreground" />
         <span className="text-muted-foreground">
-          Assigned to profile:{" "}
+          Assigned to MCP Gateways:{" "}
           <span className="font-medium text-foreground">
             {getToolsAssignedCount()}{" "}
             {toolsDiscoveredCount ? `(out of ${toolsDiscoveredCount})` : ""}

@@ -12,8 +12,8 @@ const PromptAgentWithDetailsSchema = z.object({
   createdAt: z.coerce.date(),
   name: z.string(),
   systemPrompt: z.string().nullable(),
-  profileId: z.string().uuid(),
-  profileName: z.string(),
+  llmProxyId: z.string().uuid(),
+  llmProxyName: z.string(),
 });
 
 const SyncPromptAgentsBodySchema = z.object({

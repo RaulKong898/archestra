@@ -11,18 +11,18 @@ import { executeA2AMessage } from "@/agents/a2a-executor";
 import { userHasPermission } from "@/auth/utils";
 import logger from "@/logging";
 import {
-  AgentModel,
-  AgentTeamModel,
   ConversationModel,
   InternalMcpCatalogModel,
   LimitModel,
+  LlmProxyModel,
+  LlmProxyTeamModel,
   McpServerModel,
   PromptAgentModel,
   ToolInvocationPolicyModel,
   ToolModel,
   TrustedDataPolicyModel,
 } from "@/models";
-import { assignToolToAgent } from "@/routes/agent-tool";
+import { assignToolToMcpGateway } from "@/routes/agent-tool";
 import type { TokenAuthResult } from "@/routes/mcp-gateway.utils";
 import type { InternalMcpCatalog } from "@/types";
 import {
@@ -152,7 +152,7 @@ export async function executeArchestraTool(
     // Variables to hold the target agent info
     let targetAgentPromptId: string;
     let targetAgentName: string;
-    let targetProfileId: string;
+    let targetLlmProxyId: string;
     let effectiveOrganizationId: string;
 
     // Try prompt-based lookup first (for internal agents with prompt context)
@@ -190,7 +190,7 @@ export async function executeArchestraTool(
 
       targetAgentPromptId = agent.agentPromptId;
       targetAgentName = agent.name;
-      targetProfileId = agent.profileId;
+      targetLlmProxyId = agent.llmProxyId;
       effectiveOrganizationId = organizationId;
     } else {
       // MCP Gateway context: Look up the tool directly by name
@@ -228,15 +228,15 @@ export async function executeArchestraTool(
 
       targetAgentPromptId = promptAgentDetails.agentPromptId;
       targetAgentName = promptAgentDetails.agentPromptName;
-      targetProfileId = promptAgentDetails.profileId;
+      targetLlmProxyId = promptAgentDetails.llmProxyId;
       effectiveOrganizationId = promptAgentDetails.organizationId;
     }
 
-    // Check user has access to the target agent
+    // Check user has access to the target LLM Proxy
     if (userId) {
-      const userAccessibleAgentIds =
-        await AgentTeamModel.getUserAccessibleAgentIds(userId, false);
-      if (!userAccessibleAgentIds.includes(targetProfileId)) {
+      const userAccessibleLlmProxyIds =
+        await LlmProxyTeamModel.getUserAccessibleLlmProxyIds(userId, false);
+      if (!userAccessibleLlmProxyIds.includes(targetLlmProxyId)) {
         return {
           content: [
             {
@@ -419,8 +419,23 @@ export async function executeArchestraTool(
         };
       }
 
-      // Create the profile
-      const newProfile = await AgentModel.create({
+      // Get organization ID from context
+      const effectiveOrgId = organizationId ?? tokenAuth?.organizationId;
+      if (!effectiveOrgId) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "Error: Organization context not available. Cannot create profile.",
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      // Create the profile (LLM Proxy)
+      const newProfile = await LlmProxyModel.create({
+        organizationId: effectiveOrgId,
         name,
         teams,
         labels,
@@ -848,14 +863,14 @@ export async function executeArchestraTool(
     );
 
     try {
-      const targetProfileId = (args?.profile_id as string) || profile.id;
-      const usage = await LimitModel.getAgentTokenUsage(targetProfileId);
+      const targetLlmProxyId = (args?.profile_id as string) || profile.id;
+      const usage = await LimitModel.getAgentTokenUsage(targetLlmProxyId);
 
       return {
         content: [
           {
             type: "text",
-            text: `Token usage for profile ${targetProfileId}:\n\nTotal Input Tokens: ${usage.totalInputTokens.toLocaleString()}\nTotal Output Tokens: ${usage.totalOutputTokens.toLocaleString()}\nTotal Tokens: ${usage.totalTokens.toLocaleString()}`,
+            text: `Token usage for profile ${targetLlmProxyId}:\n\nTotal Input Tokens: ${usage.totalInputTokens.toLocaleString()}\nTotal Output Tokens: ${usage.totalOutputTokens.toLocaleString()}\nTotal Tokens: ${usage.totalTokens.toLocaleString()}`,
           },
         ],
         isError: false,
@@ -1436,8 +1451,8 @@ export async function executeArchestraTool(
 
       const results = await Promise.allSettled(
         assignments.map((assignment) =>
-          assignToolToAgent(
-            assignment.profileId,
+          assignToolToMcpGateway(
+            assignment.profileId, // profileId is the same as mcpGatewayId
             assignment.toolId,
             assignment.credentialSourceMcpServerId,
             assignment.executionSourceMcpServerId,
@@ -1622,7 +1637,8 @@ export async function executeArchestraTool(
         };
       }
 
-      const requestedProfile = await AgentModel.findById(id);
+      // Find profile (LLM Proxy) by ID
+      const requestedProfile = await LlmProxyModel.findById(id);
       if (!requestedProfile) {
         return {
           content: [
@@ -2493,10 +2509,13 @@ export async function getAgentTools(context: {
       "admin",
     );
 
-    const userAccessibleAgentIds =
-      await AgentTeamModel.getUserAccessibleAgentIds(userId, isAgentAdmin);
+    const userAccessibleLlmProxyIds =
+      await LlmProxyTeamModel.getUserAccessibleLlmProxyIds(
+        userId,
+        isAgentAdmin,
+      );
     accessibleTools = allToolsWithDetails.filter((t) =>
-      userAccessibleAgentIds.includes(t.profileId),
+      userAccessibleLlmProxyIds.includes(t.llmProxyId),
     );
   }
 

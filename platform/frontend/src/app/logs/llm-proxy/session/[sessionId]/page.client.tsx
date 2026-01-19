@@ -88,7 +88,7 @@ export default function SessionDetailPage({
 
   // Session metadata from API
   const sessionSource = sessionData?.sessionSource;
-  const profileName = sessionData?.profileName;
+  const profileName = sessionData?.llmProxyName;
   const userNames = sessionData?.userNames ?? [];
 
   // Session title: prefer claudeCodeTitle or conversationTitle, fall back to first user message

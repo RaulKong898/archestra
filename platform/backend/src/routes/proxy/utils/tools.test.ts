@@ -36,9 +36,11 @@ describe("persistTools", () => {
     expect(createdToolNames).toContain("new-tool-2");
     expect(createdToolNames).toContain("new-tool-3");
 
-    // Verify agent-tool relationships exist
-    const toolIds = await AgentToolModel.findToolIdsByAgent(agent.id);
-    expect(toolIds.length).toBeGreaterThanOrEqual(3);
+    // Verify tools were created with llmProxyId
+    const proxyTools = agentTools.filter(
+      (t) => t.llmProxyId === agent.id && t.catalogId === null,
+    );
+    expect(proxyTools.length).toBeGreaterThanOrEqual(3);
   });
 
   test("handles empty tools array without errors", async ({ makeAgent }) => {
@@ -50,7 +52,7 @@ describe("persistTools", () => {
     // No new tools should be created (only Archestra built-in tools)
     const agentTools = await ToolModel.getToolsByAgent(agent.id);
     const proxyTools = agentTools.filter(
-      (t) => t.agentId === agent.id && t.catalogId === null,
+      (t) => t.llmProxyId === agent.id && t.catalogId === null,
     );
     expect(proxyTools).toHaveLength(0);
   });
@@ -77,7 +79,7 @@ describe("persistTools", () => {
     // Only the regular tool should be created as a proxy-sniffed tool
     const agentTools = await ToolModel.getToolsByAgent(agent.id);
     const proxyTools = agentTools.filter(
-      (t) => t.agentId === agent.id && t.catalogId === null,
+      (t) => t.llmProxyId === agent.id && t.catalogId === null,
     );
 
     expect(proxyTools).toHaveLength(1);
@@ -111,7 +113,7 @@ describe("persistTools", () => {
     // Only the regular tool should be created
     const agentTools = await ToolModel.getToolsByAgent(agent.id);
     const proxyTools = agentTools.filter(
-      (t) => t.agentId === agent.id && t.catalogId === null,
+      (t) => t.llmProxyId === agent.id && t.catalogId === null,
     );
 
     expect(proxyTools).toHaveLength(1);
@@ -123,18 +125,19 @@ describe("persistTools", () => {
     makeInternalMcpCatalog,
     makeMcpServer,
     makeTool,
+    makeMcpGatewayTool,
   }) => {
     const agent = await makeAgent({ name: "Test Agent" });
     const catalog = await makeInternalMcpCatalog();
     const mcpServer = await makeMcpServer({ catalogId: catalog.id });
 
-    // Create an MCP tool and assign it to the agent
+    // Create an MCP tool and assign it to the MCP gateway (agent.id is used as gateway ID)
     const mcpTool = await makeTool({
       name: "mcp-tool-1",
       catalogId: catalog.id,
       mcpServerId: mcpServer.id,
     });
-    await AgentToolModel.createIfNotExists(agent.id, mcpTool.id);
+    await makeMcpGatewayTool(agent.id, mcpTool.id);
 
     // Try to persist tools including one with the same name as the MCP tool
     const tools = [
@@ -150,12 +153,13 @@ describe("persistTools", () => {
       },
     ];
 
-    await persistTools(tools, agent.id);
+    // Pass agent.id as both llmProxyId and mcpGatewayId
+    await persistTools(tools, agent.id, agent.id);
 
     // Only the proxy tool should be created (MCP tool should be skipped)
     const agentTools = await ToolModel.getToolsByAgent(agent.id);
     const proxyTools = agentTools.filter(
-      (t) => t.agentId === agent.id && t.catalogId === null,
+      (t) => t.llmProxyId === agent.id && t.catalogId === null,
     );
 
     expect(proxyTools).toHaveLength(1);
@@ -219,7 +223,7 @@ describe("persistTools", () => {
     // Verify all tools were created
     const agentTools = await ToolModel.getToolsByAgent(agent.id);
     const proxyToolNames = agentTools
-      .filter((t) => t.agentId === agent.id && t.catalogId === null)
+      .filter((t) => t.llmProxyId === agent.id && t.catalogId === null)
       .map((t) => t.name);
 
     expect(proxyToolNames).toContain("tool-with-all-fields");
@@ -265,23 +269,24 @@ describe("persistTools", () => {
     makeInternalMcpCatalog,
     makeMcpServer,
     makeTool,
+    makeMcpGatewayTool,
   }) => {
     const agent = await makeAgent({ name: "Test Agent" });
     const catalog = await makeInternalMcpCatalog();
     const mcpServer = await makeMcpServer({ catalogId: catalog.id });
 
-    // Create an MCP tool and assign it
+    // Create an MCP tool and assign it to the MCP gateway
     const mcpTool = await makeTool({
       name: "existing-mcp-tool",
       catalogId: catalog.id,
       mcpServerId: mcpServer.id,
     });
-    await AgentToolModel.createIfNotExists(agent.id, mcpTool.id);
+    await makeMcpGatewayTool(agent.id, mcpTool.id);
 
     // Get count before
     const toolsBefore = await ToolModel.getToolsByAgent(agent.id);
     const proxyToolsBefore = toolsBefore.filter(
-      (t) => t.agentId === agent.id && t.catalogId === null,
+      (t) => t.llmProxyId === agent.id && t.catalogId === null,
     );
 
     // Try to persist only tools that should be filtered
@@ -298,12 +303,13 @@ describe("persistTools", () => {
       },
     ];
 
-    await persistTools(tools, agent.id);
+    // Pass agent.id as both llmProxyId and mcpGatewayId
+    await persistTools(tools, agent.id, agent.id);
 
     // No new proxy tools should be created
     const toolsAfter = await ToolModel.getToolsByAgent(agent.id);
     const proxyToolsAfter = toolsAfter.filter(
-      (t) => t.agentId === agent.id && t.catalogId === null,
+      (t) => t.llmProxyId === agent.id && t.catalogId === null,
     );
 
     expect(proxyToolsAfter.length).toBe(proxyToolsBefore.length);
@@ -344,7 +350,7 @@ describe("persistTools", () => {
     // Verify tools were created (only unique names)
     const agentTools = await ToolModel.getToolsByAgent(agent.id);
     const proxyTools = agentTools.filter(
-      (t) => t.agentId === agent.id && t.catalogId === null,
+      (t) => t.llmProxyId === agent.id && t.catalogId === null,
     );
 
     // Should have exactly 2 unique tools

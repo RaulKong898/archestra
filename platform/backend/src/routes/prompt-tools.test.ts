@@ -1,4 +1,3 @@
-import AgentModel from "@/models/agent";
 import PromptModel from "@/models/prompt";
 import PromptAgentModel from "@/models/prompt-agent";
 import ToolModel from "@/models/tool";
@@ -7,17 +6,16 @@ import { describe, expect, test } from "@/test";
 describe("GET /api/prompts/:id/tools", () => {
   test("returns agent delegation tools for a prompt", async ({
     makeOrganization,
-    makeUser,
-    makeTeam,
+    makeAgent,
+    seedArchestraCatalog,
   }) => {
+    await seedArchestraCatalog();
     const org = await makeOrganization();
-    const user = await makeUser({ email: "test@example.com" });
-    const team = await makeTeam(org.id, user.id, { name: "Test Team" });
 
     // Create parent agent and prompt
-    const parentAgent = await AgentModel.create({
+    const parentAgent = await makeAgent({
       name: "Parent Agent",
-      teams: [team.id],
+      teams: [],
     });
 
     const parentPrompt = await PromptModel.create(org.id, {
@@ -26,9 +24,9 @@ describe("GET /api/prompts/:id/tools", () => {
     });
 
     // Create child agent and prompt
-    const childAgent = await AgentModel.create({
+    const childAgent = await makeAgent({
       name: "Child Agent",
-      teams: [team.id],
+      teams: [],
     });
 
     const childPrompt = await PromptModel.create(org.id, {
@@ -55,6 +53,6 @@ describe("GET /api/prompts/:id/tools", () => {
       parentPrompt.id,
     );
     expect(toolsWithDetails).toHaveLength(1);
-    expect(toolsWithDetails[0].profileId).toBe(childAgent.id);
+    expect(toolsWithDetails[0].llmProxyId).toBe(childAgent.id);
   });
 });

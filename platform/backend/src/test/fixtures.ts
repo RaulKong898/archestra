@@ -2,7 +2,11 @@
  * biome-ignore-all lint/correctness/noEmptyPattern: oddly enough in extend below this is required
  * see https://vitest.dev/guide/test-context.html#extend-test-context
  */
-import { ARCHESTRA_MCP_CATALOG_ID, MEMBER_ROLE_NAME } from "@shared";
+import {
+  AGENT_DELEGATION_MCP_CATALOG_ID,
+  ARCHESTRA_MCP_CATALOG_ID,
+  MEMBER_ROLE_NAME,
+} from "@shared";
 import { beforeEach as baseBeforeEach, test as baseTest } from "vitest";
 import db, { schema } from "@/database";
 import {
@@ -55,6 +59,8 @@ interface TestFixtures {
   makeAgent: typeof makeAgent;
   makeTool: typeof makeTool;
   makeAgentTool: typeof makeAgentTool;
+  makeMcpGateway: typeof makeMcpGateway;
+  makeMcpGatewayTool: typeof makeMcpGatewayTool;
   makeToolPolicy: typeof makeToolPolicy;
   makeTrustedDataPolicy: typeof makeTrustedDataPolicy;
   makeCustomRole: typeof makeCustomRole;
@@ -69,6 +75,7 @@ interface TestFixtures {
   makeInteraction: typeof makeInteraction;
   makeSecret: typeof makeSecret;
   makeSsoProvider: typeof makeSsoProvider;
+  seedArchestraCatalog: typeof seedArchestraCatalog;
   seedAndAssignArchestraTools: typeof seedAndAssignArchestraTools;
 }
 
@@ -177,10 +184,67 @@ async function makeAgent(overrides: Partial<InsertAgent> = {}): Promise<Agent> {
     teams: [],
     labels: [],
   };
-  return await AgentModel.create({
+  const agent = await AgentModel.create({
     ...defaults,
     ...overrides,
   });
+
+  // Also create a corresponding MCP Gateway with the same ID for profile split compatibility
+  // This ensures tests that use makeAgent can also use mcp_gateway_tools
+  await db
+    .insert(schema.mcpGatewaysTable)
+    .values({
+      id: agent.id,
+      name: agent.name,
+      organizationId: "test-org-id",
+      isDefault: agent.isDefault,
+      createdAt: agent.createdAt,
+      updatedAt: agent.updatedAt,
+    })
+    .onConflictDoNothing();
+
+  // Also create a corresponding LLM Proxy with the same ID
+  await db
+    .insert(schema.llmProxiesTable)
+    .values({
+      id: agent.id,
+      name: agent.name,
+      organizationId: "test-org-id",
+      isDefault: agent.isDefault,
+      considerContextUntrusted: agent.considerContextUntrusted,
+      createdAt: agent.createdAt,
+      updatedAt: agent.updatedAt,
+    })
+    .onConflictDoNothing();
+
+  // Copy team assignments to llm_proxy_team and mcp_gateway_team
+  // This ensures access control works correctly after the profile split migration
+  const teamIds = overrides.teams ?? defaults.teams;
+  if (teamIds && teamIds.length > 0) {
+    // Insert into llm_proxy_team
+    await db
+      .insert(schema.llmProxyTeamsTable)
+      .values(
+        teamIds.map((teamId) => ({
+          llmProxyId: agent.id,
+          teamId,
+        })),
+      )
+      .onConflictDoNothing();
+
+    // Insert into mcp_gateway_team
+    await db
+      .insert(schema.mcpGatewayTeamsTable)
+      .values(
+        teamIds.map((teamId) => ({
+          mcpGatewayId: agent.id,
+          teamId,
+        })),
+      )
+      .onConflictDoNothing();
+  }
+
+  return agent;
 }
 
 /**
@@ -196,6 +260,7 @@ async function makeTool(
       | "catalogId"
       | "mcpServerId"
       | "agentId"
+      | "llmProxyId"
     >
   > = {},
 ): Promise<Tool> {
@@ -204,6 +269,9 @@ async function makeTool(
     description: "Test tool description",
     parameters: {},
     ...overrides,
+    // For proxy-sniffed tools, set llmProxyId = agentId since they share the same ID
+    // This ensures access control works correctly after the profile split migration
+    llmProxyId: overrides.llmProxyId ?? overrides.agentId ?? null,
   };
 
   await ToolModel.createToolIfNotExists(toolData);
@@ -230,6 +298,52 @@ async function makeAgentTool(
   > = {},
 ) {
   return await AgentToolModel.create(agentId, toolId, overrides);
+}
+
+/**
+ * Creates a test MCP Gateway in the database
+ */
+async function makeMcpGateway(
+  organizationId: string,
+  overrides: Partial<{ name: string; isDefault: boolean }> = {},
+) {
+  const [gateway] = await db
+    .insert(schema.mcpGatewaysTable)
+    .values({
+      id: crypto.randomUUID(),
+      name: `Test Gateway ${crypto.randomUUID().substring(0, 8)}`,
+      organizationId,
+      isDefault: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      ...overrides,
+    })
+    .returning();
+  return gateway;
+}
+
+/**
+ * Creates a test MCP Gateway-tool relationship
+ */
+async function makeMcpGatewayTool(
+  mcpGatewayId: string,
+  toolId: string,
+  overrides: Partial<{
+    responseModifierTemplate: string;
+    credentialSourceMcpServerId: string;
+    executionSourceMcpServerId: string;
+    useDynamicTeamCredential: boolean;
+  }> = {},
+) {
+  const [gatewayTool] = await db
+    .insert(schema.mcpGatewayToolsTable)
+    .values({
+      mcpGatewayId,
+      toolId,
+      ...overrides,
+    })
+    .returning();
+  return gatewayTool;
 }
 
 /**
@@ -670,6 +784,41 @@ async function makeSsoProvider(
 }
 
 /**
+ * Seeds just the Archestra catalog entries without creating any tools.
+ * This includes both the main Archestra catalog and the Agent Delegation catalog.
+ * This is useful for tests that need to create agent delegation tools
+ * (via PromptAgentModel.create) but don't need the full Archestra toolset.
+ */
+async function seedArchestraCatalog(): Promise<void> {
+  // Seed main Archestra catalog
+  const existingArchestra = await InternalMcpCatalogModel.findById(
+    ARCHESTRA_MCP_CATALOG_ID,
+  );
+  if (!existingArchestra) {
+    await db.insert(schema.internalMcpCatalogTable).values({
+      id: ARCHESTRA_MCP_CATALOG_ID,
+      name: "Archestra",
+      description:
+        "Built-in Archestra tools for managing profiles, limits, policies, and MCP servers.",
+      serverType: "builtin",
+    });
+  }
+
+  // Seed Agent Delegation catalog (used for agent delegation tools)
+  const existingAgentDelegation = await InternalMcpCatalogModel.findById(
+    AGENT_DELEGATION_MCP_CATALOG_ID,
+  );
+  if (!existingAgentDelegation) {
+    await db.insert(schema.internalMcpCatalogTable).values({
+      id: AGENT_DELEGATION_MCP_CATALOG_ID,
+      name: "Agent Delegation",
+      description: "Tools for delegating tasks to other agents.",
+      serverType: "builtin",
+    });
+  }
+}
+
+/**
  * Seeds and assigns Archestra tools to an agent.
  * Creates the Archestra catalog entry if it doesn't exist, then seeds tools.
  * This is useful for tests that need Archestra tools to be available.
@@ -723,6 +872,12 @@ export const test = baseTest.extend<TestFixtures>({
   makeAgentTool: async ({}, use) => {
     await use(makeAgentTool);
   },
+  makeMcpGateway: async ({}, use) => {
+    await use(makeMcpGateway);
+  },
+  makeMcpGatewayTool: async ({}, use) => {
+    await use(makeMcpGatewayTool);
+  },
   makeToolPolicy: async ({}, use) => {
     await use(makeToolPolicy);
   },
@@ -764,6 +919,9 @@ export const test = baseTest.extend<TestFixtures>({
   },
   makeSsoProvider: async ({}, use) => {
     await use(makeSsoProvider);
+  },
+  seedArchestraCatalog: async ({}, use) => {
+    await use(seedArchestraCatalog);
   },
   seedAndAssignArchestraTools: async ({}, use) => {
     await use(seedAndAssignArchestraTools);

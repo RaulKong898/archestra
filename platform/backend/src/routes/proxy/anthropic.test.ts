@@ -5,12 +5,12 @@ import {
   type ZodTypeProvider,
 } from "fastify-type-provider-zod";
 import config from "@/config";
-import { AgentModel, TokenPriceModel } from "@/models";
+import { TokenPriceModel } from "@/models";
 import { afterEach, beforeEach, describe, expect, test } from "@/test";
 import anthropicProxyRoutes from "./anthropic";
 
 describe("Anthropic cost tracking", () => {
-  test("stores cost and baselineCost in interaction", async () => {
+  test("stores cost and baselineCost in interaction", async ({ makeAgent }) => {
     const app = Fastify().withTypeProvider<ZodTypeProvider>();
     app.setValidatorCompiler(validatorCompiler);
     app.setSerializerCompiler(serializerCompiler);
@@ -27,7 +27,7 @@ describe("Anthropic cost tracking", () => {
     });
 
     // Create a test agent with cost optimization enabled
-    const agent = await AgentModel.create({
+    const agent = await makeAgent({
       name: "Test Cost Agent",
       teams: [],
     });
@@ -67,7 +67,9 @@ describe("Anthropic cost tracking", () => {
 });
 
 describe("Anthropic streaming mode", () => {
-  test("streaming mode completes normally and records interaction", async () => {
+  test("streaming mode completes normally and records interaction", async ({
+    makeAgent,
+  }) => {
     const app = Fastify().withTypeProvider<ZodTypeProvider>();
     app.setValidatorCompiler(validatorCompiler);
     app.setSerializerCompiler(serializerCompiler);
@@ -84,7 +86,7 @@ describe("Anthropic streaming mode", () => {
     });
 
     // Create a test agent
-    const agent = await AgentModel.create({
+    const agent = await makeAgent({
       name: "Test Streaming Agent",
       teams: [],
     });
@@ -147,7 +149,7 @@ describe("Anthropic streaming mode", () => {
   test(
     "streaming mode interrupted still records interaction",
     { timeout: 10000 },
-    async () => {
+    async ({ makeAgent }) => {
       const app = Fastify().withTypeProvider<ZodTypeProvider>();
       app.setValidatorCompiler(validatorCompiler);
       app.setSerializerCompiler(serializerCompiler);
@@ -171,7 +173,7 @@ describe("Anthropic streaming mode", () => {
         });
 
         // Create a test agent
-        const agent = await AgentModel.create({
+        const agent = await makeAgent({
           name: "Test Interrupted Streaming Agent",
           teams: [],
         });
@@ -230,7 +232,9 @@ describe("Anthropic streaming mode", () => {
 });
 
 describe("Anthropic tool call accumulation", () => {
-  test("accumulates tool call input without [object Object] bug", async () => {
+  test("accumulates tool call input without [object Object] bug", async ({
+    makeAgent,
+  }) => {
     const app = Fastify().withTypeProvider<ZodTypeProvider>();
     app.setValidatorCompiler(validatorCompiler);
     app.setSerializerCompiler(serializerCompiler);
@@ -252,7 +256,7 @@ describe("Anthropic tool call accumulation", () => {
       });
 
       // Create a test agent
-      const agent = await AgentModel.create({
+      const agent = await makeAgent({
         name: "Test Tool Call Agent",
         teams: [],
       });

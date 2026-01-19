@@ -4,8 +4,8 @@ import { z } from "zod";
 import config from "@/config";
 import { getObservableFetch } from "@/llm-metrics";
 import logger from "@/logging";
-import AgentModel from "@/models/agent";
 import InteractionModel from "@/models/interaction";
+import LlmProxyModel from "@/models/llm-proxy";
 import type { Agent, Tool } from "@/types";
 
 const PolicyConfigSchema = z.object({
@@ -228,14 +228,15 @@ Examples:
     );
 
     try {
-      // Get or create a dedicated system agent for subagent interactions
+      // Get or create a dedicated system LLM proxy for subagent interactions
       // This agent will show as empty/system in the UI
-      const systemAgent = await AgentModel.getAgentOrCreateDefault(
+      const systemLlmProxy = await LlmProxyModel.getOrCreateDefault(
+        params.organizationId,
         PolicyConfigSubagent.SUBAGENT_NAME,
       );
 
       await InteractionModel.create({
-        profileId: systemAgent.id,
+        profileId: systemLlmProxy.id,
         externalAgentId: PolicyConfigSubagent.SUBAGENT_ID,
         type: "anthropic:messages",
         model: config.chat.defaultModel,

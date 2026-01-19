@@ -1,7 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import db, { schema } from "@/database";
 import logger from "@/logging";
-import AgentTeamModel from "./agent-team";
+import LlmProxyTeamModel from "./llm-proxy-team";
 import ToolModel from "./tool";
 
 /**
@@ -15,9 +15,9 @@ export interface PromptAgentWithDetails {
   // Details from the agent prompt
   name: string;
   systemPrompt: string | null;
-  // Details from the agent prompt's profile
-  profileId: string;
-  profileName: string;
+  // Details from the agent prompt's LLM Proxy
+  llmProxyId: string;
+  llmProxyName: string;
 }
 
 /**
@@ -135,9 +135,9 @@ class PromptAgentModel {
         // Agent prompt details
         name: schema.promptsTable.name,
         systemPrompt: schema.promptsTable.systemPrompt,
-        // Profile details
-        profileId: schema.agentsTable.id,
-        profileName: schema.agentsTable.name,
+        // LLM Proxy details
+        llmProxyId: schema.llmProxiesTable.id,
+        llmProxyName: schema.llmProxiesTable.name,
       })
       .from(schema.promptAgentsTable)
       .innerJoin(
@@ -145,8 +145,8 @@ class PromptAgentModel {
         eq(schema.promptAgentsTable.agentPromptId, schema.promptsTable.id),
       )
       .innerJoin(
-        schema.agentsTable,
-        eq(schema.promptsTable.agentId, schema.agentsTable.id),
+        schema.llmProxiesTable,
+        eq(schema.promptsTable.llmProxyId, schema.llmProxiesTable.id),
       )
       .where(eq(schema.promptAgentsTable.promptId, promptId));
 
@@ -339,15 +339,14 @@ class PromptAgentModel {
       }));
     }
 
-    // For non-admins, batch-load accessible agent IDs and filter in memory
-    const accessibleAgentIds = await AgentTeamModel.getUserAccessibleAgentIds(
-      userId,
-      false,
-    );
-    const accessibleAgentIdSet = new Set(accessibleAgentIds);
+    // For non-admins, batch-load accessible LLM proxy IDs and filter in memory
+    // Note: promptsTable.agentId refers to the LLM Proxy associated with the prompt
+    const accessibleLlmProxyIds =
+      await LlmProxyTeamModel.getUserAccessibleLlmProxyIds(userId, false);
+    const accessibleLlmProxyIdSet = new Set(accessibleLlmProxyIds);
 
     return results
-      .filter((r) => r.agentId && accessibleAgentIdSet.has(r.agentId))
+      .filter((r) => r.agentId && accessibleLlmProxyIdSet.has(r.agentId))
       .map(({ id, promptId, agentPromptId }) => ({
         id,
         promptId,
@@ -365,8 +364,8 @@ class PromptAgentModel {
     agentPromptId: string;
     agentPromptName: string;
     agentPromptSystemPrompt: string | null;
-    profileId: string;
-    profileName: string;
+    llmProxyId: string;
+    llmProxyName: string;
     organizationId: string;
   } | null> {
     const [result] = await db
@@ -378,9 +377,9 @@ class PromptAgentModel {
         agentPromptName: schema.promptsTable.name,
         agentPromptSystemPrompt: schema.promptsTable.systemPrompt,
         organizationId: schema.promptsTable.organizationId,
-        // Target prompt's profile details
-        profileId: schema.agentsTable.id,
-        profileName: schema.agentsTable.name,
+        // Target prompt's LLM Proxy details
+        llmProxyId: schema.llmProxiesTable.id,
+        llmProxyName: schema.llmProxiesTable.name,
       })
       .from(schema.promptAgentsTable)
       .innerJoin(
@@ -388,8 +387,8 @@ class PromptAgentModel {
         eq(schema.promptAgentsTable.agentPromptId, schema.promptsTable.id),
       )
       .innerJoin(
-        schema.agentsTable,
-        eq(schema.promptsTable.agentId, schema.agentsTable.id),
+        schema.llmProxiesTable,
+        eq(schema.promptsTable.llmProxyId, schema.llmProxiesTable.id),
       )
       .where(eq(schema.promptAgentsTable.id, id))
       .limit(1);

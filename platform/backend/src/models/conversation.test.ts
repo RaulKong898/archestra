@@ -25,10 +25,10 @@ describe("ConversationModel", () => {
     expect(conversation.selectedModel).toBe("claude-3-haiku-20240307");
     expect(conversation.userId).toBe(user.id);
     expect(conversation.organizationId).toBe(org.id);
-    expect(conversation.agentId).toBe(agent.id);
-    expect(conversation.agent).toBeDefined();
-    expect(conversation.agent.id).toBe(agent.id);
-    expect(conversation.agent.name).toBe("Test Agent");
+    expect(conversation.llmProxyId).toBe(agent.id);
+    expect(conversation.llmProxy).toBeDefined();
+    expect(conversation.llmProxy.id).toBe(agent.id);
+    expect(conversation.llmProxy.name).toBe("Test Agent");
     expect(conversation.createdAt).toBeDefined();
     expect(conversation.updatedAt).toBeDefined();
     expect(Array.isArray(conversation.messages)).toBe(true);
@@ -61,8 +61,8 @@ describe("ConversationModel", () => {
     expect(found?.id).toBe(created.id);
     expect(found?.title).toBe("Find Test");
     expect(found?.selectedModel).toBe("claude-3-opus-20240229");
-    expect(found?.agent.id).toBe(agent.id);
-    expect(found?.agent.name).toBe("Find Test Agent");
+    expect(found?.llmProxy.id).toBe(agent.id);
+    expect(found?.llmProxy.name).toBe("Find Test Agent");
     expect(Array.isArray(found?.messages)).toBe(true);
   });
 
@@ -96,7 +96,7 @@ describe("ConversationModel", () => {
     expect(conversations).toHaveLength(2);
     expect(conversations[0].title).toBe("Second Conversation"); // Ordered by updatedAt desc
     expect(conversations[1].title).toBe("First Conversation");
-    expect(conversations.every((c) => c.agent)).toBe(true);
+    expect(conversations.every((c) => c.llmProxy)).toBe(true);
     expect(conversations.every((c) => c.userId === user.id)).toBe(true);
     expect(conversations.every((c) => c.organizationId === org.id)).toBe(true);
     expect(conversations.every((c) => Array.isArray(c.messages))).toBe(true);
@@ -133,7 +133,7 @@ describe("ConversationModel", () => {
     expect(updated?.title).toBe("Updated Title");
     expect(updated?.selectedModel).toBe("claude-3-opus-20240229");
     expect(updated?.id).toBe(created.id);
-    expect(updated?.agent.id).toBe(agent.id);
+    expect(updated?.llmProxy.id).toBe(agent.id);
     expect(Array.isArray(updated?.messages)).toBe(true);
   });
 

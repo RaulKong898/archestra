@@ -3,7 +3,7 @@ import { getChatMcpTools } from "@/clients/chat-mcp-client";
 import { createLLMModelForAgent } from "@/clients/llm-client";
 import config from "@/config";
 import logger from "@/logging";
-import { AgentModel, PromptModel } from "@/models";
+import { LlmProxyModel, PromptModel } from "@/models";
 
 export interface A2AExecuteParams {
   promptId: string;
@@ -57,10 +57,10 @@ export async function executeA2AMessage(
     throw new Error(`Prompt ${promptId} not found`);
   }
 
-  // Fetch the agent (profile) associated with this prompt
-  const agent = await AgentModel.findById(prompt.agentId);
-  if (!agent) {
-    throw new Error(`Agent not found for prompt ${promptId}`);
+  // Fetch the LLM proxy (profile) associated with this prompt
+  const llmProxy = await LlmProxyModel.findById(prompt.agentId);
+  if (!llmProxy) {
+    throw new Error(`LLM proxy not found for prompt ${promptId}`);
   }
 
   // Use default model and provider from config
@@ -84,11 +84,11 @@ export async function executeA2AMessage(
     systemPrompt = allParts.join("\n\n");
   }
 
-  // Fetch MCP tools for the agent (including agent tools for the prompt)
+  // Fetch MCP tools for the LLM proxy (including agent tools for the prompt)
   // Pass sessionId and delegationChain so nested agent calls are grouped together
   const mcpTools = await getChatMcpTools({
-    agentName: agent.name,
-    agentId: agent.id,
+    agentName: llmProxy.name,
+    agentId: llmProxy.id,
     userId,
     userIsProfileAdmin: true, // A2A agents have full access
     promptId,
@@ -100,7 +100,7 @@ export async function executeA2AMessage(
   logger.info(
     {
       promptId,
-      agentId: agent.id,
+      agentId: llmProxy.id,
       userId,
       orgId: organizationId,
       toolCount: Object.keys(mcpTools).length,
@@ -116,7 +116,7 @@ export async function executeA2AMessage(
   const { model } = await createLLMModelForAgent({
     organizationId,
     userId,
-    agentId: agent.id,
+    agentId: llmProxy.id,
     model: selectedModel,
     provider,
     sessionId,
@@ -144,7 +144,7 @@ export async function executeA2AMessage(
   logger.info(
     {
       promptId,
-      agentId: agent.id,
+      agentId: llmProxy.id,
       provider,
       finishReason,
       usage,

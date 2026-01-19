@@ -10,7 +10,7 @@ import { SupportedChatProviderSchema } from "./chat-api-key";
 export const SelectConversationSchema = createSelectSchema(
   schema.conversationsTable,
 ).extend({
-  agent: z.object({
+  llmProxy: z.object({
     id: z.string(),
     name: z.string(),
   }),

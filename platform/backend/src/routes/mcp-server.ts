@@ -711,8 +711,8 @@ const mcpServerRoutes: FastifyPluginAsyncZod = async (fastify) => {
               description: z.string().nullable(),
               parameters: z.record(z.string(), z.any()),
               createdAt: z.coerce.date(),
-              assignedAgentCount: z.number(),
-              assignedAgents: z.array(
+              assignedMcpGatewayCount: z.number(),
+              assignedMcpGateways: z.array(
                 z.object({
                   id: z.string(),
                   name: z.string(),

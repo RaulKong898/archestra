@@ -18,6 +18,7 @@ export { default as LlmProxyTeamModel } from "./llm-proxy-team";
 export { default as McpGatewayModel } from "./mcp-gateway";
 export { default as McpGatewayLabelModel } from "./mcp-gateway-label";
 export { default as McpGatewayTeamModel } from "./mcp-gateway-team";
+export { default as McpGatewayToolModel } from "./mcp-gateway-tool";
 export { default as McpServerModel } from "./mcp-server";
 export { default as McpServerInstallationRequestModel } from "./mcp-server-installation-request";
 export { default as McpServerUserModel } from "./mcp-server-user";

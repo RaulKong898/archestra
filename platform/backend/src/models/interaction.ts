@@ -27,8 +27,8 @@ import type {
   SortingQuery,
   UserInfo,
 } from "@/types";
-import AgentTeamModel from "./agent-team";
 import LimitModel from "./limit";
+import LlmProxyTeamModel from "./llm-proxy-team";
 
 /**
  * Extracts text content from a message content field.
@@ -188,9 +188,14 @@ function resolveExternalAgentIdLabel(
 
 class InteractionModel {
   static async create(data: InsertInteraction) {
+    // Auto-set llmProxyId from profileId if not provided (backward compatibility)
+    const insertData = {
+      ...data,
+      llmProxyId: data.llmProxyId ?? data.profileId,
+    };
     const [interaction] = await db
       .insert(schema.interactionsTable)
-      .values(data)
+      .values(insertData)
       .returning();
 
     // Update usage tracking after interaction is created
@@ -232,17 +237,18 @@ class InteractionModel {
 
     // Access control filter
     if (requestingUserId && !isAgentAdmin) {
-      const accessibleAgentIds = await AgentTeamModel.getUserAccessibleAgentIds(
-        requestingUserId,
-        false,
-      );
+      const accessibleLlmProxyIds =
+        await LlmProxyTeamModel.getUserAccessibleLlmProxyIds(
+          requestingUserId,
+          false,
+        );
 
-      if (accessibleAgentIds.length === 0) {
+      if (accessibleLlmProxyIds.length === 0) {
         return createPaginatedResult([], 0, pagination);
       }
 
       conditions.push(
-        inArray(schema.interactionsTable.profileId, accessibleAgentIds),
+        inArray(schema.interactionsTable.llmProxyId, accessibleLlmProxyIds),
       );
     }
 
@@ -369,11 +375,11 @@ class InteractionModel {
       return null;
     }
 
-    // Check access control for non-agent admins
-    if (userId && !isAgentAdmin) {
-      const hasAccess = await AgentTeamModel.userHasAgentAccess(
+    // Check access control for non-LLM Proxy admins
+    if (userId && !isAgentAdmin && interaction.llmProxyId) {
+      const hasAccess = await LlmProxyTeamModel.userHasLlmProxyAccess(
         userId,
-        interaction.profileId,
+        interaction.llmProxyId,
         false,
       );
       if (!hasAccess) {
@@ -458,17 +464,18 @@ class InteractionModel {
     ];
 
     if (requestingUserId && !isAgentAdmin) {
-      const accessibleAgentIds = await AgentTeamModel.getUserAccessibleAgentIds(
-        requestingUserId,
-        false,
-      );
+      const accessibleLlmProxyIds =
+        await LlmProxyTeamModel.getUserAccessibleLlmProxyIds(
+          requestingUserId,
+          false,
+        );
 
-      if (accessibleAgentIds.length === 0) {
+      if (accessibleLlmProxyIds.length === 0) {
         return [];
       }
 
       conditions.push(
-        inArray(schema.interactionsTable.profileId, accessibleAgentIds),
+        inArray(schema.interactionsTable.llmProxyId, accessibleLlmProxyIds),
       );
     }
 
@@ -498,17 +505,18 @@ class InteractionModel {
     const conditions: SQL[] = [isNotNull(schema.interactionsTable.userId)];
 
     if (requestingUserId && !isAgentAdmin) {
-      const accessibleAgentIds = await AgentTeamModel.getUserAccessibleAgentIds(
-        requestingUserId,
-        false,
-      );
+      const accessibleLlmProxyIds =
+        await LlmProxyTeamModel.getUserAccessibleLlmProxyIds(
+          requestingUserId,
+          false,
+        );
 
-      if (accessibleAgentIds.length === 0) {
+      if (accessibleLlmProxyIds.length === 0) {
         return [];
       }
 
       conditions.push(
-        inArray(schema.interactionsTable.profileId, accessibleAgentIds),
+        inArray(schema.interactionsTable.llmProxyId, accessibleLlmProxyIds),
       );
     }
 
@@ -560,16 +568,16 @@ class InteractionModel {
         return;
       }
 
-      // Get agent's teams to update team and organization limits
-      const agentTeamIds = await AgentTeamModel.getTeamsForAgent(
-        interaction.profileId,
-      );
+      // Get LLM Proxy's teams to update team and organization limits
+      const llmProxyTeamIds = interaction.llmProxyId
+        ? await LlmProxyTeamModel.getTeamsForLlmProxy(interaction.llmProxyId)
+        : [];
 
       const updatePromises: Promise<void>[] = [];
 
-      if (agentTeamIds.length === 0) {
+      if (llmProxyTeamIds.length === 0) {
         logger.warn(
-          `Profile ${interaction.profileId} has no team assignments for interaction ${interaction.id}`,
+          `LLM Proxy ${interaction.llmProxyId ?? interaction.profileId} has no team assignments for interaction ${interaction.id}`,
         );
 
         // Even if agent has no teams, we should still try to update organization limits
@@ -603,7 +611,7 @@ class InteractionModel {
         const teams = await db
           .select()
           .from(schema.teamsTable)
-          .where(inArray(schema.teamsTable.id, agentTeamIds));
+          .where(inArray(schema.teamsTable.id, llmProxyTeamIds));
 
         // Update organization-level token cost limits (from first team's organization)
         if (teams.length > 0 && teams[0].organizationId) {
@@ -659,7 +667,7 @@ class InteractionModel {
     requestingUserId?: string,
     isAgentAdmin?: boolean,
     filters?: {
-      profileId?: string;
+      llmProxyId?: string;
       userId?: string;
       externalAgentId?: string;
       sessionId?: string;
@@ -679,8 +687,8 @@ class InteractionModel {
       firstRequestTime: Date;
       lastRequestTime: Date;
       models: string[];
-      profileId: string;
-      profileName: string | null;
+      llmProxyId: string | null;
+      llmProxyName: string | null;
       externalAgentIds: string[];
       externalAgentIdLabels: (string | null)[]; // Resolved prompt names for external agent IDs
       userNames: string[];
@@ -694,24 +702,25 @@ class InteractionModel {
     const conditions: SQL[] = [];
 
     if (requestingUserId && !isAgentAdmin) {
-      const accessibleAgentIds = await AgentTeamModel.getUserAccessibleAgentIds(
-        requestingUserId,
-        false,
-      );
+      const accessibleLlmProxyIds =
+        await LlmProxyTeamModel.getUserAccessibleLlmProxyIds(
+          requestingUserId,
+          false,
+        );
 
-      if (accessibleAgentIds.length === 0) {
+      if (accessibleLlmProxyIds.length === 0) {
         return createPaginatedResult([], 0, pagination);
       }
 
       conditions.push(
-        inArray(schema.interactionsTable.profileId, accessibleAgentIds),
+        inArray(schema.interactionsTable.llmProxyId, accessibleLlmProxyIds),
       );
     }
 
-    // Profile filter
-    if (filters?.profileId) {
+    // LLM Proxy filter
+    if (filters?.llmProxyId) {
       conditions.push(
-        eq(schema.interactionsTable.profileId, filters.profileId),
+        eq(schema.interactionsTable.llmProxyId, filters.llmProxyId),
       );
     }
 
@@ -770,8 +779,8 @@ class InteractionModel {
           firstRequestTime: min(schema.interactionsTable.createdAt),
           lastRequestTime: max(schema.interactionsTable.createdAt),
           models: sql<string>`STRING_AGG(DISTINCT ${schema.interactionsTable.model}, ',')`,
-          profileId: schema.interactionsTable.profileId,
-          profileName: schema.agentsTable.name,
+          llmProxyId: schema.interactionsTable.llmProxyId,
+          llmProxyName: schema.llmProxiesTable.name,
           externalAgentIds: sql<string>`STRING_AGG(DISTINCT ${schema.interactionsTable.externalAgentId}, ',')`,
           userNames: sql<string>`STRING_AGG(DISTINCT ${schema.usersTable.name}, ',')`,
           // Get the request from the most recent "main" interaction in this session
@@ -803,8 +812,8 @@ class InteractionModel {
         })
         .from(schema.interactionsTable)
         .leftJoin(
-          schema.agentsTable,
-          eq(schema.interactionsTable.profileId, schema.agentsTable.id),
+          schema.llmProxiesTable,
+          eq(schema.interactionsTable.llmProxyId, schema.llmProxiesTable.id),
         )
         .leftJoin(
           schema.usersTable,
@@ -820,8 +829,8 @@ class InteractionModel {
         .where(whereClause)
         .groupBy(
           sessionGroupExpr,
-          schema.interactionsTable.profileId,
-          schema.agentsTable.name,
+          schema.interactionsTable.llmProxyId,
+          schema.llmProxiesTable.name,
         )
         .orderBy(desc(max(schema.interactionsTable.createdAt)))
         .limit(pagination.limit)
@@ -858,8 +867,8 @@ class InteractionModel {
         firstRequestTime: s.firstRequestTime ?? new Date(),
         lastRequestTime: s.lastRequestTime ?? new Date(),
         models: s.models ? s.models.split(",").filter(Boolean) : [],
-        profileId: s.profileId,
-        profileName: s.profileName,
+        llmProxyId: s.llmProxyId,
+        llmProxyName: s.llmProxyName,
         externalAgentIds,
         externalAgentIdLabels: externalAgentIds.map((id) =>
           resolveExternalAgentIdLabel(id, promptNamesMap),

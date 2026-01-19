@@ -286,15 +286,15 @@ class McpClient {
    */
   private async validateAndGetTool(
     toolCall: CommonToolCall,
-    agentId: string,
+    mcpGatewayId: string,
   ): Promise<
     | { tool: McpToolWithServerMetadata; catalogItem: InternalMcpCatalog }
     | { error: CommonToolResult }
   > {
     // Get MCP tool
-    const mcpTools = await ToolModel.getMcpToolsAssignedToAgent(
+    const mcpTools = await ToolModel.getMcpToolsAssignedToMcpGateway(
       [toolCall.name],
-      agentId,
+      mcpGatewayId,
     );
     const tool = mcpTools[0];
 
@@ -302,8 +302,8 @@ class McpClient {
       return {
         error: await this.createErrorResult(
           toolCall,
-          agentId,
-          "Tool not found or not assigned to agent",
+          mcpGatewayId,
+          "Tool not found or not assigned to MCP Gateway",
         ),
       };
     }
@@ -313,7 +313,7 @@ class McpClient {
       return {
         error: await this.createErrorResult(
           toolCall,
-          agentId,
+          mcpGatewayId,
           "Tool is missing catalogId",
           tool.mcpServerName || "unknown",
         ),
@@ -326,7 +326,7 @@ class McpClient {
       return {
         error: await this.createErrorResult(
           toolCall,
-          agentId,
+          mcpGatewayId,
           `No catalog item found for tool catalog ID ${tool.catalogId}`,
           tool.mcpServerName || "unknown",
         ),

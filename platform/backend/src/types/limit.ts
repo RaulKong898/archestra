@@ -10,7 +10,12 @@ import { schema } from "@/database";
  * Entity types that can have limits applied
  */
 // TODO: need to make a database migration to migrate agent -> profile
-export const LimitEntityTypeSchema = z.enum(["organization", "team", "agent"]);
+export const LimitEntityTypeSchema = z.enum([
+  "organization",
+  "team",
+  "agent",
+  "llm_proxy",
+]);
 export type LimitEntityType = z.infer<typeof LimitEntityTypeSchema>;
 
 /**

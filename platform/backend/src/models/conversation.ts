@@ -16,7 +16,11 @@ class ConversationModel {
   static async create(data: InsertConversation): Promise<Conversation> {
     const [conversation] = await db
       .insert(schema.conversationsTable)
-      .values(data)
+      .values({
+        ...data,
+        // Auto-set llmProxyId from agentId if not provided (backward compatibility)
+        llmProxyId: data.llmProxyId ?? data.agentId,
+      })
       .returning();
 
     // Disable Archestra tools by default for new conversations (except todo_write and artifact_write)
@@ -71,15 +75,15 @@ class ConversationModel {
       .select({
         conversation: getTableColumns(schema.conversationsTable),
         message: getTableColumns(schema.messagesTable),
-        agent: {
-          id: schema.agentsTable.id,
-          name: schema.agentsTable.name,
+        llmProxy: {
+          id: schema.llmProxiesTable.id,
+          name: schema.llmProxiesTable.name,
         },
       })
       .from(schema.conversationsTable)
       .innerJoin(
-        schema.agentsTable,
-        eq(schema.conversationsTable.agentId, schema.agentsTable.id),
+        schema.llmProxiesTable,
+        eq(schema.conversationsTable.agentId, schema.llmProxiesTable.id),
       )
       .leftJoin(
         schema.messagesTable,
@@ -105,7 +109,7 @@ class ConversationModel {
       if (!conversationMap.has(conversationId)) {
         conversationMap.set(conversationId, {
           ...row.conversation,
-          agent: row.agent,
+          llmProxy: row.llmProxy,
           messages: [],
         });
       }
@@ -136,15 +140,15 @@ class ConversationModel {
       .select({
         conversation: getTableColumns(schema.conversationsTable),
         message: getTableColumns(schema.messagesTable),
-        agent: {
-          id: schema.agentsTable.id,
-          name: schema.agentsTable.name,
+        llmProxy: {
+          id: schema.llmProxiesTable.id,
+          name: schema.llmProxiesTable.name,
         },
       })
       .from(schema.conversationsTable)
       .innerJoin(
-        schema.agentsTable,
-        eq(schema.conversationsTable.agentId, schema.agentsTable.id),
+        schema.llmProxiesTable,
+        eq(schema.conversationsTable.agentId, schema.llmProxiesTable.id),
       )
       .leftJoin(
         schema.messagesTable,
@@ -178,7 +182,7 @@ class ConversationModel {
 
     return {
       ...firstRow.conversation,
-      agent: firstRow.agent,
+      llmProxy: firstRow.llmProxy,
       messages,
     };
   }

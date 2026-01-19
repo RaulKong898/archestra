@@ -1,19 +1,19 @@
 import { describe, expect, test } from "@/test";
-import AgentModel from "./agent";
 import PromptModel from "./prompt";
 
 describe("PromptModel Fix", () => {
   test("update moves prompt history when agentId changes", async ({
     makeOrganization,
+    makeAgent,
   }) => {
     const org = await makeOrganization();
 
     // 1. Create two agents
-    const agent1 = await AgentModel.create({
+    const agent1 = await makeAgent({
       name: "Agent 1",
       teams: [],
     });
-    const agent2 = await AgentModel.create({
+    const agent2 = await makeAgent({
       name: "Agent 2",
       teams: [],
     });

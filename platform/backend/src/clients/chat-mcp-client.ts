@@ -12,7 +12,7 @@ import { CacheKey, cacheManager } from "@/cache-manager";
 import mcpClient from "@/clients/mcp-client";
 import logger from "@/logging";
 import {
-  AgentTeamModel,
+  McpGatewayTeamModel,
   TeamModel,
   TeamTokenModel,
   ToolModel,
@@ -102,9 +102,12 @@ async function selectMCPGatewayToken(
   organizationId: string;
   isUserToken?: boolean;
 } | null> {
-  // Get user's team IDs and profile's team IDs (needed for access check)
+  // Get user's team IDs and profile's (MCP Gateway) team IDs (needed for access check)
+  // Note: agentId parameter represents MCP Gateway ID in this context
   const userTeamIds = await TeamModel.getUserTeamIds(userId);
-  const profileTeamIds = await AgentTeamModel.getTeamsForAgent(agentId);
+  const profileTeamDetails =
+    await McpGatewayTeamModel.getTeamDetailsForMcpGateway(agentId);
+  const profileTeamIds = profileTeamDetails.map((t) => t.id);
   const commonTeamIds = userTeamIds.filter((id) => profileTeamIds.includes(id));
 
   // 1. Try personal user token first (if user has access via team membership)

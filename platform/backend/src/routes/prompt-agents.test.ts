@@ -1,4 +1,4 @@
-import { AgentModel, PromptAgentModel, PromptModel } from "@/models";
+import { PromptAgentModel, PromptModel } from "@/models";
 import { describe, expect, test } from "@/test";
 
 describe("PromptAgentModel Route Logic", () => {
@@ -11,14 +11,18 @@ describe("PromptAgentModel Route Logic", () => {
   describe("GET /api/prompts/:promptId/agents - List agents", () => {
     test("returns agents with profile and prompt details", async ({
       makeOrganization,
+      makeAgent,
+      seedArchestraCatalog,
     }) => {
+      // Seed Archestra catalog for agent delegation tools
+      await seedArchestraCatalog();
       const org = await makeOrganization();
 
-      const parentAgent = await AgentModel.create({
+      const parentAgent = await makeAgent({
         name: "Parent Agent",
         teams: [],
       });
-      const childAgent = await AgentModel.create({
+      const childAgent = await makeAgent({
         name: "Child Agent",
         teams: [],
       });
@@ -48,16 +52,17 @@ describe("PromptAgentModel Route Logic", () => {
       expect(agents).toHaveLength(1);
       expect(agents[0].name).toBe("Child Prompt");
       expect(agents[0].systemPrompt).toBe("Child system prompt");
-      expect(agents[0].profileId).toBe(childAgent.id);
-      expect(agents[0].profileName).toBe("Child Agent");
+      expect(agents[0].llmProxyId).toBe(childAgent.id);
+      expect(agents[0].llmProxyName).toBe("Child Agent");
     });
 
     test("returns empty array for prompt with no agents", async ({
       makeOrganization,
+      makeAgent,
     }) => {
       const org = await makeOrganization();
 
-      const agent = await AgentModel.create({ name: "Test Agent", teams: [] });
+      const agent = await makeAgent({ name: "Test Agent", teams: [] });
       const prompt = await PromptModel.create(org.id, {
         name: "Test Prompt",
         agentId: agent.id,
@@ -72,18 +77,23 @@ describe("PromptAgentModel Route Logic", () => {
   });
 
   describe("POST /api/prompts/:promptId/agents - Sync agents", () => {
-    test("adds new agents", async ({ makeOrganization }) => {
+    test("adds new agents", async ({
+      makeOrganization,
+      makeAgent,
+      seedArchestraCatalog,
+    }) => {
+      await seedArchestraCatalog();
       const org = await makeOrganization();
 
-      const parentAgent = await AgentModel.create({
+      const parentAgent = await makeAgent({
         name: "Parent Agent",
         teams: [],
       });
-      const childAgent1 = await AgentModel.create({
+      const childAgent1 = await makeAgent({
         name: "Child Agent 1",
         teams: [],
       });
-      const childAgent2 = await AgentModel.create({
+      const childAgent2 = await makeAgent({
         name: "Child Agent 2",
         teams: [],
       });
@@ -117,18 +127,23 @@ describe("PromptAgentModel Route Logic", () => {
       expect(agents).toHaveLength(2);
     });
 
-    test("removes old agents not in new list", async ({ makeOrganization }) => {
+    test("removes old agents not in new list", async ({
+      makeOrganization,
+      makeAgent,
+      seedArchestraCatalog,
+    }) => {
+      await seedArchestraCatalog();
       const org = await makeOrganization();
 
-      const parentAgent = await AgentModel.create({
+      const parentAgent = await makeAgent({
         name: "Parent Agent",
         teams: [],
       });
-      const childAgent1 = await AgentModel.create({
+      const childAgent1 = await makeAgent({
         name: "Child Agent 1",
         teams: [],
       });
-      const childAgent2 = await AgentModel.create({
+      const childAgent2 = await makeAgent({
         name: "Child Agent 2",
         teams: [],
       });
@@ -174,14 +189,17 @@ describe("PromptAgentModel Route Logic", () => {
 
     test("handles empty agent list (removes all)", async ({
       makeOrganization,
+      makeAgent,
+      seedArchestraCatalog,
     }) => {
+      await seedArchestraCatalog();
       const org = await makeOrganization();
 
-      const parentAgent = await AgentModel.create({
+      const parentAgent = await makeAgent({
         name: "Parent Agent",
         teams: [],
       });
-      const childAgent = await AgentModel.create({
+      const childAgent = await makeAgent({
         name: "Child Agent",
         teams: [],
       });
@@ -217,18 +235,23 @@ describe("PromptAgentModel Route Logic", () => {
   });
 
   describe("DELETE /api/prompts/:promptId/agents/:agentPromptId - Remove agent", () => {
-    test("removes specific agent from prompt", async ({ makeOrganization }) => {
+    test("removes specific agent from prompt", async ({
+      makeOrganization,
+      makeAgent,
+      seedArchestraCatalog,
+    }) => {
+      await seedArchestraCatalog();
       const org = await makeOrganization();
 
-      const parentAgent = await AgentModel.create({
+      const parentAgent = await makeAgent({
         name: "Parent Agent",
         teams: [],
       });
-      const childAgent1 = await AgentModel.create({
+      const childAgent1 = await makeAgent({
         name: "Child Agent 1",
         teams: [],
       });
-      const childAgent2 = await AgentModel.create({
+      const childAgent2 = await makeAgent({
         name: "Child Agent 2",
         teams: [],
       });
@@ -270,10 +293,11 @@ describe("PromptAgentModel Route Logic", () => {
 
     test("returns false for non-existent assignment", async ({
       makeOrganization,
+      makeAgent,
     }) => {
       const org = await makeOrganization();
 
-      const agent = await AgentModel.create({ name: "Test Agent", teams: [] });
+      const agent = await makeAgent({ name: "Test Agent", teams: [] });
       const prompt = await PromptModel.create(org.id, {
         name: "Test Prompt",
         agentId: agent.id,
@@ -291,11 +315,12 @@ describe("PromptAgentModel Route Logic", () => {
   describe("Access control considerations", () => {
     test("prompt must belong to organization (findByIdAndOrganizationId)", async ({
       makeOrganization,
+      makeAgent,
     }) => {
       const org1 = await makeOrganization();
       const org2 = await makeOrganization();
 
-      const agent = await AgentModel.create({ name: "Test Agent", teams: [] });
+      const agent = await makeAgent({ name: "Test Agent", teams: [] });
       const prompt = await PromptModel.create(org1.id, {
         name: "Test Prompt",
         agentId: agent.id,
@@ -318,15 +343,16 @@ describe("PromptAgentModel Route Logic", () => {
 
     test("agent prompts must be validated before assignment", async ({
       makeOrganization,
+      makeAgent,
     }) => {
       const org1 = await makeOrganization();
       const org2 = await makeOrganization();
 
-      const parentAgent = await AgentModel.create({
+      const parentAgent = await makeAgent({
         name: "Parent Agent",
         teams: [],
       });
-      const childAgent = await AgentModel.create({
+      const childAgent = await makeAgent({
         name: "Child Agent",
         teams: [],
       });
@@ -355,10 +381,11 @@ describe("PromptAgentModel Route Logic", () => {
 
     test("self-assignment should be prevented", async ({
       makeOrganization,
+      makeAgent,
     }) => {
       const org = await makeOrganization();
 
-      const agent = await AgentModel.create({ name: "Test Agent", teams: [] });
+      const agent = await makeAgent({ name: "Test Agent", teams: [] });
       const prompt = await PromptModel.create(org.id, {
         name: "Test Prompt",
         agentId: agent.id,

@@ -20,7 +20,7 @@ import type {
   PaginationQuery,
   SortingQuery,
 } from "@/types";
-import AgentTeamModel from "./agent-team";
+import McpGatewayTeamModel from "./mcp-gateway-team";
 
 class McpToolCallModel {
   static async create(data: InsertMcpToolCall) {
@@ -51,19 +51,18 @@ class McpToolCallModel {
     // Build where clauses
     const conditions: SQL[] = [];
 
-    // Access control filter
+    // Access control filter - check access through MCP Gateway team membership
     if (userId && !isMcpServerAdmin) {
-      const accessibleAgentIds = await AgentTeamModel.getUserAccessibleAgentIds(
-        userId,
-        false,
-      );
+      const accessibleMcpGatewayIds =
+        await McpGatewayTeamModel.getUserAccessibleMcpGatewayIds(userId, false);
 
-      if (accessibleAgentIds.length === 0) {
+      if (accessibleMcpGatewayIds.length === 0) {
         return createPaginatedResult([], 0, pagination);
       }
 
+      // Note: agentId column name retained for backward compatibility
       conditions.push(
-        inArray(schema.mcpToolCallsTable.agentId, accessibleAgentIds),
+        inArray(schema.mcpToolCallsTable.agentId, accessibleMcpGatewayIds),
       );
     }
 
@@ -135,9 +134,10 @@ class McpToolCallModel {
       return null;
     }
 
-    // Check access control for non-MCP server admins
+    // Check access control for non-MCP server admins through MCP Gateway team membership
     if (userId && !isMcpServerAdmin) {
-      const hasAccess = await AgentTeamModel.userHasAgentAccess(
+      // Note: agentId column name retained for backward compatibility, now represents mcpGatewayId
+      const hasAccess = await McpGatewayTeamModel.userHasMcpGatewayAccess(
         userId,
         mcpToolCall.agentId,
         false,

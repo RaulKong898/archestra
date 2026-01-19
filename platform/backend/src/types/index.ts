@@ -17,6 +17,7 @@ export * from "./llm-providers";
 export * from "./llm-proxy";
 export * from "./mcp-catalog";
 export * from "./mcp-gateway";
+export * from "./mcp-gateway-tool";
 export * from "./mcp-server";
 export * from "./mcp-server-installation-request";
 export * from "./mcp-tool-call";

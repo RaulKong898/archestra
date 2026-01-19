@@ -330,7 +330,7 @@ export default function ChatPage() {
   // Get current agent info
   const currentProfileId = conversation?.agentId;
   const browserToolsAgentId = conversationId
-    ? (conversation?.agentId ?? conversation?.agent?.id)
+    ? (conversation?.agentId ?? conversation?.llmProxy?.id)
     : (initialAgentId ?? undefined);
 
   // Check if Playwright MCP is available for browser panel
@@ -822,7 +822,7 @@ export default function ChatPage() {
 
   // Determine which agent ID to use for prompt input
   const activeAgentId = conversationId
-    ? conversation?.agent?.id
+    ? conversation?.llmProxy?.id
     : initialAgentId;
 
   // If API key is not configured, show setup message
@@ -1105,66 +1105,66 @@ export default function ChatPage() {
               <div className="max-w-4xl mx-auto space-y-3">
                 <ArchestraPromptInput
                   onSubmit={
-                    conversationId && conversation?.agent.id
+                    conversationId && conversation?.llmProxy.id
                       ? handleSubmit
                       : handleInitialSubmit
                   }
                   status={
-                    conversationId && conversation?.agent.id
+                    conversationId && conversation?.llmProxy.id
                       ? status
                       : createConversationMutation.isPending
                         ? "submitted"
                         : "ready"
                   }
                   selectedModel={
-                    conversationId && conversation?.agent.id
+                    conversationId && conversation?.llmProxy.id
                       ? (conversation?.selectedModel ?? "")
                       : initialModel
                   }
                   onModelChange={
-                    conversationId && conversation?.agent.id
+                    conversationId && conversation?.llmProxy.id
                       ? handleModelChange
                       : setInitialModel
                   }
                   messageCount={
-                    conversationId && conversation?.agent.id
+                    conversationId && conversation?.llmProxy.id
                       ? messages.length
                       : undefined
                   }
                   agentId={
-                    conversationId && conversation?.agent.id
-                      ? conversation.agent.id
+                    conversationId && conversation?.llmProxy.id
+                      ? conversation.llmProxy.id
                       : activeAgentId
                   }
                   conversationId={conversationId}
                   currentConversationChatApiKeyId={
-                    conversationId && conversation?.agent.id
+                    conversationId && conversation?.llmProxy.id
                       ? conversation?.chatApiKeyId
                       : undefined
                   }
                   currentProvider={
-                    conversationId && conversation?.agent.id
+                    conversationId && conversation?.llmProxy.id
                       ? currentProvider
                       : initialProvider
                   }
                   onProviderChange={
-                    conversationId && conversation?.agent.id
+                    conversationId && conversation?.llmProxy.id
                       ? handleProviderChange
                       : handleInitialProviderChange
                   }
                   textareaRef={textareaRef}
                   initialApiKeyId={
-                    conversationId && conversation?.agent.id
+                    conversationId && conversation?.llmProxy.id
                       ? undefined
                       : initialApiKeyId
                   }
                   onApiKeyChange={
-                    conversationId && conversation?.agent.id
+                    conversationId && conversation?.llmProxy.id
                       ? undefined
                       : setInitialApiKeyId
                   }
                   promptId={
-                    conversationId && conversation?.agent.id
+                    conversationId && conversation?.llmProxy.id
                       ? (conversation?.promptId ?? null)
                       : initialPromptId
                   }

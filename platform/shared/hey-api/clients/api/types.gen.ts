@@ -9426,7 +9426,7 @@ export type GetChatConversationsResponses = {
         artifact: string | null;
         createdAt: string;
         updatedAt: string;
-        agent: {
+        llmProxy: {
             id: string;
             name: string;
         };
@@ -9532,7 +9532,7 @@ export type CreateChatConversationResponses = {
         artifact: string | null;
         createdAt: string;
         updatedAt: string;
-        agent: {
+        llmProxy: {
             id: string;
             name: string;
         };
@@ -9712,7 +9712,7 @@ export type GetChatConversationResponses = {
         artifact: string | null;
         createdAt: string;
         updatedAt: string;
-        agent: {
+        llmProxy: {
             id: string;
             name: string;
         };
@@ -9820,7 +9820,7 @@ export type UpdateChatConversationResponses = {
         artifact: string | null;
         createdAt: string;
         updatedAt: string;
-        agent: {
+        llmProxy: {
             id: string;
             name: string;
         };
@@ -10009,7 +10009,7 @@ export type GenerateChatConversationTitleResponses = {
         artifact: string | null;
         createdAt: string;
         updatedAt: string;
-        agent: {
+        llmProxy: {
             id: string;
             name: string;
         };
@@ -10114,7 +10114,7 @@ export type UpdateChatMessageResponses = {
         artifact: string | null;
         createdAt: string;
         updatedAt: string;
-        agent: {
+        llmProxy: {
             id: string;
             name: string;
         };
@@ -12147,9 +12147,9 @@ export type GetInteractionSessionsData = {
     path?: never;
     query?: {
         /**
-         * Filter by profile ID (internal Archestra profile)
+         * Filter by LLM Proxy ID
          */
-        profileId?: string;
+        llmProxyId?: string;
         /**
          * Filter by user ID (from X-Archestra-User-Id header)
          */
@@ -12248,8 +12248,8 @@ export type GetInteractionSessionsResponses = {
             firstRequestTime: string;
             lastRequestTime: string;
             models: Array<string>;
-            profileId: string;
-            profileName: string | null;
+            llmProxyId: string | null;
+            llmProxyName: string | null;
             externalAgentIds: Array<string>;
             externalAgentIdLabels: Array<string | null>;
             userNames: Array<string>;
@@ -13584,8 +13584,8 @@ export type GetInternalMcpCatalogToolsResponses = {
             [key: string]: unknown;
         };
         createdAt: string;
-        assignedAgentCount: number;
-        assignedAgents: Array<{
+        assignedMcpGatewayCount: number;
+        assignedMcpGateways: Array<{
             id: string;
             name: string;
         }>;
@@ -13760,7 +13760,7 @@ export type GetLimitsData = {
     body?: never;
     path?: never;
     query?: {
-        entityType?: 'organization' | 'team' | 'agent';
+        entityType?: 'organization' | 'team' | 'agent' | 'llm_proxy';
         entityId?: string;
         limitType?: 'token_cost' | 'mcp_server_calls' | 'tool_calls';
     };
@@ -13832,7 +13832,7 @@ export type GetLimitsResponses = {
      */
     200: Array<{
         id: string;
-        entityType: 'organization' | 'team' | 'agent';
+        entityType: 'organization' | 'team' | 'agent' | 'llm_proxy';
         entityId: string;
         limitType: 'token_cost' | 'mcp_server_calls' | 'tool_calls';
         limitValue: number;
@@ -13855,7 +13855,7 @@ export type GetLimitsResponse = GetLimitsResponses[keyof GetLimitsResponses];
 
 export type CreateLimitData = {
     body: {
-        entityType: 'organization' | 'team' | 'agent';
+        entityType: 'organization' | 'team' | 'agent' | 'llm_proxy';
         entityId: string;
         limitType: 'token_cost' | 'mcp_server_calls' | 'tool_calls';
         limitValue: number;
@@ -13934,7 +13934,7 @@ export type CreateLimitResponses = {
      */
     200: {
         id: string;
-        entityType: 'organization' | 'team' | 'agent';
+        entityType: 'organization' | 'team' | 'agent' | 'llm_proxy';
         entityId: string;
         limitType: 'token_cost' | 'mcp_server_calls' | 'tool_calls';
         limitValue: number;
@@ -14102,7 +14102,7 @@ export type GetLimitResponses = {
      */
     200: {
         id: string;
-        entityType: 'organization' | 'team' | 'agent';
+        entityType: 'organization' | 'team' | 'agent' | 'llm_proxy';
         entityId: string;
         limitType: 'token_cost' | 'mcp_server_calls' | 'tool_calls';
         limitValue: number;
@@ -14119,7 +14119,7 @@ export type GetLimitResponse = GetLimitResponses[keyof GetLimitResponses];
 
 export type UpdateLimitData = {
     body?: {
-        entityType?: 'organization' | 'team' | 'agent';
+        entityType?: 'organization' | 'team' | 'agent' | 'llm_proxy';
         entityId?: string;
         limitType?: 'token_cost' | 'mcp_server_calls' | 'tool_calls';
         limitValue?: number;
@@ -14200,7 +14200,7 @@ export type UpdateLimitResponses = {
      */
     200: {
         id: string;
-        entityType: 'organization' | 'team' | 'agent';
+        entityType: 'organization' | 'team' | 'agent' | 'llm_proxy';
         entityId: string;
         limitType: 'token_cost' | 'mcp_server_calls' | 'tool_calls';
         limitValue: number;
@@ -18207,8 +18207,8 @@ export type GetMcpServerToolsResponses = {
             [key: string]: unknown;
         };
         createdAt: string;
-        assignedAgentCount: number;
-        assignedAgents: Array<{
+        assignedMcpGatewayCount: number;
+        assignedMcpGateways: Array<{
             id: string;
             name: string;
         }>;
@@ -24139,7 +24139,7 @@ export type GetToolsResponses = {
         policiesAutoConfiguredReasoning: string | null;
         createdAt: string;
         updatedAt: string;
-        agent: {
+        llmProxy: {
             id: string;
             name: string;
         } | null;
@@ -24264,8 +24264,8 @@ export type GetToolsWithAssignmentsResponses = {
             updatedAt: string;
             assignmentCount: number;
             assignments: Array<{
-                agentToolId: string;
-                agent: {
+                mcpGatewayToolId: string;
+                mcpGateway: {
                     id: string;
                     name: string;
                 };

@@ -4,10 +4,18 @@ import db, { schema } from "@/database";
 import { describe, expect, test } from "@/test";
 import OrganizationModel from "./organization";
 
+// The test setup seeds a default organization with id 'test-org-id' before each test.
+// Tests that need no organization must delete it first.
+// Tests that work with the seeded org should use it directly.
+
 describe("OrganizationModel", () => {
   describe("getPublicAppearance", () => {
     test("should return default appearance when no organization exists", async () => {
-      // Ensure no organizations exist (test setup clears DB)
+      // Delete the seeded organization to test the "no org" case
+      await db
+        .delete(schema.organizationsTable)
+        .where(eq(schema.organizationsTable.id, "test-org-id"));
+
       const appearance = await OrganizationModel.getPublicAppearance();
 
       expect(appearance).toEqual({
@@ -17,13 +25,11 @@ describe("OrganizationModel", () => {
       });
     });
 
-    test("should return organization appearance settings", async ({
-      makeOrganization,
-    }) => {
-      await makeOrganization();
-
+    test("should return organization appearance settings", async () => {
+      // Test setup seeds an organization - use it directly
       const appearance = await OrganizationModel.getPublicAppearance();
 
+      // The seeded org has default theme and font
       expect(appearance).toEqual({
         theme: "cosmic-night",
         customFont: "lato",
@@ -31,45 +37,38 @@ describe("OrganizationModel", () => {
       });
     });
 
-    test("should return custom theme when set", async ({
-      makeOrganization,
-    }) => {
-      const org = await makeOrganization();
-
-      // Update organization with custom theme
+    test("should return custom theme when set", async () => {
+      // Update the seeded organization with custom theme
       await db
         .update(schema.organizationsTable)
         .set({ theme: "twitter" })
-        .where(eq(schema.organizationsTable.id, org.id));
+        .where(eq(schema.organizationsTable.id, "test-org-id"));
 
       const appearance = await OrganizationModel.getPublicAppearance();
 
       expect(appearance.theme).toBe("twitter");
     });
 
-    test("should return custom font when set", async ({ makeOrganization }) => {
-      const org = await makeOrganization();
-
-      // Update organization with custom font
+    test("should return custom font when set", async () => {
+      // Update the seeded organization with custom font
       await db
         .update(schema.organizationsTable)
         .set({ customFont: "inter" })
-        .where(eq(schema.organizationsTable.id, org.id));
+        .where(eq(schema.organizationsTable.id, "test-org-id"));
 
       const appearance = await OrganizationModel.getPublicAppearance();
 
       expect(appearance.customFont).toBe("inter");
     });
 
-    test("should return logo when set", async ({ makeOrganization }) => {
-      const org = await makeOrganization();
+    test("should return logo when set", async () => {
       const testLogo = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB";
 
-      // Update organization with logo
+      // Update the seeded organization with logo
       await db
         .update(schema.organizationsTable)
         .set({ logo: testLogo })
-        .where(eq(schema.organizationsTable.id, org.id));
+        .where(eq(schema.organizationsTable.id, "test-org-id"));
 
       const appearance = await OrganizationModel.getPublicAppearance();
 
@@ -79,28 +78,23 @@ describe("OrganizationModel", () => {
     test("should return first organization's appearance when multiple exist", async ({
       makeOrganization,
     }) => {
-      // Create first organization with custom settings
-      const firstOrg = await makeOrganization();
+      // Update the seeded organization (which is first) with custom settings
       await db
         .update(schema.organizationsTable)
         .set({ theme: "claude", customFont: "roboto" })
-        .where(eq(schema.organizationsTable.id, firstOrg.id));
+        .where(eq(schema.organizationsTable.id, "test-org-id"));
 
       // Create second organization with different settings
       await makeOrganization();
 
       const appearance = await OrganizationModel.getPublicAppearance();
 
-      // Should return first organization's appearance
+      // Should return first organization's appearance (seeded org)
       expect(appearance.theme).toBe("claude");
       expect(appearance.customFont).toBe("roboto");
     });
 
-    test("should only return theme, customFont, and logo fields", async ({
-      makeOrganization,
-    }) => {
-      await makeOrganization();
-
+    test("should only return theme, customFont, and logo fields", async () => {
       const appearance = await OrganizationModel.getPublicAppearance();
 
       // Verify only expected fields are returned
@@ -114,6 +108,11 @@ describe("OrganizationModel", () => {
 
   describe("getOrCreateDefaultOrganization", () => {
     test("should create default organization when none exists", async () => {
+      // Delete the seeded organization to test the "no org" case
+      await db
+        .delete(schema.organizationsTable)
+        .where(eq(schema.organizationsTable.id, "test-org-id"));
+
       const org = await OrganizationModel.getOrCreateDefaultOrganization();
 
       expect(org).toBeDefined();
@@ -122,14 +121,11 @@ describe("OrganizationModel", () => {
       expect(org.slug).toBe("default");
     });
 
-    test("should return existing organization when one exists", async ({
-      makeOrganization,
-    }) => {
-      const existingOrg = await makeOrganization();
-
+    test("should return existing organization when one exists", async () => {
+      // The seeded organization should be returned
       const org = await OrganizationModel.getOrCreateDefaultOrganization();
 
-      expect(org.id).toBe(existingOrg.id);
+      expect(org.id).toBe("test-org-id");
     });
   });
 

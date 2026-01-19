@@ -33,7 +33,7 @@ import type {
   SupportedProviderDiscriminator,
 } from "@shared";
 
-import type { Agent } from "./agent";
+import type { MetricsProfile } from "@/llm-metrics";
 import type {
   CommonMcpToolDefinition,
   CommonMessage,
@@ -50,8 +50,8 @@ export interface CreateClientOptions {
   baseUrl?: string;
   /** Enable mock mode for testing */
   mockMode?: boolean;
-  /** Agent for observability metrics (request duration, tokens) */
-  agent?: Agent;
+  /** Profile for observability metrics (request duration, tokens). Both Agent and LlmProxy satisfy this. */
+  agent?: MetricsProfile;
   /** External agent ID from X-Archestra-Agent-Id header */
   externalAgentId?: string;
   /** Default headers to include with every request */

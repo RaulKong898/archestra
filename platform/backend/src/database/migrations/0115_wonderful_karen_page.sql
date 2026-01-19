@@ -94,6 +94,10 @@ ALTER TABLE "tools" ADD CONSTRAINT "tools_catalog_id_name_agent_id_llm_proxy_id_
 -- This migration copies existing agents to both new entity types with the same IDs
 -- for backward compatibility during the transition period.
 
+-- Step 0: Create a default organization if none exists (for fresh databases with agents but no organizations)
+INSERT INTO organization (id, name, slug, created_at)
+SELECT 'default-migration-org', 'Default Organization', 'default', NOW()
+WHERE NOT EXISTS (SELECT 1 FROM organization LIMIT 1);--> statement-breakpoint
 -- Step 1: Insert into mcp_gateways from agents
 -- Use the organization_id from the first team association, or the first available organization as fallback
 INSERT INTO mcp_gateways (id, organization_id, name, is_default, created_at, updated_at)

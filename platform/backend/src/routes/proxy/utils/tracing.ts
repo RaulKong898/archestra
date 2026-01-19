@@ -1,7 +1,7 @@
 import { type Span, trace } from "@opentelemetry/api";
 import type { SupportedProvider } from "@shared";
+import type { MetricsProfile } from "@/llm-metrics";
 import logger from "@/logging";
-import type { Agent } from "@/types";
 
 /**
  * Route categories for tracing
@@ -21,7 +21,7 @@ export enum RouteCategory {
  * @param provider - The LLM provider (openai, gemini, or anthropic)
  * @param llmModel - The LLM model being used
  * @param stream - Whether this is a streaming request
- * @param agent - The agent/profile object (optional, if provided will add both agent.* and profile.* attributes)
+ * @param agent - The profile/LlmProxy object (optional, if provided will add both agent.* and profile.* attributes)
  *                Note: agent.* attributes are deprecated in favor of profile.* attributes
  * @param callback - The callback function to execute within the span context
  * @returns The result of the callback function
@@ -31,7 +31,7 @@ export async function startActiveLlmSpan<T>(
   provider: SupportedProvider,
   llmModel: string,
   stream: boolean,
-  agent: Agent | undefined,
+  agent: MetricsProfile | undefined,
   callback: (span: Span) => Promise<T>,
 ): Promise<T> {
   logger.debug(

@@ -51,14 +51,32 @@ type BedrockStreamEventWithRaw = BedrockStreamEvent & {
 // Event stream codec for binary encoding/decoding
 const eventStreamCodec = new EventStreamCodec(toUtf8, fromUtf8);
 
+// Padding alphabet used by Bedrock (lowercase + uppercase + digits)
+const PADDING_ALPHABET =
+  "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+/**
+ * Generate padding string to match Bedrock's format.
+ * Uses a prefix of the alphabet, with length to reach target body size.
+ */
+function generatePadding(currentBodyLength: number, targetSize = 80): string {
+  const paddingNeeded = Math.max(0, targetSize - currentBodyLength - 10); // -10 for `,"p":""`
+  return PADDING_ALPHABET.slice(0, Math.min(paddingNeeded, PADDING_ALPHABET.length));
+}
+
 /**
  * Encode an event to AWS Event Stream binary format.
+ * Adds padding field "p" to match Bedrock's format.
  */
 function encodeEventStreamMessage(
   eventType: string,
   body: unknown,
 ): Uint8Array {
-  const bodyJson = JSON.stringify(body);
+  // Add padding to match Bedrock's format
+  const bodyWithoutPadding = JSON.stringify(body);
+  const padding = generatePadding(bodyWithoutPadding.length);
+  const bodyWithPadding = { ...(body as Record<string, unknown>), p: padding };
+  const bodyJson = JSON.stringify(bodyWithPadding);
   const bodyBytes = fromUtf8(bodyJson);
 
   return eventStreamCodec.encode({

@@ -58,16 +58,13 @@ export function detectProviderFromModel(model: string): SupportedChatProvider {
     return "cohere";
   }
 
-  if (lowerModel.includes("cerebras")) {
-    return "cerebras";
-  }
 
   if (lowerModel.includes("glm") || lowerModel.includes("chatglm")) {
     return "zhipuai";
   }
 
   // Default to anthropic for backwards compatibility
-  // Note: vLLM and Ollama can serve any model, so they cannot be auto-detected
+  // Note: vLLM and Ollama cannot be auto-detected as they can serve any model
   return "anthropic";
 }
 
@@ -98,38 +95,19 @@ export async function resolveProviderApiKey(params: {
     conversationId: conversationId ?? null,
   });
 
-  if (resolvedApiKey?.secretId) {
-    const secretIdValue =
-      Array.isArray(resolvedApiKey.secretId) &&
-      resolvedApiKey.secretId.length > 0
-        ? resolvedApiKey.secretId[0]
-        : resolvedApiKey.secretId;
-    const secret = await secretManager().getSecret(String(secretIdValue));
+    if (resolvedApiKey?.secretId) {
+    const secret = await secretManager().getSecret(resolvedApiKey.secretId);
     // Support both old format (anthropicApiKey) and new format (apiKey)
-    // Normalize secret.secret to an object if it's an array (take first element)
-    const secretObj =
-      secret && Array.isArray(secret.secret) && secret.secret.length > 0
-        ? secret.secret[0]
-        : secret?.secret;
     const secretValue =
-      secretObj?.apiKey ??
-      secretObj?.anthropicApiKey ??
-      secretObj?.geminiApiKey ??
-      secretObj?.openaiApiKey ??
-      secretObj?.cohereApiKey ??
-      secretObj?.cerebrasApiKey ??
-      secretObj?.zhipuaiApiKey;
+      secret?.secret?.apiKey ??
+      secret?.secret?.anthropicApiKey ??
+      secret?.secret?.geminiApiKey ??
+      secret?.secret?.openaiApiKey ??
+      secret?.secret?.zhipuaiApiKey ??
+      secret?.secret?.cohereApiKey;
     if (secretValue) {
       providerApiKey = secretValue as string;
-      // Normalize scope to a string (supports string or array)
-      const scopeVal = Array.isArray(resolvedApiKey.scope)
-        ? resolvedApiKey.scope[0]
-        : resolvedApiKey.scope;
-      if (typeof scopeVal === "string" && scopeVal.length > 0) {
-        apiKeySource = scopeVal;
-      } else if (scopeVal != null) {
-        apiKeySource = String(scopeVal);
-      }
+      apiKeySource = resolvedApiKey.scope;
     }
   }
 

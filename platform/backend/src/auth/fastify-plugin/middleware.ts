@@ -81,7 +81,7 @@ export class Authnz {
       );
       return true;
     }
-    // Check if URL matches any LLM proxy route (e.g., /v1/openai, /v1/anthropic, /v1/cohere, /v1/vllm)
+    // Check if URL matches any LLM proxy route (e.g., /v1/openai, /v1/anthropic, /v1/vllm)
     const isLlmProxyRoute = SupportedProviders.some((provider) =>
       url.startsWith(`/v1/${provider}`),
     );

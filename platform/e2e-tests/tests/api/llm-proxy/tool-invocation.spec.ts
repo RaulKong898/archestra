@@ -706,7 +706,6 @@ const testConfigs: ToolInvocationTestConfig[] = [
   zhipuaiConfig,
 ];
 
-
 for (const config of testConfigs) {
   test.describe(`LLMProxy-ToolInvocation-${config.providerName}`, () => {
     // Each test is self-contained with its own local variables and cleanup.

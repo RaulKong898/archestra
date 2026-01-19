@@ -322,7 +322,7 @@ async function fetchOllamaModels(apiKey: string): Promise<ModelInfo[]> {
  */
 async function fetchCohereModels(apiKey: string): Promise<ModelInfo[]> {
   const baseUrl = config.llm.cohere.baseUrl;
-  const url = `${baseUrl}/models`;
+  const url = `${baseUrl}/v2/models`;
 
   const response = await fetch(url, {
     headers: {

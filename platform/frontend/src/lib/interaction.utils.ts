@@ -2,7 +2,7 @@ import type { SupportedProvider } from "@shared";
 import type { PartialUIMessage } from "@/components/chatbot-demo";
 import AnthropicMessagesInteraction from "./llmProviders/anthropic";
 import CerebrasChatCompletionInteraction from "./llmProviders/cerebras";
-import { createCohereInteraction } from "./llmProviders/cohere";
+import CohereChatInteraction from "./llmProviders/cohere";
 import type {
   DualLlmResult,
   Interaction,
@@ -13,7 +13,6 @@ import OllamaChatCompletionInteraction from "./llmProviders/ollama";
 import OpenAiChatCompletionInteraction from "./llmProviders/openai";
 import VllmChatCompletionInteraction from "./llmProviders/vllm";
 import ZhipuaiChatCompletionInteraction from "./llmProviders/zhipuai";
-
 
 export interface CostSavingsInput {
   cost: string | null | undefined;
@@ -118,40 +117,28 @@ export class DynamicInteraction implements InteractionUtils {
   }
 
   private getInteractionClass(interaction: Interaction): InteractionUtils {
-    // Note: Type discriminator stored in database determines the interaction type
-    const type = this.type as string;
-    if (type === "openai:chatCompletions") {
+    if (this.type === "openai:chatCompletions") {
       return new OpenAiChatCompletionInteraction(interaction);
     }
-    if (type === "anthropic:messages") {
+    if (this.type === "anthropic:messages") {
       return new AnthropicMessagesInteraction(interaction);
     } else if (this.type === "zhipuai:chatCompletions") {
       return new ZhipuaiChatCompletionInteraction(interaction);
     }
-    if (type === "cerebras:chatCompletions") {
+    if (this.type === "cerebras:chatCompletions") {
       return new CerebrasChatCompletionInteraction(interaction);
     }
-    if (type === "vllm:chatCompletions") {
+    if (this.type === "vllm:chatCompletions") {
       return new VllmChatCompletionInteraction(interaction);
     }
-    if (type === "ollama:chatCompletions") {
+    if (this.type === "ollama:chatCompletions") {
       return new OllamaChatCompletionInteraction(interaction);
     }
-    if (type === "cohere:chat") {
-      return createCohereInteraction(interaction);
+    if (this.type === "cohere:chat") {
+      return new CohereChatInteraction(interaction);
     }
     if (this.provider === "gemini" && this.endpoint === "generateContent") {
       return new GeminiGenerateContentInteraction(interaction);
-    }
-    // fallback based on provider if endpoint doesn't match expected shape
-    if (this.provider === "cohere") {
-      return createCohereInteraction(interaction);
-    }
-    if (this.provider === "anthropic") {
-      return new AnthropicMessagesInteraction(interaction);
-    }
-    if (this.provider === "openai") {
-      return new OpenAiChatCompletionInteraction(interaction);
     }
     // Default to Gemini for any other provider
     return new GeminiGenerateContentInteraction(interaction);

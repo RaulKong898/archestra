@@ -10,32 +10,32 @@ import type { DualLlmResult, Interaction, InteractionUtils } from "./common";
 import { parsePolicyDenied, parseRefusalMessage } from "./common";
 
 // =============================================================================
-// Cohere Types (derived from API schema)
+// Cohere Types (from generated API schema)
 // =============================================================================
 
-interface CohereTextContent {
-  type: "text";
-  text: string;
-}
+type CohereRequest = archestraApiTypes.CohereChatRequest;
+type CohereResponse = archestraApiTypes.CohereChatResponse;
 
-interface CohereToolCall {
-  id: string;
-  type: "function";
-  function: {
-    name: string;
-    arguments: string;
-  };
-}
-
+// Type aliases for clarity when working with message variants
+// Note: These are refined types based on the message role for type safety in code
 interface CohereUserMessage {
   role: "user";
-  content: string | CohereTextContent[];
+  content: string | Array<{ type: "text"; text: string }>;
 }
 
 interface CohereAssistantMessage {
   role: "assistant";
-  content?: string | CohereTextContent[];
-  tool_calls?: CohereToolCall[];
+  content?:
+    | string
+    | Array<
+        | { type: "text"; text: string }
+        | { type: string; tool_call_id: string; content: string }
+      >;
+  tool_calls?: Array<{
+    id: string;
+    type: string;
+    function: { name: string; arguments: string };
+  }>;
 }
 
 interface CohereToolMessage {
@@ -44,26 +44,12 @@ interface CohereToolMessage {
   content: string;
 }
 
+type CohereTextContent = { type: "text"; text: string };
 type CohereMessage =
   | CohereUserMessage
   | CohereAssistantMessage
   | CohereToolMessage
   | { role: "system"; content: string };
-
-interface CohereRequest {
-  model: string;
-  messages: CohereMessage[];
-}
-
-interface CohereResponse {
-  id: string;
-  message: {
-    role: "assistant";
-    content?: CohereTextContent[];
-    tool_calls?: CohereToolCall[];
-  };
-  finish_reason: string;
-}
 
 // =============================================================================
 // Cohere Interaction Utilities Implementation
@@ -162,7 +148,10 @@ class CohereChatInteraction implements InteractionUtils {
 
       if (Array.isArray(userMsg.content)) {
         return userMsg.content
-          .filter((block): block is CohereTextContent => block.type === "text")
+          .filter(
+            (block): block is CohereTextContent =>
+              block.type === "text" && "text" in block,
+          )
           .map((block) => block.text)
           .join("");
       }
@@ -175,7 +164,10 @@ class CohereChatInteraction implements InteractionUtils {
     // Check response content first
     if (this.response?.message?.content) {
       return this.response.message.content
-        .filter((block): block is CohereTextContent => block.type === "text")
+        .filter(
+          (block): block is CohereTextContent =>
+            block.type === "text" && "text" in block,
+        )
         .map((block) => block.text)
         .join("");
     }
@@ -194,7 +186,10 @@ class CohereChatInteraction implements InteractionUtils {
 
       if (Array.isArray(assistantMsg.content)) {
         return assistantMsg.content
-          .filter((block): block is CohereTextContent => block.type === "text")
+          .filter(
+            (block): block is CohereTextContent =>
+              block.type === "text" && "text" in block,
+          )
           .map((block) => block.text)
           .join("");
       }
@@ -219,7 +214,8 @@ class CohereChatInteraction implements InteractionUtils {
         } else if (Array.isArray(userMsg.content)) {
           content = userMsg.content
             .filter(
-              (block): block is CohereTextContent => block.type === "text",
+              (block): block is CohereTextContent =>
+                block.type === "text" && "text" in block,
             )
             .map((block) => block.text)
             .join("");
@@ -240,7 +236,7 @@ class CohereChatInteraction implements InteractionUtils {
           parts.push({ type: "text", text: assistantMsg.content });
         } else if (Array.isArray(assistantMsg.content)) {
           for (const block of assistantMsg.content) {
-            if (block.type === "text") {
+            if (block.type === "text" && "text" in block) {
               parts.push({ type: "text", text: block.text });
             }
           }
@@ -304,7 +300,7 @@ class CohereChatInteraction implements InteractionUtils {
 
       if (Array.isArray(responseMessage.content)) {
         for (const block of responseMessage.content) {
-          if (block.type === "text") {
+          if (block.type === "text" && "text" in block) {
             parts.push({ type: "text", text: block.text });
           }
         }
@@ -345,11 +341,4 @@ class CohereChatInteraction implements InteractionUtils {
   }
 }
 
-/**
- * Create a Cohere interaction utilities instance from the interaction
- */
-export function createCohereInteraction(
-  interaction: Interaction,
-): InteractionUtils {
-  return new CohereChatInteraction(interaction);
-}
+export default CohereChatInteraction;

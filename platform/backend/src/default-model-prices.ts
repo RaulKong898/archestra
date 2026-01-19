@@ -15,11 +15,7 @@ function getDefaultModelPrice(model: string): {
   pricePerMillionInput: string;
   pricePerMillionOutput: string;
 } {
-  const cheaperPatterns = [
-    "-haiku",
-    "-nano",
-    "-mini"
-  ];
+  const cheaperPatterns = ["-haiku", "-nano", "-mini"];
   const isCheaper = cheaperPatterns.some((pattern) =>
     model.toLowerCase().includes(pattern),
   );

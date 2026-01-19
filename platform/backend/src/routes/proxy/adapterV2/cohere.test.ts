@@ -270,20 +270,18 @@ describe("CohereResponseAdapter", () => {
 describe("CohereRequestAdapter", () => {
   describe("getModel", () => {
     test("returns original model by default", () => {
-      const request = createMockRequest(
-        [{ role: "user", content: "Hello" }],
-        { model: "command-r-plus" },
-      );
+      const request = createMockRequest([{ role: "user", content: "Hello" }], {
+        model: "command-r-plus",
+      });
 
       const adapter = cohereAdapterFactory.createRequestAdapter(request);
       expect(adapter.getModel()).toBe("command-r-plus");
     });
 
     test("returns modified model after setModel", () => {
-      const request = createMockRequest(
-        [{ role: "user", content: "Hello" }],
-        { model: "command-r-plus" },
-      );
+      const request = createMockRequest([{ role: "user", content: "Hello" }], {
+        model: "command-r-plus",
+      });
 
       const adapter = cohereAdapterFactory.createRequestAdapter(request);
       adapter.setModel("command-r");
@@ -741,9 +739,7 @@ describe("CohereStreamAdapter", () => {
         },
       });
 
-      expect(adapter.state.toolCalls[0].arguments).toBe(
-        '{"param": "value"}',
-      );
+      expect(adapter.state.toolCalls[0].arguments).toBe('{"param": "value"}');
     });
 
     test("handles message-end chunk and extracts usage", () => {

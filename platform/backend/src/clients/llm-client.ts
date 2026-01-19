@@ -99,12 +99,12 @@ export async function resolveProviderApiKey(params: {
   });
 
   if (resolvedApiKey?.secretId) {
-    const secretId = await secretManager().getSecret(resolvedApiKey.secretId);
+    const secretIdValue =
       Array.isArray(resolvedApiKey.secretId) &&
       resolvedApiKey.secretId.length > 0
         ? resolvedApiKey.secretId[0]
         : resolvedApiKey.secretId;
-    const secret = await secretManager().getSecret(String(secretId));
+    const secret = await secretManager().getSecret(String(secretIdValue));
     // Support both old format (anthropicApiKey) and new format (apiKey)
     // Normalize secret.secret to an object if it's an array (take first element)
     const secretObj =

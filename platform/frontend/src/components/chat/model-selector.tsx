@@ -53,7 +53,6 @@ const providerToLogoProvider: Record<SupportedProvider, string> = {
   zhipuai: "zhipuai",
 };
 
-
 /**
  * Model selector dialog with:
  * - Models grouped by provider with provider name headers

@@ -731,25 +731,44 @@ export async function convertToolResultsToToon(
         const tokensAfter = tokenizer.countTokens([
           { role: "user", content: compressed },
         ]);
-        totalTokensBefore += tokensBefore;
-        totalTokensAfter += tokensAfter;
 
-        logger.info(
-          {
-            toolCallId: toolMsg.tool_call_id,
-            beforeLength: noncompressed.length,
-            afterLength: compressed.length,
-            tokensBefore,
-            tokensAfter,
-            provider: "cohere",
-          },
-          "convertToolResultsToToon: compressed",
-        );
+        // Only use TOON compression if it actually saves tokens
+        if (tokensAfter < tokensBefore) {
+          totalTokensBefore += tokensBefore;
+          totalTokensAfter += tokensAfter;
 
-        return {
-          ...toolMsg,
-          content: compressed,
-        };
+          logger.info(
+            {
+              toolCallId: toolMsg.tool_call_id,
+              beforeLength: noncompressed.length,
+              afterLength: compressed.length,
+              tokensBefore,
+              tokensAfter,
+              tokensSaved: tokensBefore - tokensAfter,
+              provider: "cohere",
+            },
+            "convertToolResultsToToon: compressed",
+          );
+
+          return {
+            ...toolMsg,
+            content: compressed,
+          };
+        } else {
+          logger.info(
+            {
+              toolCallId: toolMsg.tool_call_id,
+              beforeLength: noncompressed.length,
+              afterLength: compressed.length,
+              tokensBefore,
+              tokensAfter,
+              tokensDiff: tokensAfter - tokensBefore,
+              provider: "cohere",
+            },
+            "convertToolResultsToToon: skipping - compression increases tokens",
+          );
+          return message;
+        }
       } catch {
         logger.info(
           {

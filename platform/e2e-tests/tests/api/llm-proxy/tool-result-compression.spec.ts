@@ -180,7 +180,9 @@ const cohereConfig: CompressionTestConfig = {
     messages: [
       {
         role: "user",
-        content: [{ type: "text", text: "What files are in the current directory?" }],
+        content: [
+          { type: "text", text: "What files are in the current directory?" },
+        ],
       },
       {
         role: "assistant",
@@ -464,11 +466,11 @@ for (const config of testConfigs) {
       await updateOrganization(request, {
         convertToolResultsToToon: originalCompressionEnabled,
         compressionScope: originalCompressionScope,
-      }).catch(() => { });
+      }).catch(() => {});
 
       // Clean up test profile
       if (profileId) {
-        await deleteAgent(request, profileId).catch(() => { });
+        await deleteAgent(request, profileId).catch(() => {});
         profileId = "";
       }
     });

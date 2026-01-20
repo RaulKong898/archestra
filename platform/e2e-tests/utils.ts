@@ -180,7 +180,7 @@ export async function verifyToolCallResultViaApi({
   toolName: string;
   cookieHeaders: string;
 }) {
-  const { data: defaultProfile } = await archestraApiSdk.getDefaultAgent({
+  const { data: defaultProfile } = await archestraApiSdk.getDefaultProfile({
     headers: { Cookie: cookieHeaders },
   });
   if (!defaultProfile) {
@@ -300,19 +300,19 @@ export async function assignEngineeringTeamToDefaultProfileViaApi({
     throw new Error(`Team "${ENGINEERING_TEAM_NAME}" not found`);
   }
 
-  // 2. Get all profiles and find Default Agent
-  const agentsResponse = await archestraApiSdk.getAgents({
+  // 2. Get all profiles and find Default Profile
+  const profilesResponse = await archestraApiSdk.getProfiles({
     headers: { Cookie: cookieHeaders },
   });
-  const defaultProfile = agentsResponse.data?.data?.find(
-    (agent) => agent.name === DEFAULT_PROFILE_NAME,
+  const defaultProfile = profilesResponse.data?.data?.find(
+    (profile) => profile.name === DEFAULT_PROFILE_NAME,
   );
   if (!defaultProfile) {
     throw new Error(`Profile "${DEFAULT_PROFILE_NAME}" not found`);
   }
 
   // 3. Assign BOTH Default Team and Engineering Team to the profile
-  await archestraApiSdk.updateAgent({
+  await archestraApiSdk.updateProfile({
     headers: { Cookie: cookieHeaders },
     path: { id: defaultProfile.id },
     body: {

@@ -182,6 +182,7 @@ export const RouteId = {
   UpdateConversationEnabledTools: "updateConversationEnabledTools",
   DeleteConversationEnabledTools: "deleteConversationEnabledTools",
   GetChatModels: "getChatModels",
+  InvalidateChatModelsCache: "invalidateChatModelsCache",
 
   // Chat API Key Routes
   GetChatApiKeys: "getChatApiKeys",
@@ -280,6 +281,11 @@ export const RouteId = {
   RenewIncomingEmailSubscription: "renewIncomingEmailSubscription",
   DeleteIncomingEmailSubscription: "deleteIncomingEmailSubscription",
   GetPromptEmailAddress: "getPromptEmailAddress",
+
+  // ChatOps Routes
+  GetChatOpsStatus: "getChatOpsStatus",
+  ListChatOpsBindings: "listChatOpsBindings",
+  DeleteChatOpsBinding: "deleteChatOpsBinding",
 } as const;
 
 export type RouteId = (typeof RouteId)[keyof typeof RouteId];

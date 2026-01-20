@@ -23,6 +23,12 @@ export const OptimizationRuleConditionsSchema = z
   .union([ContentLengthConditionsSchema, ToolPresenceConditionsSchema])
   .array();
 
+/**
+ * Entity types for optimization rules.
+ *
+ * Note: "agent" is kept for backwards compatibility with existing database records.
+ * A future migration will update "agent" -> "profile" in the database.
+ */
 export const OptimizationRuleEntityTypeSchema = z.enum([
   "organization",
   "team",

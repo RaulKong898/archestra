@@ -271,7 +271,6 @@ export async function refreshOAuthToken(
   expires_at?: number;
 } | null> {
   try {
-    // Get the current secret with refresh token
     const secret = await secretManager().getSecret(secretId);
     if (!secret?.secret) {
       logger.warn({ secretId }, "refreshOAuthToken: Secret not found");

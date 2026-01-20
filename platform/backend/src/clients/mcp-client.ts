@@ -223,23 +223,25 @@ class McpClient {
           error instanceof UnauthorizedError ||
           (error instanceof StreamableHTTPError &&
             (error.code === 401 || error.code === 403));
+        
 
-        const hasRefreshCapability =
+        // Check if mcp server auth secret has a refresh token to use for token refresh attempt.
+        const shouldAttemptTokenRefresh =
           secretId &&
-          (currentSecrets as { refresh_token?: string }).refresh_token &&
-          catalogItem.id;
-
-        if (!isRetry && isAuthError && hasRefreshCapability) {
+          (currentSecrets as { refresh_token?: string }).refresh_token && catalogItem.id;
+        
+        // 
+        if (!isRetry && isAuthError && shouldAttemptTokenRefresh) {
           logger.info(
             {
               toolName: toolCall.name,
               secretId,
               catalogId: catalogItem.id,
             },
-            "Authentication error detected, attempting token refresh and retry",
+            "executeToolCall: authentication error detected, attempting token refresh and retry",
           );
 
-          // Invalidate cached connection since token changed
+          // Invalidate existing client since token is going to be changed.
           const existingClient = this.activeConnections.get(connectionKey);
           if (existingClient) {
             try {
@@ -259,7 +261,7 @@ class McpClient {
           if (refreshResult) {
             logger.info(
               { toolName: toolCall.name, secretId },
-              "Token refreshed after 401, retrying tool call",
+              "executeToolCall: token refreshed after authentication error, retrying tool call",
             );
 
             try {
@@ -281,29 +283,26 @@ class McpClient {
                 );
               }
             } catch (retryError) {
+              // Log error and save error result for the retried call
+              const retryErrorMsg = retryError instanceof Error ? retryError.message : String(retryError);
               logger.error(
                 {
                   toolName: toolCall.name,
-                  error:
-                    retryError instanceof Error
-                      ? retryError.message
-                      : String(retryError),
+                  error: retryErrorMsg,
                 },
-                "Retry after token refresh also failed",
+                "executeToolCall: retry after token refresh also failed",
               );
               return await this.createErrorResult(
                 toolCall,
                 agentId,
-                retryError instanceof Error
-                  ? retryError.message
-                  : "Unknown error on retry",
+                retryErrorMsg,
                 tool.mcpServerName || "unknown",
               );
             }
           } else {
             logger.warn(
               { toolName: toolCall.name, secretId },
-              "Token refresh failed after 401, cannot retry",
+              "executeToolCall: token refresh failed",
             );
           }
         }

@@ -260,21 +260,17 @@ setInterval(
  *
  * @param secretId - The ID of the secret containing the OAuth tokens
  * @param catalogId - The ID of the catalog item (MCP server) for OAuth config
- * @returns Object with new tokens if successful, null if refresh failed or not possible
+ * @returns true if refresh was successful, false otherwise
  */
 export async function refreshOAuthToken(
   secretId: string,
   catalogId: string,
-): Promise<{
-  access_token: string;
-  refresh_token?: string;
-  expires_at?: number;
-} | null> {
+): Promise<boolean> {
   try {
     const secret = await secretManager().getSecret(secretId);
     if (!secret?.secret) {
       logger.warn({ secretId }, "refreshOAuthToken: Secret not found");
-      return null;
+      return false;
     }
 
     const currentTokens = secret.secret as {
@@ -294,7 +290,7 @@ export async function refreshOAuthToken(
         { secretId },
         "refreshOAuthToken: No refresh token available",
       );
-      return null;
+      return false;
     }
 
     // Get catalog item with OAuth configuration
@@ -305,7 +301,7 @@ export async function refreshOAuthToken(
         { catalogId },
         "refreshOAuthToken: Catalog item or OAuth config not found",
       );
-      return null;
+      return false;
     }
 
     const oauthConfig = catalogItem.oauthConfig;
@@ -352,7 +348,7 @@ export async function refreshOAuthToken(
         { secretId, catalogId },
         "refreshOAuthToken: No client_id available for token refresh",
       );
-      return null;
+      return false;
     }
 
     logger.info(
@@ -390,7 +386,7 @@ export async function refreshOAuthToken(
         { secretId, status: tokenResponse.status, error: errorText },
         "refreshOAuthToken: Token refresh request failed",
       );
-      return null;
+      return false;
     }
 
     const tokenData = (await tokenResponse.json()) as {
@@ -410,7 +406,7 @@ export async function refreshOAuthToken(
         },
         "refreshOAuthToken: No access token in refresh response",
       );
-      return null;
+      return false;
     }
 
     // Store entire OAuth response to preserve provider-specific fields (scope, id_token, etc.)
@@ -441,11 +437,7 @@ export async function refreshOAuthToken(
       "refreshOAuthToken: Token refresh successful",
     );
 
-    return {
-      access_token: tokenData.access_token,
-      refresh_token: updatedSecretPayload.refresh_token,
-      expires_at: updatedSecretPayload.expires_at,
-    };
+    return true;
   } catch (error) {
     logger.error(
       {
@@ -455,7 +447,7 @@ export async function refreshOAuthToken(
       },
       "refreshOAuthToken: Unexpected error during token refresh",
     );
-    return null;
+    return false;
   }
 }
 

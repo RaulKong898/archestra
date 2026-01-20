@@ -28,9 +28,6 @@ import type {
 import { previewToolResultContent } from "@/utils/tool-result-preview";
 import { K8sAttachTransport } from "./k8s-attach-transport";
 
-/** Buffer time before token expiration to trigger proactive refresh (5 minutes) */
-const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000;
-
 /**
  * Type for MCP tool with server metadata returned from database
  */
@@ -158,7 +155,6 @@ class McpClient {
     const { targetLocalMcpServerId } = targetLocalMcpServerIdResult;
     const secretsResult = await this.getSecretsForMcpServer({
       targetMcpServerId: targetLocalMcpServerId,
-      catalogId: catalogItem.id,
       toolCall,
       agentId,
     });
@@ -171,7 +167,6 @@ class McpClient {
     // This ensures each user gets their own connection for dynamic credentials
     const connectionKey = `${catalogItem.id}:${targetLocalMcpServerId}`;
 
-    // Helper to execute the tool call with optional retry after token refresh
     const executeToolCall = async (
       getTransport: () => Promise<Transport>,
       currentSecrets: Record<string, unknown>,
@@ -218,93 +213,40 @@ class McpClient {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
 
-        // Check if this is an authentication error (401/403) and we can attempt refresh
+        // Check if this is an authentication error (401) and we can attempt refresh
         const isAuthError =
           error instanceof UnauthorizedError ||
-          (error instanceof StreamableHTTPError &&
-            (error.code === 401 || error.code === 403));
-        
+          (error instanceof StreamableHTTPError && error.code === 401);
 
-        // Check if mcp server auth secret has a refresh token to use for token refresh attempt.
-        const shouldAttemptTokenRefresh =
+        // Only attempt token refresh for OAuth servers with a refresh token
+        const isOAuthServer = !!catalogItem.oauthConfig;
+        const hasRefreshToken = !!(currentSecrets as { refresh_token?: string })
+          .refresh_token;
+        const canAttemptRecovery =
+          !isRetry &&
+          isAuthError &&
+          isOAuthServer &&
           secretId &&
-          (currentSecrets as { refresh_token?: string }).refresh_token && catalogItem.id;
-        
-        // 
-        if (!isRetry && isAuthError && shouldAttemptTokenRefresh) {
-          logger.info(
-            {
-              toolName: toolCall.name,
-              secretId,
-              catalogId: catalogItem.id,
-            },
-            "executeToolCall: authentication error detected, attempting token refresh and retry",
-          );
+          hasRefreshToken;
 
-          // Invalidate existing client since token is going to be changed.
-          const existingClient = this.activeConnections.get(connectionKey);
-          if (existingClient) {
-            try {
-              await existingClient.close();
-            } catch {
-              // Ignore close errors
-            }
-            this.activeConnections.delete(connectionKey);
-          }
-
-          // Attempt refresh
-          const refreshResult = await refreshOAuthToken(
+        if (canAttemptRecovery) {
+          const recoveryResult = await this.attemptTokenRefreshAndRetry({
             secretId,
-            catalogItem.id,
-          );
+            catalogId: catalogItem.id,
+            connectionKey,
+            toolCall,
+            agentId,
+            mcpServerName: tool.mcpServerName || "unknown",
+            catalogItem,
+            targetLocalMcpServerId,
+            executeRetry: (getTransport, secrets) =>
+              executeToolCall(getTransport, secrets, true),
+          });
 
-          if (refreshResult) {
-            logger.info(
-              { toolName: toolCall.name, secretId },
-              "executeToolCall: token refreshed after authentication error, retrying tool call",
-            );
-
-            try {
-              // Re-fetch updated secrets and retry once
-              const updatedSecret =
-                await secretManager().getSecret(secretId);
-              if (updatedSecret?.secret) {
-                // Create new transport with updated secrets
-                const getUpdatedTransport = () =>
-                  this.getTransport(
-                    catalogItem,
-                    targetLocalMcpServerId,
-                    updatedSecret.secret,
-                  );
-                return await executeToolCall(
-                  getUpdatedTransport,
-                  updatedSecret.secret,
-                  true, // mark as retry
-                );
-              }
-            } catch (retryError) {
-              // Log error and save error result for the retried call
-              const retryErrorMsg = retryError instanceof Error ? retryError.message : String(retryError);
-              logger.error(
-                {
-                  toolName: toolCall.name,
-                  error: retryErrorMsg,
-                },
-                "executeToolCall: retry after token refresh also failed",
-              );
-              return await this.createErrorResult(
-                toolCall,
-                agentId,
-                retryErrorMsg,
-                tool.mcpServerName || "unknown",
-              );
-            }
-          } else {
-            logger.warn(
-              { toolName: toolCall.name, secretId },
-              "executeToolCall: token refresh failed",
-            );
+          if (recoveryResult) {
+            return recoveryResult;
           }
+          // If recovery returned null, fall through to create error result
         }
 
         return await this.createErrorResult(
@@ -453,15 +395,13 @@ class McpClient {
     return { tool, catalogItem };
   }
 
-  // Gets secrets of a given MCP server, with automatic OAuth token refresh
+  // Gets secrets of a given MCP server
   private async getSecretsForMcpServer({
     targetMcpServerId,
-    catalogId,
     toolCall,
     agentId,
   }: {
     targetMcpServerId: string;
-    catalogId: string;
     toolCall: CommonToolCall;
     agentId: string;
   }): Promise<
@@ -480,53 +420,8 @@ class McpClient {
       };
     }
     if (mcpServer.secretId) {
-      let secret = await secretManager().getSecret(mcpServer.secretId);
+      const secret = await secretManager().getSecret(mcpServer.secretId);
       if (secret?.secret) {
-        const tokens = secret.secret as {
-          access_token?: string;
-          refresh_token?: string;
-          expires_at?: number;
-        };
-
-        // Check if OAuth token needs refresh (expired or expiring soon)
-        if (tokens.access_token && tokens.expires_at && tokens.refresh_token) {
-          const now = Date.now();
-          const isExpiredOrExpiringSoon =
-            now > tokens.expires_at - TOKEN_REFRESH_BUFFER_MS;
-
-          if (isExpiredOrExpiringSoon) {
-            logger.info(
-              {
-                targetMcpServerId,
-                secretId: mcpServer.secretId,
-                expiresAt: tokens.expires_at,
-                now,
-                isExpired: now > tokens.expires_at,
-              },
-              "getSecretsForMcpServer: OAuth token expired or expiring soon, attempting refresh",
-            );
-
-            const refreshResult = await refreshOAuthToken(
-              mcpServer.secretId,
-              catalogId,
-            );
-
-            if (refreshResult) {
-              // Re-fetch the updated secret
-              secret = await secretManager().getSecret(mcpServer.secretId);
-              logger.info(
-                { targetMcpServerId, secretId: mcpServer.secretId },
-                "getSecretsForMcpServer: OAuth token refreshed successfully",
-              );
-            } else {
-              logger.warn(
-                { targetMcpServerId, secretId: mcpServer.secretId },
-                "getSecretsForMcpServer: OAuth token refresh failed, using potentially expired token",
-              );
-            }
-          }
-        }
-
         logger.info(
           {
             targetMcpServerId,
@@ -534,7 +429,7 @@ class McpClient {
           },
           `Found secrets for MCP server ${targetMcpServerId}`,
         );
-        return { secrets: secret?.secret ?? {}, secretId: mcpServer.secretId };
+        return { secrets: secret.secret, secretId: mcpServer.secretId };
       }
     }
     return { secrets: {} };
@@ -943,6 +838,106 @@ class McpClient {
 
     await this.persistToolCall(agentId, mcpServerName, toolCall, toolResult);
     return toolResult;
+  }
+
+  /**
+   * Attempt to recover from an authentication error by refreshing the OAuth token
+   * and retrying the tool call.
+   *
+   * @returns The result of the retried tool call, or null if refresh failed
+   */
+  private async attemptTokenRefreshAndRetry(params: {
+    secretId: string;
+    catalogId: string;
+    connectionKey: string;
+    toolCall: CommonToolCall;
+    agentId: string;
+    mcpServerName: string;
+    catalogItem: InternalMcpCatalog;
+    targetLocalMcpServerId: string;
+    executeRetry: (
+      getTransport: () => Promise<Transport>,
+      secrets: Record<string, unknown>,
+    ) => Promise<CommonToolResult>;
+  }): Promise<CommonToolResult | null> {
+    const {
+      secretId,
+      catalogId,
+      connectionKey,
+      toolCall,
+      agentId,
+      mcpServerName,
+      catalogItem,
+      targetLocalMcpServerId,
+      executeRetry,
+    } = params;
+
+    logger.info(
+      { toolName: toolCall.name, secretId, catalogId },
+      "attemptTokenRefreshAndRetry: authentication error detected, attempting token refresh and retry",
+    );
+
+    // Invalidate existing client since token is going to be changed
+    const existingClient = this.activeConnections.get(connectionKey);
+    if (existingClient) {
+      try {
+        await existingClient.close();
+      } catch {
+        // Ignore close errors
+      }
+      this.activeConnections.delete(connectionKey);
+    }
+
+    // Attempt refresh
+    const refreshResult = await refreshOAuthToken(secretId, catalogId);
+
+    if (!refreshResult) {
+      logger.warn(
+        { toolName: toolCall.name, secretId },
+        "attemptTokenRefreshAndRetry: token refresh failed",
+      );
+      return null;
+    }
+
+    logger.info(
+      { toolName: toolCall.name, secretId },
+      "attemptTokenRefreshAndRetry: token refreshed, retrying tool call",
+    );
+
+    try {
+      // Re-fetch updated secrets and retry once
+      const updatedSecret = await secretManager().getSecret(secretId);
+      if (!updatedSecret?.secret) {
+        logger.warn(
+          { toolName: toolCall.name, secretId },
+          "attemptTokenRefreshAndRetry: failed to fetch updated secret after refresh",
+        );
+        return null;
+      }
+
+      // Create new transport with updated secrets
+      const getUpdatedTransport = () =>
+        this.getTransport(
+          catalogItem,
+          targetLocalMcpServerId,
+          updatedSecret.secret,
+        );
+
+      return await executeRetry(getUpdatedTransport, updatedSecret.secret);
+    } catch (retryError) {
+      const retryErrorMsg =
+        retryError instanceof Error ? retryError.message : String(retryError);
+      logger.error(
+        { toolName: toolCall.name, error: retryErrorMsg },
+        "attemptTokenRefreshAndRetry: retry after token refresh also failed",
+      );
+      return await this.createErrorResult(
+        toolCall,
+        agentId,
+        retryErrorMsg,
+        mcpServerName,
+      );
+    }
   }
 
   /**

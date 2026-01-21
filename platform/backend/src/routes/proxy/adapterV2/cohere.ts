@@ -54,7 +54,8 @@ function safeJsonParse(
 // =============================================================================
 
 class CohereRequestAdapter
-  implements LLMRequestAdapter<CohereRequest, CohereMessages> {
+  implements LLMRequestAdapter<CohereRequest, CohereMessages>
+{
   readonly provider = "cohere" as const;
   private request: CohereRequest;
   private modifiedModel: string | null = null;
@@ -352,7 +353,8 @@ class CohereResponseAdapter implements LLMResponseAdapter<CohereResponse> {
 // =============================================================================
 
 class CohereStreamAdapter
-  implements LLMStreamAdapter<CohereStreamChunk, CohereResponse> {
+  implements LLMStreamAdapter<CohereStreamChunk, CohereResponse>
+{
   readonly provider = "cohere" as const;
   readonly state: StreamAccumulatorState;
   private currentToolCallIndex = -1;

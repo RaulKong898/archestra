@@ -789,7 +789,7 @@ describe("CohereStreamAdapter", () => {
 
       expect(headers["Content-Type"]).toBe("text/event-stream");
       expect(headers["Cache-Control"]).toBe("no-cache");
-      expect(headers["Connection"]).toBe("keep-alive");
+      expect(headers.Connection).toBe("keep-alive");
     });
   });
 

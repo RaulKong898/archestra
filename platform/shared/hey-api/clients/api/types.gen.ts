@@ -12898,6 +12898,7 @@ export type GetInteractionsResponses = {
             response: CohereChatResponse;
             type: 'cohere:chat';
             model: string | null;
+            baselineModel: string | null;
             inputTokens: number | null;
             outputTokens: number | null;
             baselineCost: string | null;
@@ -12905,6 +12906,7 @@ export type GetInteractionsResponses = {
             toonTokensBefore: number | null;
             toonTokensAfter: number | null;
             toonCostSavings: string | null;
+            toonSkipReason: string | null;
             createdAt: string;
             requestType?: 'main' | 'subagent';
             externalAgentIdLabel?: string | null;
@@ -13463,6 +13465,7 @@ export type GetInteractionResponses = {
         response: CohereChatResponse;
         type: 'cohere:chat';
         model: string | null;
+        baselineModel: string | null;
         inputTokens: number | null;
         outputTokens: number | null;
         baselineCost: string | null;
@@ -13470,6 +13473,7 @@ export type GetInteractionResponses = {
         toonTokensBefore: number | null;
         toonTokensAfter: number | null;
         toonCostSavings: string | null;
+        toonSkipReason: string | null;
         createdAt: string;
         requestType?: 'main' | 'subagent';
         externalAgentIdLabel?: string | null;

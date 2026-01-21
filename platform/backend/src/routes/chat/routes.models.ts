@@ -429,69 +429,87 @@ export async function fetchGeminiModelsViaVertexAi(): Promise<ModelInfo[]> {
   return cacheManager.wrap(
     cacheKey,
     async () => {
+      const vertexConfig = {
+        project: config.llm.gemini.vertexAi.project,
+        location: config.llm.gemini.vertexAi.location,
+      };
+
       logger.debug(
-        {
-          project: config.llm.gemini.vertexAi.project,
-          location: config.llm.gemini.vertexAi.location,
-        },
+        vertexConfig,
         "Fetching Gemini models via Vertex AI SDK (cache miss)",
       );
 
-      // Create a client without API key (uses ADC for Vertex AI)
-      const ai = createGoogleGenAIClient(undefined, "[ChatModels]");
+      try {
+        // Create a client without API key (uses ADC for Vertex AI)
+        const ai = createGoogleGenAIClient(undefined, "[ChatModels]");
 
-      const pager = await ai.models.list({ config: { pageSize: 100 } });
+        const pager = await ai.models.list({ config: { pageSize: 100 } });
 
-      const models: ModelInfo[] = [];
+        const models: ModelInfo[] = [];
 
-      // Patterns to exclude non-chat models
-      const excludePatterns = [
-        "embedding",
-        "imagen",
-        "text-bison",
-        "code-bison",
-      ];
+        // Patterns to exclude non-chat models
+        const excludePatterns = [
+          "embedding",
+          "imagen",
+          "text-bison",
+          "code-bison",
+        ];
 
-      for await (const model of pager) {
-        const modelName = model.name ?? "";
+        for await (const model of pager) {
+          const modelName = model.name ?? "";
 
-        // Only include Gemini models that are chat-capable
-        // Vertex AI returns names like "publishers/google/models/gemini-2.0-flash-001"
-        if (!modelName.includes("gemini")) {
-          continue;
+          // Only include Gemini models that are chat-capable
+          // Vertex AI returns names like "publishers/google/models/gemini-2.0-flash-001"
+          if (!modelName.includes("gemini")) {
+            continue;
+          }
+
+          // Exclude embedding and other non-chat models
+          const isExcluded = excludePatterns.some((pattern) =>
+            modelName.toLowerCase().includes(pattern),
+          );
+          if (isExcluded) {
+            continue;
+          }
+
+          // Extract model ID from "publishers/google/models/gemini-xxx" format
+          const modelId = modelName.replace("publishers/google/models/", "");
+
+          // Generate a readable display name from the model ID
+          // e.g., "gemini-2.0-flash-001" -> "Gemini 2.0 Flash 001"
+          const displayName = modelId
+            .split("-")
+            .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+            .join(" ");
+
+          models.push({
+            id: modelId,
+            displayName,
+            provider: "gemini" as const,
+          });
         }
 
-        // Exclude embedding and other non-chat models
-        const isExcluded = excludePatterns.some((pattern) =>
-          modelName.toLowerCase().includes(pattern),
+        logger.debug(
+          { modelCount: models.length },
+          "Fetched Gemini models via Vertex AI SDK",
         );
-        if (isExcluded) {
-          continue;
-        }
 
-        // Extract model ID from "publishers/google/models/gemini-xxx" format
-        const modelId = modelName.replace("publishers/google/models/", "");
-
-        // Generate a readable display name from the model ID
-        // e.g., "gemini-2.0-flash-001" -> "Gemini 2.0 Flash 001"
-        const displayName = modelId
-          .split("-")
-          .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-          .join(" ");
-
-        models.push({
-          id: modelId,
-          displayName,
-          provider: "gemini" as const,
-        });
+        return models;
+      } catch (error) {
+        // Log specific error details for Vertex AI failures to aid debugging
+        logger.error(
+          {
+            ...vertexConfig,
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
+            errorName: error instanceof Error ? error.name : undefined,
+            errorStack: error instanceof Error ? error.stack : undefined,
+          },
+          "Failed to fetch Gemini models via Vertex AI SDK",
+        );
+        // Re-throw to prevent caching failed results
+        throw error;
       }
-
-      logger.debug(
-        { modelCount: models.length },
-        "Fetched Gemini models via Vertex AI SDK",
-      );
-
-      return models;
     },
     { ttl: 5 * TimeInMs.Minute },
   );

@@ -12758,6 +12758,7 @@ export type GetInteractionsResponses = {
             response: OpenAiChatCompletionResponse;
             type: 'openai:chatCompletions';
             model: string | null;
+            baselineModel: string | null;
             inputTokens: number | null;
             outputTokens: number | null;
             baselineCost: string | null;
@@ -12765,6 +12766,7 @@ export type GetInteractionsResponses = {
             toonTokensBefore: number | null;
             toonTokensAfter: number | null;
             toonCostSavings: string | null;
+            toonSkipReason: string | null;
             createdAt: string;
             requestType?: 'main' | 'subagent';
             externalAgentIdLabel?: string | null;
@@ -12780,6 +12782,7 @@ export type GetInteractionsResponses = {
             response: GeminiGenerateContentResponse;
             type: 'gemini:generateContent';
             model: string | null;
+            baselineModel: string | null;
             inputTokens: number | null;
             outputTokens: number | null;
             baselineCost: string | null;
@@ -12787,6 +12790,7 @@ export type GetInteractionsResponses = {
             toonTokensBefore: number | null;
             toonTokensAfter: number | null;
             toonCostSavings: string | null;
+            toonSkipReason: string | null;
             createdAt: string;
             requestType?: 'main' | 'subagent';
             externalAgentIdLabel?: string | null;
@@ -12802,6 +12806,7 @@ export type GetInteractionsResponses = {
             response: AnthropicMessagesResponse;
             type: 'anthropic:messages';
             model: string | null;
+            baselineModel: string | null;
             inputTokens: number | null;
             outputTokens: number | null;
             baselineCost: string | null;
@@ -12809,6 +12814,7 @@ export type GetInteractionsResponses = {
             toonTokensBefore: number | null;
             toonTokensAfter: number | null;
             toonCostSavings: string | null;
+            toonSkipReason: string | null;
             createdAt: string;
             requestType?: 'main' | 'subagent';
             externalAgentIdLabel?: string | null;
@@ -12824,6 +12830,7 @@ export type GetInteractionsResponses = {
             response: CerebrasChatCompletionResponse;
             type: 'cerebras:chatCompletions';
             model: string | null;
+            baselineModel: string | null;
             inputTokens: number | null;
             outputTokens: number | null;
             baselineCost: string | null;
@@ -12831,6 +12838,7 @@ export type GetInteractionsResponses = {
             toonTokensBefore: number | null;
             toonTokensAfter: number | null;
             toonCostSavings: string | null;
+            toonSkipReason: string | null;
             createdAt: string;
             requestType?: 'main' | 'subagent';
             externalAgentIdLabel?: string | null;
@@ -12846,6 +12854,7 @@ export type GetInteractionsResponses = {
             response: VllmChatCompletionResponse;
             type: 'vllm:chatCompletions';
             model: string | null;
+            baselineModel: string | null;
             inputTokens: number | null;
             outputTokens: number | null;
             baselineCost: string | null;
@@ -12853,6 +12862,7 @@ export type GetInteractionsResponses = {
             toonTokensBefore: number | null;
             toonTokensAfter: number | null;
             toonCostSavings: string | null;
+            toonSkipReason: string | null;
             createdAt: string;
         } | {
             id: string;
@@ -12866,6 +12876,7 @@ export type GetInteractionsResponses = {
             response: OllamaChatCompletionResponse;
             type: 'ollama:chatCompletions';
             model: string | null;
+            baselineModel: string | null;
             inputTokens: number | null;
             outputTokens: number | null;
             baselineCost: string | null;
@@ -12873,6 +12884,7 @@ export type GetInteractionsResponses = {
             toonTokensBefore: number | null;
             toonTokensAfter: number | null;
             toonCostSavings: string | null;
+            toonSkipReason: string | null;
             createdAt: string;
         } | {
             id: string;
@@ -12908,6 +12920,7 @@ export type GetInteractionsResponses = {
             response: ZhipuaiChatCompletionResponse;
             type: 'zhipuai:chatCompletions';
             model: string | null;
+            baselineModel: string | null;
             inputTokens: number | null;
             outputTokens: number | null;
             baselineCost: string | null;
@@ -12915,6 +12928,7 @@ export type GetInteractionsResponses = {
             toonTokensBefore: number | null;
             toonTokensAfter: number | null;
             toonCostSavings: string | null;
+            toonSkipReason: string | null;
             createdAt: string;
             requestType?: 'main' | 'subagent';
             externalAgentIdLabel?: string | null;
@@ -13039,6 +13053,13 @@ export type GetInteractionSessionsResponses = {
             totalOutputTokens: number;
             totalCost: string | null;
             totalBaselineCost: string | null;
+            totalToonCostSavings: string | null;
+            toonSkipReasonCounts: {
+                applied: number;
+                notEnabled: number;
+                notEffective: number;
+                noToolResults: number;
+            };
             firstRequestTime: string;
             lastRequestTime: string;
             models: Array<string>;
@@ -13302,6 +13323,7 @@ export type GetInteractionResponses = {
         response: OpenAiChatCompletionResponse;
         type: 'openai:chatCompletions';
         model: string | null;
+        baselineModel: string | null;
         inputTokens: number | null;
         outputTokens: number | null;
         baselineCost: string | null;
@@ -13309,6 +13331,7 @@ export type GetInteractionResponses = {
         toonTokensBefore: number | null;
         toonTokensAfter: number | null;
         toonCostSavings: string | null;
+        toonSkipReason: string | null;
         createdAt: string;
         requestType?: 'main' | 'subagent';
         externalAgentIdLabel?: string | null;
@@ -13324,6 +13347,7 @@ export type GetInteractionResponses = {
         response: GeminiGenerateContentResponse;
         type: 'gemini:generateContent';
         model: string | null;
+        baselineModel: string | null;
         inputTokens: number | null;
         outputTokens: number | null;
         baselineCost: string | null;
@@ -13331,6 +13355,7 @@ export type GetInteractionResponses = {
         toonTokensBefore: number | null;
         toonTokensAfter: number | null;
         toonCostSavings: string | null;
+        toonSkipReason: string | null;
         createdAt: string;
         requestType?: 'main' | 'subagent';
         externalAgentIdLabel?: string | null;
@@ -13346,6 +13371,7 @@ export type GetInteractionResponses = {
         response: AnthropicMessagesResponse;
         type: 'anthropic:messages';
         model: string | null;
+        baselineModel: string | null;
         inputTokens: number | null;
         outputTokens: number | null;
         baselineCost: string | null;
@@ -13353,6 +13379,7 @@ export type GetInteractionResponses = {
         toonTokensBefore: number | null;
         toonTokensAfter: number | null;
         toonCostSavings: string | null;
+        toonSkipReason: string | null;
         createdAt: string;
         requestType?: 'main' | 'subagent';
         externalAgentIdLabel?: string | null;
@@ -13368,6 +13395,7 @@ export type GetInteractionResponses = {
         response: CerebrasChatCompletionResponse;
         type: 'cerebras:chatCompletions';
         model: string | null;
+        baselineModel: string | null;
         inputTokens: number | null;
         outputTokens: number | null;
         baselineCost: string | null;
@@ -13375,6 +13403,7 @@ export type GetInteractionResponses = {
         toonTokensBefore: number | null;
         toonTokensAfter: number | null;
         toonCostSavings: string | null;
+        toonSkipReason: string | null;
         createdAt: string;
         requestType?: 'main' | 'subagent';
         externalAgentIdLabel?: string | null;
@@ -13390,6 +13419,7 @@ export type GetInteractionResponses = {
         response: VllmChatCompletionResponse;
         type: 'vllm:chatCompletions';
         model: string | null;
+        baselineModel: string | null;
         inputTokens: number | null;
         outputTokens: number | null;
         baselineCost: string | null;
@@ -13397,6 +13427,7 @@ export type GetInteractionResponses = {
         toonTokensBefore: number | null;
         toonTokensAfter: number | null;
         toonCostSavings: string | null;
+        toonSkipReason: string | null;
         createdAt: string;
     } | {
         id: string;
@@ -13410,6 +13441,7 @@ export type GetInteractionResponses = {
         response: OllamaChatCompletionResponse;
         type: 'ollama:chatCompletions';
         model: string | null;
+        baselineModel: string | null;
         inputTokens: number | null;
         outputTokens: number | null;
         baselineCost: string | null;
@@ -13417,6 +13449,7 @@ export type GetInteractionResponses = {
         toonTokensBefore: number | null;
         toonTokensAfter: number | null;
         toonCostSavings: string | null;
+        toonSkipReason: string | null;
         createdAt: string;
     } | {
         id: string;
@@ -13452,6 +13485,7 @@ export type GetInteractionResponses = {
         response: ZhipuaiChatCompletionResponse;
         type: 'zhipuai:chatCompletions';
         model: string | null;
+        baselineModel: string | null;
         inputTokens: number | null;
         outputTokens: number | null;
         baselineCost: string | null;
@@ -13459,6 +13493,7 @@ export type GetInteractionResponses = {
         toonTokensBefore: number | null;
         toonTokensAfter: number | null;
         toonCostSavings: string | null;
+        toonSkipReason: string | null;
         createdAt: string;
         requestType?: 'main' | 'subagent';
         externalAgentIdLabel?: string | null;

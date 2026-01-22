@@ -105,7 +105,7 @@ SELECT
   NOW(),
   NOW()
 FROM "prompts" p
-JOIN "agent_tools" at ON at."agent_id" = p."profile_id"  -- Copy from the profile
+JOIN "agent_tools" at ON at."agent_id" = p."agent_id"  -- Copy from the profile (agent_id references the profile)
 ON CONFLICT ("agent_id", "tool_id") DO NOTHING;
 
 --> statement-breakpoint

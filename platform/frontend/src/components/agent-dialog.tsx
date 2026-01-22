@@ -412,25 +412,22 @@ export function AgentDialog({
                   <SelectItem value="agent">Agent</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-sm text-muted-foreground">
-                {isInternalAgent
-                  ? "Agents can be used in chat with prompts and ChatOps integrations."
-                  : "Profiles are used for LLM Proxy and MCP Gateway access."}
-              </p>
+              {isInternalAgent && (
+                <p className="text-sm text-muted-foreground">
+                  Agents can be used in chat with prompts and ChatOps
+                  integrations.
+                </p>
+              )}
             </div>
 
             {/* Team Access - Common */}
             <div className="space-y-2">
               <Label>
-                Team Access
+                Team
                 {!isProfileAdmin && !isInternalAgent && (
                   <span className="text-destructive ml-1">(required)</span>
                 )}
               </Label>
-              <p className="text-sm text-muted-foreground">
-                Assign teams to grant their members access to this{" "}
-                {isInternalAgent ? "agent" : "profile"}.
-              </p>
               <MultiSelectCombobox
                 options={
                   teams?.map((team) => ({
@@ -441,19 +438,14 @@ export function AgentDialog({
                 value={assignedTeamIds}
                 onChange={setAssignedTeamIds}
                 placeholder={
-                  hasNoAvailableTeams ? "No teams available" : "Search teams..."
+                  hasNoAvailableTeams
+                    ? "No teams available"
+                    : assignedTeamIds.length === 0
+                      ? "Add teams... Only Admins can access agents without teams"
+                      : "Search teams..."
                 }
                 emptyMessage="No teams found."
               />
-              {assignedTeamIds.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  {isProfileAdmin
-                    ? "No teams assigned yet. Admins have access to all."
-                    : hasNoAvailableTeams
-                      ? "You are not a member of any team. Contact an admin to be added to a team."
-                      : "No teams assigned yet."}
-                </p>
-              )}
             </div>
 
             {/* Labels - Common */}

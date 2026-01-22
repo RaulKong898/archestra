@@ -124,6 +124,12 @@ ON CONFLICT ("agent_id", "tool_id") DO NOTHING;
 -- Now we create delegation tools where the target is the prompt ID (which is now an agent ID)
 -- IMPORTANT: Only create delegation tools for agents (type='agent'), NOT for profiles (type='mcp_gateway')
 
+-- Step 0: Clean up any orphan delegation tools from previous migration attempts
+-- These are tools with 'agent__' prefix but no delegate_to_agent_id set
+DELETE FROM "tools" WHERE "name" LIKE 'agent__%' AND "delegate_to_agent_id" IS NULL;
+
+--> statement-breakpoint
+
 -- Step 1: Create delegation tools for each unique target prompt (now agent)
 -- Only create if the target was successfully converted to an agent (agent_type='agent')
 INSERT INTO "tools" ("id", "name", "description", "delegate_to_agent_id", "created_at", "updated_at", "parameters")

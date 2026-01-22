@@ -18,14 +18,6 @@ ALTER TABLE "conversations" DROP COLUMN IF EXISTS "prompt_id";
 --> statement-breakpoint
 ALTER TABLE "tools" DROP COLUMN IF EXISTS "prompt_agent_id";
 --> statement-breakpoint
--- Disable RLS and drop tables
-ALTER TABLE "prompt_agents" DISABLE ROW LEVEL SECURITY;
---> statement-breakpoint
-ALTER TABLE "prompts" DISABLE ROW LEVEL SECURITY;
---> statement-breakpoint
-DROP TABLE IF EXISTS "prompt_agents" CASCADE;
---> statement-breakpoint
-DROP TABLE IF EXISTS "prompts" CASCADE;
 --> statement-breakpoint
 -- Add new unique constraint for tools with delegate_to_agent_id
 ALTER TABLE "tools" ADD CONSTRAINT "tools_catalog_id_name_agent_id_delegate_to_agent_id_unique" UNIQUE("catalog_id","name","agent_id","delegate_to_agent_id");

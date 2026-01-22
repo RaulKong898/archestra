@@ -117,10 +117,12 @@ export class DynamicInteraction implements InteractionUtils {
   }
 
   private getInteractionClass(interaction: Interaction): InteractionUtils {
-    if (this.type === "openai:chatCompletions") {
+    // Note: Type discriminator stored in database determines the interaction type
+    const type = this.type as string;
+    if (type === "openai:chatCompletions") {
       return new OpenAiChatCompletionInteraction(interaction);
     }
-    if (this.type === "anthropic:messages") {
+    if (type === "anthropic:messages") {
       return new AnthropicMessagesInteraction(interaction);
     } else if (this.type === "zhipuai:chatCompletions") {
       return new ZhipuaiChatCompletionInteraction(interaction);

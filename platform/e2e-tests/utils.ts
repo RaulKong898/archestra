@@ -15,8 +15,7 @@ import { goToPage } from "./fixtures";
 import {
   callMcpTool,
   getOrgTokenForProfile,
-  getTeamTokenForProfile,
-  initializeMcpSession,
+  getTeamTokenForProfile
 } from "./tests/api/mcp-gateway-utils";
 
 export async function addCustomSelfHostedCatalogItem({
@@ -222,15 +221,9 @@ export async function verifyToolCallResultViaApi({
   let toolResult: Awaited<ReturnType<typeof callMcpTool>>;
 
   try {
-    const sessionId = await initializeMcpSession(request, {
-      profileId: defaultProfile.id,
-      token,
-    });
-
     toolResult = await callMcpTool(request, {
       profileId: defaultProfile.id,
       token,
-      sessionId,
       toolName,
     });
   } catch (error) {

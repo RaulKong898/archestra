@@ -126,7 +126,3 @@ export function useAgentEmailAddress(agentId: string | null) {
   });
 }
 
-/**
- * @deprecated Use useAgentEmailAddress instead
- */
-export const usePromptEmailAddress = useAgentEmailAddress;

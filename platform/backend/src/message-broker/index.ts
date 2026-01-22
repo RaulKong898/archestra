@@ -40,7 +40,7 @@ export {
   isSyncResult,
 } from "./invoke";
 // Manager (singleton)
-export { default, messageBrokerManager } from "./manager";
+export { messageBrokerManager } from "./manager";
 // Types
 export type {
   AgentInvocationChannel,

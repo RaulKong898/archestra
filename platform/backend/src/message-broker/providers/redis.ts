@@ -335,5 +335,3 @@ export class RedisBrokerProvider implements MessageBrokerProvider {
     }
   }
 }
-
-export default RedisBrokerProvider;

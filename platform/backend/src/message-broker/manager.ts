@@ -207,5 +207,3 @@ class MessageBrokerManager {
 
 // Export singleton instance
 export const messageBrokerManager = new MessageBrokerManager();
-
-export default messageBrokerManager;

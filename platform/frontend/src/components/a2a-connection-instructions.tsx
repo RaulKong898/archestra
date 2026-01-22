@@ -561,8 +561,7 @@ curl -X GET "${agentCardUrl}" \\
                     <p>
                       <strong>Internal mode:</strong> Only emails from{" "}
                       <span className="font-mono text-xs">
-                        @
-                        {agent.incomingEmailAllowedDomain || "your-domain.com"}
+                        @{agent.incomingEmailAllowedDomain || "your-domain.com"}
                       </span>{" "}
                       will be processed.
                     </p>

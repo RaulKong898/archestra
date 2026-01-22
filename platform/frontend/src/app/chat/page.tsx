@@ -890,78 +890,80 @@ export default function ChatPage() {
           <StreamTimeoutWarning status={status} messages={messages} />
           <PermissivePolicyBar />
 
-      <div className="sticky top-0 z-10 bg-background border-b p-2">
-        <div className="flex items-start justify-between gap-2">
-          {/* Left side - agent selector stays fixed, tools wrap internally */}
-          <div className="flex items-start gap-2 min-w-0 flex-1">
-            {/* Agent/Profile selector - fixed width */}
-            <div className="flex-shrink-0">
-              {conversationId ? (
-                <AgentSelector
-                  currentPromptId={
-                    conversation?.agent?.agentType === "agent"
-                      ? (conversation?.agentId ?? null)
-                      : null
-                  }
-                  currentAgentId={conversation?.agentId ?? ""}
-                  currentModel={conversation?.selectedModel ?? ""}
-                />
-              ) : (
-                <InitialAgentSelector
-                  currentPromptId={initialPromptId}
-                  onPromptChange={handleInitialPromptChange}
-                  defaultAgentId={initialAgentId ?? allProfiles[0]?.id ?? ""}
-                />
-              )}
+          <div className="sticky top-0 z-10 bg-background border-b p-2">
+            <div className="flex items-start justify-between gap-2">
+              {/* Left side - agent selector stays fixed, tools wrap internally */}
+              <div className="flex items-start gap-2 min-w-0 flex-1">
+                {/* Agent/Profile selector - fixed width */}
+                <div className="flex-shrink-0">
+                  {conversationId ? (
+                    <AgentSelector
+                      currentPromptId={
+                        conversation?.agent?.agentType === "agent"
+                          ? (conversation?.agentId ?? null)
+                          : null
+                      }
+                      currentAgentId={conversation?.agentId ?? ""}
+                      currentModel={conversation?.selectedModel ?? ""}
+                    />
+                  ) : (
+                    <InitialAgentSelector
+                      currentPromptId={initialPromptId}
+                      onPromptChange={handleInitialPromptChange}
+                      defaultAgentId={
+                        initialAgentId ?? allProfiles[0]?.id ?? ""
+                      }
+                    />
+                  )}
+                </div>
+              </div>
+              {/* Right side - controls stay fixed in first row */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {hasPlaywrightMcp && isBrowserStreamingEnabled && (
+                  <Button
+                    variant={isBrowserPanelOpen ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setIsBrowserPanelOpen(!isBrowserPanelOpen)}
+                    className="text-xs"
+                  >
+                    <Globe className="h-3 w-3 mr-1" />
+                    Browser
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleArtifactPanel}
+                  className="text-xs"
+                >
+                  {isArtifactOpen ? (
+                    <PanelRightClose className="h-3 w-3 mr-1" />
+                  ) : (
+                    <FileText className="h-3 w-3 mr-1" />
+                  )}
+                  {isArtifactOpen ? "Hide Artifact" : "Show Artifact"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleHideToolCalls}
+                  className="text-xs"
+                >
+                  {hideToolCalls ? (
+                    <>
+                      <Eye className="h-3 w-3 mr-1" />
+                      Show tool calls
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="h-3 w-3 mr-1" />
+                      Hide tool calls
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
-          {/* Right side - controls stay fixed in first row */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {hasPlaywrightMcp && isBrowserStreamingEnabled && (
-              <Button
-                variant={isBrowserPanelOpen ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => setIsBrowserPanelOpen(!isBrowserPanelOpen)}
-                className="text-xs"
-              >
-                <Globe className="h-3 w-3 mr-1" />
-                Browser
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleArtifactPanel}
-              className="text-xs"
-            >
-              {isArtifactOpen ? (
-                <PanelRightClose className="h-3 w-3 mr-1" />
-              ) : (
-                <FileText className="h-3 w-3 mr-1" />
-              )}
-              {isArtifactOpen ? "Hide Artifact" : "Show Artifact"}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleHideToolCalls}
-              className="text-xs"
-            >
-              {hideToolCalls ? (
-                <>
-                  <Eye className="h-3 w-3 mr-1" />
-                  Show tool calls
-                </>
-              ) : (
-                <>
-                  <EyeOff className="h-3 w-3 mr-1" />
-                  Hide tool calls
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-      </div>
 
           <div className="flex-1 overflow-y-auto">
             {conversationId ? (
@@ -1009,54 +1011,54 @@ export default function ChatPage() {
             ) : (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center space-y-6 max-w-2xl px-4">
-                  {initialPromptId ? (
-                    // Agent selected - show prompt
-                    (() => {
-                      const selectedAgent = internalAgents.find(
-                        (a) => a.id === initialPromptId,
-                      );
+                  {initialPromptId
+                    ? // Agent selected - show prompt
+                      (() => {
+                        const selectedAgent = internalAgents.find(
+                          (a) => a.id === initialPromptId,
+                        );
 
-                      return (
-                        <>
-                          <p className="text-lg text-muted-foreground">
-                            To start conversation with{" "}
-                            <span className="font-medium text-foreground">
-                              {selectedAgent?.name}
-                            </span>{" "}
-                            start typing below
-                          </p>
-                          {selectedAgent?.userPrompt && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const userPrompt = selectedAgent.userPrompt;
-                                if (!userPrompt) return;
-                                const syntheticEvent = {
-                                  preventDefault: () => {},
-                                } as React.FormEvent<HTMLFormElement>;
-                                handleInitialSubmit(
-                                  { text: userPrompt, files: [] },
-                                  syntheticEvent,
-                                );
-                              }}
-                              className="w-full text-left cursor-pointer hover:opacity-80 transition-opacity"
-                            >
-                              <Message
-                                from="assistant"
-                                className="max-w-none justify-center"
+                        return (
+                          <>
+                            <p className="text-lg text-muted-foreground">
+                              To start conversation with{" "}
+                              <span className="font-medium text-foreground">
+                                {selectedAgent?.name}
+                              </span>{" "}
+                              start typing below
+                            </p>
+                            {selectedAgent?.userPrompt && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const userPrompt = selectedAgent.userPrompt;
+                                  if (!userPrompt) return;
+                                  const syntheticEvent = {
+                                    preventDefault: () => {},
+                                  } as React.FormEvent<HTMLFormElement>;
+                                  handleInitialSubmit(
+                                    { text: userPrompt, files: [] },
+                                    syntheticEvent,
+                                  );
+                                }}
+                                className="w-full text-left cursor-pointer hover:opacity-80 transition-opacity"
                               >
-                                <MessageContent className="max-w-none text-center">
-                                  <Response>
-                                    {selectedAgent.userPrompt}
-                                  </Response>
-                                </MessageContent>
-                              </Message>
-                            </button>
-                          )}
-                        </>
-                      );
-                    })()
-                  ) : null}
+                                <Message
+                                  from="assistant"
+                                  className="max-w-none justify-center"
+                                >
+                                  <MessageContent className="max-w-none text-center">
+                                    <Response>
+                                      {selectedAgent.userPrompt}
+                                    </Response>
+                                  </MessageContent>
+                                </Message>
+                              </button>
+                            )}
+                          </>
+                        );
+                      })()
+                    : null}
                 </div>
               </div>
             )}

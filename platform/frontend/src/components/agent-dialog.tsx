@@ -164,6 +164,8 @@ export function AgentDialog({
         setUserPrompt(agent.userPrompt || "");
         setSystemPrompt(agent.systemPrompt || "");
         setSelectedAgentType(agent.agentType || "mcp_gateway");
+        // Reset delegation targets - will be populated by the next useEffect when data loads
+        setSelectedDelegationTargetIds([]);
         // Parse allowedChatops from agent
         const chatopsValue = agent.allowedChatops;
         if (Array.isArray(chatopsValue)) {

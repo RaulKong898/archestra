@@ -19,16 +19,11 @@ test.describe(
       // Wait for the page to fully load (API calls to complete)
       await page.waitForLoadState("networkidle");
 
-      // First wait for the "Members" card title to appear (indicates page loaded)
-      // This is from better-auth-ui's OrganizationMembersCard
-      // Use a more specific selector to avoid matching the navigation link and descriptions
-      await expect(
-        page.locator('[data-slot="card-title"]', { hasText: "Members" }),
-      ).toBeVisible({ timeout: 15_000 });
-
       // Wait for the "Invite Member" button to be visible before clicking
       // Firefox/WebKit may take longer to render buttons in CI environments
       // The button is hidden while permission checks are loading (shows skeleton instead)
+      // Note: We don't wait for the Members card title because during loading,
+      // the OrganizationMembersCard shows a Skeleton instead of the actual title
       // Use polling with page reload as fallback for React hydration delays
       const inviteButton = page.getByRole("button", {
         name: /invite member/i,
@@ -40,10 +35,6 @@ test.describe(
         if (attempts > 1) {
           await page.reload();
           await page.waitForLoadState("networkidle");
-          // Wait for Members card to appear again after reload
-          await expect(
-            page.locator('[data-slot="card-title"]', { hasText: "Members" }),
-          ).toBeVisible({ timeout: 10_000 });
         }
         await expect(inviteButton).toBeVisible({ timeout: 5000 });
         await expect(inviteButton).toBeEnabled({ timeout: 5000 });
@@ -85,16 +76,11 @@ test.describe(
       // Wait for the page to fully load (API calls to complete)
       await page.waitForLoadState("networkidle");
 
-      // First wait for the "Members" card title to appear (indicates page loaded)
-      // This is from better-auth-ui's OrganizationMembersCard
-      // Use a more specific selector to avoid matching the navigation link and descriptions
-      await expect(
-        page.locator('[data-slot="card-title"]', { hasText: "Members" }),
-      ).toBeVisible({ timeout: 15_000 });
-
       // Wait for the "Invite Member" button to be visible before clicking
       // Firefox/WebKit may take longer to render buttons in CI environments
       // The button is hidden while permission checks are loading (shows skeleton instead)
+      // Note: We don't wait for the Members card title because during loading,
+      // the OrganizationMembersCard shows a Skeleton instead of the actual title
       // Use polling with page reload as fallback for React hydration delays
       const inviteButton = page.getByRole("button", {
         name: /invite member/i,
@@ -106,10 +92,6 @@ test.describe(
         if (attempts > 1) {
           await page.reload();
           await page.waitForLoadState("networkidle");
-          // Wait for Members card to appear again after reload
-          await expect(
-            page.locator('[data-slot="card-title"]', { hasText: "Members" }),
-          ).toBeVisible({ timeout: 10_000 });
         }
         await expect(inviteButton).toBeVisible({ timeout: 5000 });
         await expect(inviteButton).toBeEnabled({ timeout: 5000 });

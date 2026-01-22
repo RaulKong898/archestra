@@ -123,5 +123,3 @@ export function isSyncResult<T>(
 ): result is { async: false; result: T } {
   return !result.async;
 }
-
-export default invokeAgentAsync;

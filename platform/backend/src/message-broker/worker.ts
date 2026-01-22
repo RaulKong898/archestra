@@ -378,5 +378,3 @@ class MessageBrokerWorker {
 
 // Export singleton instance
 export const messageBrokerWorker = new MessageBrokerWorker();
-
-export default messageBrokerWorker;

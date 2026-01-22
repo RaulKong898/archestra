@@ -286,5 +286,3 @@ export class RabbitMQBrokerProvider implements MessageBrokerProvider {
     }
   }
 }
-
-export default RabbitMQBrokerProvider;

@@ -266,5 +266,3 @@ export class KafkaBrokerProvider implements MessageBrokerProvider {
     }
   }
 }
-
-export default KafkaBrokerProvider;

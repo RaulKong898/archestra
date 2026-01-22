@@ -655,6 +655,7 @@ for (const config of testConfigs) {
       waitForAgentTool,
     }) => {
       const wiremockStub = `${config.providerName.toLowerCase()}-blocks-tool-untrusted-data`;
+      const uniqueSuffix = crypto.randomUUID().slice(0, 8);
 
       // 1. Create a test agent with considerContextUntrusted=true
       // This marks the entire context as untrusted, which is required for tool invocation
@@ -665,7 +666,7 @@ for (const config of testConfigs) {
         method: "post",
         urlSuffix: "/api/agents",
         data: {
-          name: `${config.providerName} Test Agent`,
+          name: `${config.providerName} Test Agent ${uniqueSuffix}`,
           teams: [],
           considerContextUntrusted: true,
         },

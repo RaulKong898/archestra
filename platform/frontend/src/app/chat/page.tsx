@@ -1023,9 +1023,7 @@ export default function ChatPage() {
                             <span className="font-medium text-foreground">
                               {selectedAgent?.name}
                             </span>{" "}
-                            {selectedAgent?.userPrompt
-                              ? "click on a suggested prompt or type a new below"
-                              : "start typing below"}
+                            start typing below
                           </p>
                           {selectedAgent?.userPrompt && (
                             <button
@@ -1055,63 +1053,10 @@ export default function ChatPage() {
                               </Message>
                             </button>
                           )}
-                          <p className="text-sm text-muted-foreground">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleInitialPromptChange(
-                                  null,
-                                  allProfiles[0]?.id ?? "",
-                                )
-                              }
-                              className="underline hover:text-foreground"
-                            >
-                              back to agent selection
-                            </button>
-                          </p>
                         </>
                       );
                     })()
-                  ) : (
-                    // No agent selected - show agent list
-                    <>
-                      <p className="text-lg text-muted-foreground">
-                        {internalAgents.length > 0
-                          ? "To start conversation select an agent or start typing below"
-                          : "To start conversation start typing below"}
-                      </p>
-                      {internalAgents.length > 0 ? (
-                        <div className="flex flex-wrap justify-center gap-2">
-                          {internalAgents.map((agent) => (
-                            <Button
-                              key={agent.id}
-                              variant="outline"
-                              size="sm"
-                              className="h-8 px-3 text-sm"
-                              onClick={() =>
-                                handleInitialPromptChange(agent.id, agent.id)
-                              }
-                            >
-                              {agent.name}
-                            </Button>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingAgentId(null);
-                              setIsAgentDialogOpen(true);
-                            }}
-                            className="underline hover:text-foreground"
-                          >
-                            create agent
-                          </button>
-                        </p>
-                      )}
-                    </>
-                  )}
+                  ) : null}
                 </div>
               </div>
             )}

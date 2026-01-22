@@ -21,9 +21,14 @@ test(
     // WebKit/Firefox may need extra time for React hydration and permission checks
     await page.waitForLoadState("networkidle");
 
-    // Wait for the Create Profile button to be visible and clickable
+    // Wait for the Create Profile button to be visible and enabled
+    // The button is hidden while permission checks are loading (shows skeleton instead)
+    // Use polling to handle React hydration delays in Firefox/WebKit CI
     const createButton = page.getByTestId(E2eTestId.CreateAgentButton);
-    await expect(createButton).toBeVisible({ timeout: 15_000 });
+    await expect(async () => {
+      await expect(createButton).toBeVisible({ timeout: 5000 });
+      await expect(createButton).toBeEnabled({ timeout: 5000 });
+    }).toPass({ timeout: 60_000, intervals: [1000, 2000, 3000] });
     await createButton.click();
     await page.getByRole("textbox", { name: "Name" }).fill(AGENT_NAME);
     await page.getByRole("button", { name: "Create" }).click();

@@ -169,7 +169,7 @@ export async function goToMcpRegistryAndOpenManageToolsAndOpenTokenSelect({
   // The credential selector only appears when MCP servers are loaded for this catalog
   // Use a retry mechanism to handle slow data loading
   const combobox = page.getByRole("combobox");
-  const maxRetries = 3;
+  const maxRetries = 5;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     await profilePill.click();
 
@@ -203,11 +203,14 @@ export async function goToMcpRegistryAndOpenManageToolsAndOpenTokenSelect({
       // Close the popover by pressing Escape and retry
       await page.keyboard.press("Escape");
       await page.waitForTimeout(500);
-      // Refresh the page to get fresh data
-      await page.goto(`${UI_BASE_URL}/mcp-catalog/registry`);
-      await page.waitForLoadState("networkidle");
+      // Hard refresh the page to clear any cached data and force fresh API fetch
+      await page.reload({ waitUntil: "networkidle" });
+      // Additional wait to ensure React Query has time to fetch fresh data
+      await page.waitForTimeout(2_000);
       await manageToolsButton.click();
       await page.waitForLoadState("networkidle");
+      // Wait a bit longer for React Query suspense to resolve
+      await page.waitForTimeout(1_000);
       await profilePill.waitFor({ state: "visible", timeout: 10_000 });
     }
   }

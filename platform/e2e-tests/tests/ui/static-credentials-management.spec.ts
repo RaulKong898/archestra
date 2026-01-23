@@ -314,7 +314,7 @@ test("Verify tool calling using different static credentials", async ({
   makeRandomString,
   extractCookieHeaders,
 }) => {
-  test.setTimeout(120_000); // 2 minutes - must be longer than the 60s toPass timeout in goToMcpRegistryAndOpenManageToolsAndOpenTokenSelect
+  test.setTimeout(180_000); // 3 minutes - must be longer than the retry timeouts in goToMcpRegistryAndOpenManageToolsAndOpenTokenSelect
   const CATALOG_ITEM_NAME = makeRandomString(10, "mcp");
   const cookieHeaders = await extractCookieHeaders(adminPage);
   // Assign engineering team to default profile

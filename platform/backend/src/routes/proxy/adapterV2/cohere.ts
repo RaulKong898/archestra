@@ -380,8 +380,7 @@ class CohereStreamAdapter
       this.state.timing.firstChunkTime = Date.now();
     }
 
-    // logger.debug({ type: chunk.type }, "CohereStreamAdapter processing chunk");
-    logger.debug({ chunk }, "CohereStreamAdapter processing chunk - FULL");
+    logger.trace({ chunk }, "CohereStreamAdapter processing chunk");
 
     let sseData: string | null = null;
     let isToolCallChunk = false;
@@ -952,7 +951,7 @@ export const cohereAdapterFactory: LLMProvider<
 
   async execute(client: CohereClient, request: CohereRequest) {
     const response = await client.chat.create(request);
-    logger.info({ response }, "Cohere raw response");
+    logger.debug({ response }, "Cohere raw response");
     if (!response) {
       throw new Error("'Cohere's API has returned an undefined response.");
     }

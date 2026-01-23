@@ -170,11 +170,14 @@ export async function goToMcpRegistryAndOpenManageToolsAndOpenTokenSelect({
   await page.waitForLoadState("networkidle");
   await page.waitForTimeout(500);
 
-  // Click the first tool checkbox to select a tool
+  // Ensure the first tool checkbox is checked (not just toggled)
   // The checkbox is inside the popover, wait for it to be visible
   const checkbox = page.getByRole("checkbox").first();
   await checkbox.waitFor({ state: "visible", timeout: 5_000 });
-  await checkbox.click();
+  // Only click if not already checked to avoid toggling off
+  if (!(await checkbox.isChecked())) {
+    await checkbox.click();
+  }
 
   // The combobox (credential selector) is now in the popover
   const combobox = page.getByRole("combobox");

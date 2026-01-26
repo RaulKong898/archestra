@@ -36,6 +36,8 @@ export type QueryMode = z.infer<typeof QueryModeSchema>;
 export interface QueryOptions {
   /** Query mode (local, global, hybrid, naive). Defaults to hybrid. */
   mode?: QueryMode;
+  /** Workspace for data isolation (typically team ID). If not provided, uses default workspace. */
+  workspace?: string;
 }
 
 /**
@@ -71,6 +73,8 @@ export interface InsertDocumentParams {
   filename?: string;
   /** Optional metadata to associate with the document */
   metadata?: Record<string, unknown>;
+  /** Workspace for data isolation (typically team ID). If not provided, uses default workspace. */
+  workspace?: string;
 }
 
 /**

@@ -1,4 +1,5 @@
 import logger from "@/logging";
+import { AgentTeamModel } from "@/models";
 import {
   MAX_CONCURRENT_INGESTIONS,
   MAX_DOCUMENT_SIZE_BYTES,
@@ -231,14 +232,48 @@ function extractDocumentContent(part: MessagePart): {
  * The ingestion happens asynchronously (fire and forget) to avoid blocking
  * the chat response.
  *
+ * Documents are isolated by team - if an agentId is provided, the agent's
+ * first team is used as the workspace for data isolation.
+ *
  * @param messages - Array of messages from the chat request
+ * @param agentId - Optional agent ID to determine workspace for data isolation
  */
 export async function extractAndIngestDocuments(
   messages: unknown[],
+  agentId?: string,
 ): Promise<void> {
   // Check if knowledge graph is enabled
   if (!isKnowledgeGraphEnabled()) {
     return;
+  }
+
+  // Get workspace from agent's team (for data isolation)
+  let workspace: string | undefined;
+  if (agentId) {
+    try {
+      const teamIds = await AgentTeamModel.getTeamsForAgent(agentId);
+      if (teamIds.length > 0) {
+        // Use first team as workspace
+        workspace = teamIds[0];
+        logger.debug(
+          { agentId, workspace, teamCount: teamIds.length },
+          "[KnowledgeGraph] Using team workspace for document ingestion",
+        );
+      } else {
+        logger.debug(
+          { agentId },
+          "[KnowledgeGraph] Agent has no teams, using default workspace",
+        );
+      }
+    } catch (error) {
+      logger.warn(
+        {
+          agentId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        "[KnowledgeGraph] Failed to get agent teams, using default workspace",
+      );
+    }
   }
 
   // Cast to Message array
@@ -282,7 +317,10 @@ export async function extractAndIngestDocuments(
   }
 
   logger.info(
-    { documentCount: documentsToIngest.length },
+    {
+      documentCount: documentsToIngest.length,
+      workspace: workspace ?? "default",
+    },
     "[KnowledgeGraph] Ingesting documents from chat",
   );
 
@@ -297,6 +335,7 @@ export async function extractAndIngestDocuments(
       const promise: Promise<void> = ingestDocument({
         content: doc.content,
         filename: doc.filename,
+        workspace,
       })
         .then(() => {
           // Discard boolean return value, we just need void

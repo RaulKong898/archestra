@@ -250,12 +250,14 @@ export async function cleanupKnowledgeGraphProvider(): Promise<void> {
  * @param content - The document content to ingest
  * @param filename - Optional filename for the document
  * @param metadata - Optional metadata to associate with the document
+ * @param workspace - Optional workspace for data isolation (typically team ID)
  * @returns true if ingestion was successful/queued, false otherwise
  */
 export async function ingestDocument(params: {
   content: string;
   filename?: string;
   metadata?: Record<string, unknown>;
+  workspace?: string;
 }): Promise<boolean> {
   const provider = getKnowledgeGraphProvider();
 
@@ -283,6 +285,7 @@ export async function ingestDocument(params: {
         filename: params.filename,
         documentId: result.documentId,
         status: result.status,
+        workspace: params.workspace ?? "default",
       },
       "[KnowledgeGraph] Document ingested successfully",
     );

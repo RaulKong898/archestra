@@ -256,7 +256,7 @@ export class LightRAGProvider implements KnowledgeGraphProvider {
   async insertDocument(
     params: InsertDocumentParams,
   ): Promise<InsertDocumentResult> {
-    const { content, filename, metadata } = params;
+    const { content, filename, metadata, workspace } = params;
 
     try {
       const headers: Record<string, string> = {
@@ -265,6 +265,11 @@ export class LightRAGProvider implements KnowledgeGraphProvider {
 
       if (this.config.apiKey) {
         headers["X-API-Key"] = this.config.apiKey;
+      }
+
+      // Add workspace header for data isolation (team-level)
+      if (workspace) {
+        headers["LIGHTRAG-WORKSPACE"] = workspace;
       }
 
       const url = joinUrl(this.config.apiUrl, "/documents/text");
@@ -314,6 +319,7 @@ export class LightRAGProvider implements KnowledgeGraphProvider {
       logger.info(
         {
           filename,
+          workspace: workspace ?? "default",
           status: result.status,
           message: result.message,
         },
@@ -352,6 +358,7 @@ export class LightRAGProvider implements KnowledgeGraphProvider {
     options?: QueryOptions,
   ): Promise<QueryResult> {
     const mode = options?.mode ?? "hybrid";
+    const workspace = options?.workspace;
 
     try {
       const headers: Record<string, string> = {
@@ -360,6 +367,11 @@ export class LightRAGProvider implements KnowledgeGraphProvider {
 
       if (this.config.apiKey) {
         headers["X-API-Key"] = this.config.apiKey;
+      }
+
+      // Add workspace header for data isolation (team-level)
+      if (workspace) {
+        headers["LIGHTRAG-WORKSPACE"] = workspace;
       }
 
       const url = joinUrl(this.config.apiUrl, "/query");

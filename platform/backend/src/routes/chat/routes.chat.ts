@@ -142,15 +142,6 @@ const chatRoutes: FastifyPluginAsyncZod = async (fastify) => {
       { body: { id: conversationId, messages }, user, organizationId, headers },
       reply,
     ) => {
-      // Extract and ingest documents to knowledge graph (fire and forget)
-      // This runs asynchronously to avoid blocking the chat response
-      extractAndIngestDocuments(messages).catch((error) => {
-        logger.warn(
-          { error: error instanceof Error ? error.message : String(error) },
-          "[Chat] Background document ingestion failed",
-        );
-      });
-
       const { success: userIsProfileAdmin } = await hasPermission(
         { profile: ["admin"] },
         headers,
@@ -166,6 +157,18 @@ const chatRoutes: FastifyPluginAsyncZod = async (fastify) => {
       if (!conversation) {
         throw new ApiError(404, "Conversation not found");
       }
+
+      // Extract and ingest documents to knowledge graph (fire and forget)
+      // This runs asynchronously to avoid blocking the chat response
+      // Pass agentId for team-based workspace isolation
+      extractAndIngestDocuments(messages, conversation.agentId).catch(
+        (error) => {
+          logger.warn(
+            { error: error instanceof Error ? error.message : String(error) },
+            "[Chat] Background document ingestion failed",
+          );
+        },
+      );
 
       // Use agent ID as external agent ID if available, otherwise use header value
       // This allows agent names to be displayed in LLM proxy logs

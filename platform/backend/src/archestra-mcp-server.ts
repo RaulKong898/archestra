@@ -1666,11 +1666,30 @@ export async function executeArchestraTool(
         };
       }
 
+      // Get workspace from profile's team (for data isolation)
+      let workspace: string | undefined;
+      try {
+        const teamIds = await AgentTeamModel.getTeamsForAgent(profile.id);
+        if (teamIds.length > 0) {
+          // Use first team as workspace
+          workspace = teamIds[0];
+        }
+      } catch (error) {
+        logger.warn(
+          {
+            profileId: profile.id,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          "Failed to get profile teams for KG workspace, using default",
+        );
+      }
+
       logger.info(
         {
           profileId: profile.id,
           profileName: profile.name,
           mode,
+          workspace: workspace ?? "default",
         },
         "Querying knowledge graph",
       );
@@ -1678,6 +1697,7 @@ export async function executeArchestraTool(
       // Execute the query
       const result = await provider.queryDocument(query, {
         mode,
+        workspace,
       });
 
       if (result.error) {

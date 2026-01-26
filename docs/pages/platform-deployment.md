@@ -171,7 +171,6 @@ openssl rand -base64 32
 **Service Settings**:
 
 - `archestra.service.type` - Service type: ClusterIP, NodePort, or LoadBalancer (default: ClusterIP)
-- `archestra.service.exposeBackend` - Whether to expose the backend API port (9000) on the service. The API is also available through the frontend (port 3000), so this is optional. Set to true for backward compatibility with existing deployments (default: true)
 - `archestra.service.annotations` - Annotations to add to the Kubernetes Service for cloud provider integrations
 - `archestra.service.nodePorts` - Node ports for NodePort service type (backend, metrics, frontend)
 
@@ -182,8 +181,6 @@ openssl rand -base64 32
 - `archestra.ingress.spec` - Complete ingress specification for advanced configurations
 
 **GKE BackendConfig Settings** (Google Cloud only):
-
-Note: Backend configuration (port 9000) is only needed when `archestra.service.exposeBackend` is true. For new deployments, you can use only the frontend configuration since the API is available through port 3000.
 
 - `archestra.gkeBackendConfig.enabled` - Enable or disable GKE BackendConfig resources (default: false)
 - `archestra.gkeBackendConfig.backend.timeoutSec` - Request timeout for backend API (recommended: 600 for streaming)
@@ -212,7 +209,6 @@ archestra:
       connectionDraining:
         drainingTimeoutSec: 60
   service:
-    exposeBackend: false # API is available through frontend (port 3000)
     annotations:
       cloud.google.com/backend-config: '{"ports": {"3000":"RELEASE_NAME-archestra-platform-frontend-config"}}'
 ```
@@ -227,17 +223,13 @@ helm upgrade archestra-platform \
   --create-namespace \
   --set archestra.gkeBackendConfig.enabled=true \
   --set archestra.gkeBackendConfig.frontend.timeoutSec=600 \
-  --set archestra.service.exposeBackend=false \
   --set-string archestra.service.annotations."cloud\.google\.com/backend-config"='{"ports": {"3000":"archestra-platform-archestra-platform-frontend-config"}}' \
   --wait
 ```
 
-The Helm chart creates BackendConfig resources with health checks tuned for deployments. For new deployments, only the frontend config is needed:
+The Helm chart creates a BackendConfig resource with health checks tuned for deployments:
 
 - `<release>-archestra-platform-frontend-config` - For the frontend and API (port 3000)
-
-For backward compatibility with existing deployments using port 9000, set `archestra.service.exposeBackend: true` and add the backend config:
-- `<release>-archestra-platform-backend-config` - For the API backend (port 9000)
 
 ##### Amazon Web Services (AWS EKS)
 

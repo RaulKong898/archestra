@@ -82,10 +82,7 @@ export const MARKETING_TEAM_NAME = "Marketing Team";
 
 export const DEFAULT_PROFILE_NAME = "Default Profile";
 
-export {
-  E2eTestId,
-  MCP_SERVER_TOOL_NAME_SEPARATOR,
-} from "@shared";
+export { E2eTestId, MCP_SERVER_TOOL_NAME_SEPARATOR } from "@shared";
 
 export const TEST_CATALOG_ITEM_NAME = "internal-dev-test-server";
 export const TEST_TOOL_NAME = `${TEST_CATALOG_ITEM_NAME}${MCP_SERVER_TOOL_NAME_SEPARATOR}print_archestra_test`;

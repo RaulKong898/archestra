@@ -10,7 +10,9 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
+import type { SupportedChatProvider } from "@/types/chat-api-key";
 import type { ChatOpsProviderType } from "@/types/chatops";
+import chatApiKeysTable from "./chat-api-key";
 
 /**
  * Represents a historical version of an agent's prompt stored in the prompt_history JSONB array.
@@ -38,6 +40,13 @@ export const agentTypeEnum = pgEnum("agent_type", [
 ]);
 
 export type AgentType = (typeof agentTypeEnum.enumValues)[number];
+
+/**
+ * LLM API key resolution strategy for internal agents.
+ * - dynamic: Uses user-based priority chain (personal → team → org → env)
+ * - static: Uses a specific chat API key configured on the agent
+ */
+export type LlmApiKeyStrategy = "dynamic" | "static";
 
 /**
  * Unified agents table supporting both external profiles and internal agents.
@@ -99,6 +108,22 @@ const agentsTable = pgTable(
     /** Allowed domain for 'internal' security mode (e.g., 'example.com') */
     incomingEmailAllowedDomain: text("incoming_email_allowed_domain"),
 
+    // LLM Configuration (only used when agentType = 'agent')
+    /** LLM provider for this agent (anthropic, openai, gemini, etc.) */
+    llmProvider: text("llm_provider").$type<SupportedChatProvider>(),
+    /** Model name for this agent (e.g., claude-opus-4-1-20250805, gpt-4o) */
+    llmModel: text("llm_model"),
+    /** API key resolution strategy: 'dynamic' uses user-based priority chain, 'static' uses a specific key */
+    llmApiKeyStrategy: text("llm_api_key_strategy")
+      .$type<"dynamic" | "static">()
+      .notNull()
+      .default("dynamic"),
+    /** Static API key ID to use when llmApiKeyStrategy is 'static' */
+    llmStaticApiKeyId: uuid("llm_static_api_key_id").references(
+      () => chatApiKeysTable.id,
+      { onDelete: "set null" },
+    ),
+
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { mode: "date" })
       .notNull()
@@ -108,6 +133,7 @@ const agentsTable = pgTable(
   (table) => [
     index("agents_organization_id_idx").on(table.organizationId),
     index("agents_agent_type_idx").on(table.agentType),
+    index("agents_llm_static_api_key_id_idx").on(table.llmStaticApiKeyId),
   ],
 );
 

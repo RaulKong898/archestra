@@ -229,6 +229,7 @@ const PromptInputContent = ({
               }
               messageCount={messageCount}
               onApiKeyChange={onApiKeyChange}
+              onModelChange={onModelChange}
               isModelsLoading={isModelsLoading}
               onOpenChange={(open) => {
                 if (!open) {

@@ -1,6 +1,7 @@
 "use client";
 
-import { Building2, CheckIcon, Key, User, Users } from "lucide-react";
+import { providerDefaultModels } from "@shared";
+import { Building2, CheckIcon, Cloud, Key, User, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PromptInputButton } from "@/components/ai-elements/prompt-input";
 import {
@@ -36,6 +37,8 @@ import {
 } from "@/lib/chat-settings.query";
 import { useFeatureFlag } from "@/lib/features.hook";
 
+const VERTEX_AI_KEY_ID = "__vertex_ai__";
+
 interface ChatApiKeySelectorProps {
   /** Conversation ID for persisting selection (optional for initial chat) */
   conversationId?: string;
@@ -53,6 +56,8 @@ interface ChatApiKeySelectorProps {
   onOpenChange?: (open: boolean) => void;
   /** Whether models are still loading - don't render until models are loaded */
   isModelsLoading?: boolean;
+  /** Callback to change the model when selecting a key from a different provider */
+  onModelChange?: (model: string) => void;
 }
 
 const SCOPE_ICONS: Record<ChatApiKeyScope, React.ReactNode> = {
@@ -79,6 +84,7 @@ export function ChatApiKeySelector({
   currentProvider,
   onOpenChange,
   isModelsLoading = false,
+  onModelChange,
 }: ChatApiKeySelectorProps) {
   // Check if Vertex AI is enabled for Gemini (uses ADC, no API key needed)
   const geminiVertexAiEnabled = useFeatureFlag("geminiVertexAiEnabled");
@@ -86,6 +92,12 @@ export function ChatApiKeySelector({
   // Fetch API keys for the current provider only
   const { data: availableKeys = [], isLoading: isLoadingKeys } =
     useAvailableChatApiKeys(currentProvider);
+
+  // Check if Vertex AI is currently selected
+  const isVertexAiSelected =
+    currentProvider === "gemini" &&
+    geminiVertexAiEnabled &&
+    currentConversationChatApiKeyId === null;
 
   // Combined loading state - wait for both API keys and models
   const isLoading = isLoadingKeys || isModelsLoading;
@@ -181,6 +193,21 @@ export function ChatApiKeySelector({
   ]);
 
   const handleSelectKey = (keyId: string) => {
+    // Handle Vertex AI selection
+    if (keyId === VERTEX_AI_KEY_ID) {
+      if (isVertexAiSelected) {
+        handleOpenChange(false);
+        return;
+      }
+      // Switch to Gemini with Vertex AI (no API key needed)
+      // Just change the model - Vertex AI doesn't need an API key
+      if (onModelChange && providerDefaultModels.gemini) {
+        onModelChange(providerDefaultModels.gemini);
+      }
+      handleOpenChange(false);
+      return;
+    }
+
     if (keyId === currentConversationChatApiKeyId) {
       handleOpenChange(false);
       return;
@@ -196,6 +223,20 @@ export function ChatApiKeySelector({
   };
 
   const applyKeyChange = (keyId: string) => {
+    // Find the selected key to get its provider
+    const selectedKey = availableKeys.find((k) => k.id === keyId);
+
+    // If key is from a different provider, switch to that provider's default model
+    if (selectedKey && selectedKey.provider !== currentProvider && onModelChange) {
+      const defaultModel =
+        providerDefaultModels[
+          selectedKey.provider as keyof typeof providerDefaultModels
+        ];
+      if (defaultModel) {
+        onModelChange(defaultModel);
+      }
+    }
+
     if (conversationId) {
       updateConversationMutation.mutate({
         id: conversationId,
@@ -206,8 +247,9 @@ export function ChatApiKeySelector({
     }
 
     // Save to localStorage for this provider
-    if (currentProvider) {
-      localStorage.setItem(`${LOCAL_STORAGE_KEY}-${currentProvider}`, keyId);
+    const provider = selectedKey?.provider || currentProvider;
+    if (provider) {
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}-${provider}`, keyId);
     }
   };
 
@@ -227,13 +269,8 @@ export function ChatApiKeySelector({
     return null;
   }
 
-  // Hide for Gemini with Vertex AI enabled (uses ADC, no API key needed)
-  if (currentProvider === "gemini" && geminiVertexAiEnabled) {
-    return null;
-  }
-
-  // If no keys available for this provider
-  if (!isLoading && availableKeys.length === 0) {
+  // If no keys available for this provider and no Vertex AI option
+  if (!isLoading && availableKeys.length === 0 && !geminiVertexAiEnabled) {
     return null;
   }
 
@@ -255,13 +292,19 @@ export function ChatApiKeySelector({
             disabled={disabled}
             className="max-w-[220px] min-w-0"
           >
-            <Key className="h-3.5 w-3.5 shrink-0" />
+            {isVertexAiSelected ? (
+              <Cloud className="h-3.5 w-3.5 shrink-0" />
+            ) : (
+              <Key className="h-3.5 w-3.5 shrink-0" />
+            )}
             <span className="truncate flex-1 text-left">
-              {currentConversationChatApiKey
-                ? getKeyDisplayName(currentConversationChatApiKey)
-                : isLoading
-                  ? "Loading..."
-                  : "Select key"}
+              {isVertexAiSelected
+                ? "Vertex AI"
+                : currentConversationChatApiKey
+                  ? getKeyDisplayName(currentConversationChatApiKey)
+                  : isLoading
+                    ? "Loading..."
+                    : "Select key"}
             </span>
           </PromptInputButton>
         </PopoverTrigger>
@@ -270,33 +313,53 @@ export function ChatApiKeySelector({
             <CommandInput placeholder="Search API Keys..." />
             <CommandList>
               <CommandEmpty>No API keys found.</CommandEmpty>
-              {/* Show all keys for the current provider */}
-              <CommandGroup>
-                {availableKeys.map((key) => (
+              {/* Vertex AI option (if enabled) */}
+              {geminiVertexAiEnabled && (
+                <CommandGroup>
                   <CommandItem
-                    key={key.id}
-                    value={`${key.name} ${key.teamName || ""}`}
-                    onSelect={() => handleSelectKey(key.id)}
+                    value="Vertex AI Gemini"
+                    onSelect={() => handleSelectKey(VERTEX_AI_KEY_ID)}
                     className="cursor-pointer"
                   >
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      {SCOPE_ICONS[key.scope]}
-                      <span className="truncate">{key.name}</span>
-                      {key.scope === "team" && key.teamName && (
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] px-1 py-0"
-                        >
-                          {key.teamName}
-                        </Badge>
-                      )}
+                      <Cloud className="h-3 w-3" />
+                      <span className="truncate">Vertex AI (Gemini)</span>
                     </div>
-                    {currentConversationChatApiKeyId === key.id && (
+                    {isVertexAiSelected && (
                       <CheckIcon className="h-4 w-4 shrink-0" />
                     )}
                   </CommandItem>
-                ))}
-              </CommandGroup>
+                </CommandGroup>
+              )}
+              {/* Show all keys for the current provider */}
+              {availableKeys.length > 0 && (
+                <CommandGroup>
+                  {availableKeys.map((key) => (
+                    <CommandItem
+                      key={key.id}
+                      value={`${key.name} ${key.teamName || ""}`}
+                      onSelect={() => handleSelectKey(key.id)}
+                      className="cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {SCOPE_ICONS[key.scope]}
+                        <span className="truncate">{key.name}</span>
+                        {key.scope === "team" && key.teamName && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] px-1 py-0"
+                          >
+                            {key.teamName}
+                          </Badge>
+                        )}
+                      </div>
+                      {currentConversationChatApiKeyId === key.id && (
+                        <CheckIcon className="h-4 w-4 shrink-0" />
+                      )}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
             </CommandList>
           </Command>
         </PopoverContent>

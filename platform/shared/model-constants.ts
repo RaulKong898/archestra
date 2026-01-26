@@ -41,3 +41,15 @@ export const providerDisplayNames: Record<SupportedProvider, string> = {
   ollama: "Ollama",
   zhipuai: "Zhipu AI",
 };
+
+/**
+ * Default models for each provider when using dynamic resolution.
+ * Used by both backend (getSmartDefaultModel) and frontend (agent dialog).
+ */
+export const providerDefaultModels: Partial<Record<SupportedProvider, string>> =
+  {
+    anthropic: "claude-opus-4-1-20250805",
+    gemini: "gemini-2.5-pro",
+    openai: "gpt-4o",
+    cohere: "command-r-08-2024",
+  };

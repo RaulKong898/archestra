@@ -403,14 +403,26 @@ export function assertByosEnabled(): ReadonlyVaultSecretManager {
   return secretManager() as ReadonlyVaultSecretManager;
 }
 
-export async function getSecretValueForLlmProviderApiKey(
-  secretId: string,
-): Promise<string | unknown> {
-  const secret = await secretManager().getSecret(secretId);
-  return (
+/**
+ * Extract API key value from a secret, supporting all provider-specific field names.
+ * This is the single source of truth for extracting API keys from secrets.
+ */
+export function extractApiKeyFromSecret(
+  secret: { secret?: Record<string, unknown> } | null,
+): string | undefined {
+  const value =
     secret?.secret?.apiKey ??
     secret?.secret?.anthropicApiKey ??
     secret?.secret?.geminiApiKey ??
-    secret?.secret?.openaiApiKey
-  );
+    secret?.secret?.openaiApiKey ??
+    secret?.secret?.zhipuaiApiKey ??
+    secret?.secret?.cohereApiKey;
+  return value ? (value as string) : undefined;
+}
+
+export async function getSecretValueForLlmProviderApiKey(
+  secretId: string,
+): Promise<string | undefined> {
+  const secret = await secretManager().getSecret(secretId);
+  return extractApiKeyFromSecret(secret);
 }

@@ -1,4 +1,9 @@
-import { type ChatErrorResponse, RouteId, SupportedProviders } from "@shared";
+import {
+  type ChatErrorResponse,
+  providerDefaultModels,
+  RouteId,
+  SupportedProviders,
+} from "@shared";
 import {
   convertToModelMessages,
   generateText,
@@ -34,6 +39,7 @@ import { getExternalAgentId } from "@/routes/proxy/utils/external-agent-id";
 import { getSecretValueForLlmProviderApiKey } from "@/secrets-manager";
 import { browserStreamFeature } from "@/services/browser-stream-feature";
 import {
+  type Agent,
   ApiError,
   constructResponseSchema,
   DeleteObjectResponseSchema,
@@ -83,46 +89,115 @@ async function getSmartDefaultModel(
 
       if (secretValue) {
         // Found a valid API key for this provider - return appropriate default model
-        switch (provider) {
-          case "anthropic":
-            return { model: "claude-opus-4-1-20250805", provider: "anthropic" };
-          case "gemini":
-            return { model: "gemini-2.5-pro", provider: "gemini" };
-          case "openai":
-            return { model: "gpt-4o", provider: "openai" };
-          case "cohere":
-            return { model: "command-r-08-2024", provider: "cohere" };
+        const defaultModel = providerDefaultModels[provider];
+        if (defaultModel) {
+          return { model: defaultModel, provider };
         }
       }
     }
   }
 
   // Check environment variables as fallback
-  if (config.chat.anthropic.apiKey) {
-    return { model: "claude-opus-4-1-20250805", provider: "anthropic" };
+  if (config.chat.anthropic.apiKey && providerDefaultModels.anthropic) {
+    return { model: providerDefaultModels.anthropic, provider: "anthropic" };
   }
-  if (config.chat.openai.apiKey) {
-    return { model: "gpt-4o", provider: "openai" };
+  if (config.chat.openai.apiKey && providerDefaultModels.openai) {
+    return { model: providerDefaultModels.openai, provider: "openai" };
   }
-  if (config.chat.gemini.apiKey) {
-    return { model: "gemini-2.5-pro", provider: "gemini" };
+  if (config.chat.gemini.apiKey && providerDefaultModels.gemini) {
+    return { model: providerDefaultModels.gemini, provider: "gemini" };
   }
-  if (config.chat.cohere?.apiKey) {
-    return { model: "command-r-08-2024", provider: "cohere" };
+  if (config.chat.cohere?.apiKey && providerDefaultModels.cohere) {
+    return { model: providerDefaultModels.cohere, provider: "cohere" };
   }
 
   // Check if Vertex AI is enabled - use Gemini without API key
-  if (isVertexAiEnabled()) {
+  if (isVertexAiEnabled() && providerDefaultModels.gemini) {
     logger.info(
-      "getSmartDefaultModel:Vertex AI is enabled, using gemini-2.5-pro",
+      `getSmartDefaultModel:Vertex AI is enabled, using ${providerDefaultModels.gemini}`,
     );
-    return { model: "gemini-2.5-pro", provider: "gemini" };
+    return { model: providerDefaultModels.gemini, provider: "gemini" };
   }
 
   // Ultimate fallback - use configured defaults
   return {
     model: config.chat.defaultModel,
     provider: config.chat.defaultProvider,
+  };
+}
+
+/**
+ * Resolve model and provider with optional agent-specific configuration.
+ * Priority:
+ * 1. Agent explicit config (if agent.llmProvider and agent.llmModel are set)
+ * 2. Smart defaults based on available API keys (personal > team > org > env)
+ *
+ * Used for conversation creation (with agent) and A2A execution.
+ */
+export async function resolveModelAndProvider(params: {
+  userId: string;
+  organizationId: string;
+  agent?: Pick<Agent, "llmProvider" | "llmModel"> | null;
+}): Promise<{
+  model: string;
+  provider: SupportedChatProvider;
+  source:
+    | "agent"
+    | "personal_key"
+    | "team_key"
+    | "org_key"
+    | "env"
+    | "vertex_ai"
+    | "config";
+}> {
+  const { userId, organizationId, agent } = params;
+
+  // 1. Check if agent has explicit LLM config
+  if (agent?.llmProvider && agent?.llmModel) {
+    logger.info(
+      { provider: agent.llmProvider, model: agent.llmModel },
+      "Using agent's explicit LLM configuration",
+    );
+    return {
+      model: agent.llmModel,
+      provider: agent.llmProvider,
+      source: "agent",
+    };
+  }
+
+  // 2. Fall back to smart defaults
+  const smartDefault = await getSmartDefaultModel(userId, organizationId);
+
+  // Determine the source based on smart default resolution
+  // We can't easily know the exact source from getSmartDefaultModel, so we'll use a generic "config" source
+  // unless we detect environment or vertex_ai
+  let source:
+    | "personal_key"
+    | "team_key"
+    | "org_key"
+    | "env"
+    | "vertex_ai"
+    | "config" = "config";
+
+  if (
+    smartDefault.provider === "gemini" &&
+    isVertexAiEnabled() &&
+    !config.chat.gemini.apiKey
+  ) {
+    source = "vertex_ai";
+  } else if (
+    (smartDefault.provider === "anthropic" && config.chat.anthropic.apiKey) ||
+    (smartDefault.provider === "openai" && config.chat.openai.apiKey) ||
+    (smartDefault.provider === "gemini" && config.chat.gemini.apiKey) ||
+    (smartDefault.provider === "cohere" && config.chat.cohere?.apiKey)
+  ) {
+    source = "env";
+  }
+
+  return {
+    model: smartDefault.model,
+    provider: smartDefault.provider,
+    source,
   };
 }
 
@@ -610,18 +685,19 @@ const chatRoutes: FastifyPluginAsyncZod = async (fastify) => {
       }
 
       // Determine model and provider to use
-      // If frontend provides both, use them; otherwise use smart defaults
+      // If frontend provides both, use them; otherwise use agent config or smart defaults
       let modelToUse = selectedModel;
       let providerToUse = selectedProvider;
 
       if (!selectedModel) {
-        // No model specified - use smart defaults for both model and provider
-        const smartDefault = await getSmartDefaultModel(
-          user.id,
+        // No model specified - check agent config first, then use smart defaults
+        const resolved = await resolveModelAndProvider({
+          userId: user.id,
           organizationId,
-        );
-        modelToUse = smartDefault.model;
-        providerToUse = smartDefault.provider;
+          agent: agent.agentType === "agent" ? agent : null, // Only use agent config for internal agents
+        });
+        modelToUse = resolved.model;
+        providerToUse = resolved.provider;
       } else if (!selectedProvider) {
         // Model specified but no provider - detect provider from model name
         // This handles older API clients that don't send selectedProvider

@@ -182,13 +182,22 @@ export default function ChatPage() {
     }
   }, [initialAgentId, searchParams, internalAgents]);
 
-  // Initialize model from localStorage or default to first available
+  // Initialize model: agent's config > localStorage > first available
   useEffect(() => {
     if (!initialModel) {
       const allModels = Object.values(modelsByProvider).flat();
       if (allModels.length === 0) return;
 
-      // Try to restore from localStorage
+      // First priority: use agent's configured model
+      if (initialAgentId) {
+        const agent = internalAgents.find((a) => a.id === initialAgentId);
+        if (agent?.llmModel && allModels.some((m) => m.id === agent.llmModel)) {
+          setInitialModel(agent.llmModel);
+          return;
+        }
+      }
+
+      // Second priority: restore from localStorage
       const savedModelId = localStorage.getItem("selected-chat-model");
       if (savedModelId && allModels.some((m) => m.id === savedModelId)) {
         setInitialModel(savedModelId);
@@ -206,7 +215,7 @@ export default function ChatPage() {
         }
       }
     }
-  }, [modelsByProvider, initialModel]);
+  }, [modelsByProvider, initialModel, initialAgentId, internalAgents]);
 
   // Save model to localStorage when changed
   const handleInitialModelChange = useCallback((modelId: string) => {
@@ -671,10 +680,19 @@ export default function ChatPage() {
   };
 
   // Handle initial agent change (when no conversation exists)
-  const handleInitialAgentChange = useCallback((agentId: string) => {
-    setInitialAgentId(agentId);
-    localStorage.setItem("selected-chat-agent", agentId);
-  }, []);
+  const handleInitialAgentChange = useCallback(
+    (agentId: string) => {
+      setInitialAgentId(agentId);
+      localStorage.setItem("selected-chat-agent", agentId);
+
+      // Use agent's configured model if available
+      const agent = internalAgents.find((a) => a.id === agentId);
+      if (agent?.llmModel) {
+        setInitialModel(agent.llmModel);
+      }
+    },
+    [internalAgents],
+  );
 
   // Handle initial submit (when no conversation exists)
   const handleInitialSubmit: PromptInputProps["onSubmit"] = useCallback(

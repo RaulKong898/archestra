@@ -10,11 +10,19 @@ import {
 } from "drizzle-zod";
 import { z } from "zod";
 import { schema } from "@/database";
+import { SupportedChatProviderSchema } from "./chat-api-key";
 import { AgentLabelWithDetailsSchema } from "./label";
 import { SelectToolSchema } from "./tool";
 
 // Re-export types from schema
-export type { AgentHistoryEntry, AgentType } from "@/database/schemas/agent";
+export type {
+  AgentHistoryEntry,
+  AgentType,
+  LlmApiKeyStrategy,
+} from "@/database/schemas/agent";
+
+// LLM API key strategy schema
+export const LlmApiKeyStrategySchema = z.enum(["dynamic", "static"]);
 
 // Team info schema for agent responses (just id and name)
 export const AgentTeamInfoSchema = z.object({
@@ -25,10 +33,14 @@ export const AgentTeamInfoSchema = z.object({
 // Extended field schemas for drizzle-zod
 const selectExtendedFields = {
   incomingEmailSecurityMode: IncomingEmailSecurityModeSchema,
+  llmProvider: SupportedChatProviderSchema.nullable(),
+  llmApiKeyStrategy: LlmApiKeyStrategySchema,
 };
 
 const insertExtendedFields = {
   incomingEmailSecurityMode: IncomingEmailSecurityModeSchema.optional(),
+  llmProvider: SupportedChatProviderSchema.optional(),
+  llmApiKeyStrategy: LlmApiKeyStrategySchema.optional(),
 };
 
 /**
@@ -81,6 +93,43 @@ function validateIncomingEmailDomain(
   }
 }
 
+/**
+ * Validates LLM configuration settings.
+ * When llmApiKeyStrategy is "static", llmStaticApiKeyId must be provided.
+ */
+function validateLlmConfig(
+  data: {
+    llmApiKeyStrategy?: string | null;
+    llmStaticApiKeyId?: string | null;
+  },
+  ctx: z.RefinementCtx,
+) {
+  if (data.llmApiKeyStrategy === "static" && !data.llmStaticApiKeyId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "API key is required when using static API key strategy",
+      path: ["llmStaticApiKeyId"],
+    });
+  }
+}
+
+/**
+ * Combined validation for agent schema (incoming email + LLM config)
+ */
+function validateAgentFields(
+  data: {
+    incomingEmailEnabled?: boolean | null;
+    incomingEmailSecurityMode?: string | null;
+    incomingEmailAllowedDomain?: string | null;
+    llmApiKeyStrategy?: string | null;
+    llmStaticApiKeyId?: string | null;
+  },
+  ctx: z.RefinementCtx,
+) {
+  validateIncomingEmailDomain(data, ctx);
+  validateLlmConfig(data, ctx);
+}
+
 export const SelectAgentSchema = createSelectSchema(
   schema.agentsTable,
   selectExtendedFields,
@@ -110,9 +159,8 @@ export const InsertAgentSchemaBase = createInsertSchema(
   });
 
 // Full schema with validation refinement
-export const InsertAgentSchema = InsertAgentSchemaBase.superRefine(
-  validateIncomingEmailDomain,
-);
+export const InsertAgentSchema =
+  InsertAgentSchemaBase.superRefine(validateAgentFields);
 
 // Base schema without refinement - can be used with .partial()
 export const UpdateAgentSchemaBase = createUpdateSchema(
@@ -132,9 +180,8 @@ export const UpdateAgentSchemaBase = createUpdateSchema(
   });
 
 // Full schema with validation refinement
-export const UpdateAgentSchema = UpdateAgentSchemaBase.superRefine(
-  validateIncomingEmailDomain,
-);
+export const UpdateAgentSchema =
+  UpdateAgentSchemaBase.superRefine(validateAgentFields);
 
 // Schema for history entry in API responses (for internal agents)
 export const AgentHistoryEntrySchema = z.object({

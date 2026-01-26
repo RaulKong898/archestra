@@ -1,7 +1,7 @@
 "use client";
 
 import type { archestraApiTypes } from "@shared";
-import { archestraApiSdk } from "@shared";
+import { archestraApiSdk, providerDefaultModels } from "@shared";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -65,6 +65,11 @@ import {
 } from "@/lib/agent-tools.query";
 import { useHasPermissions } from "@/lib/auth.query";
 import { useChatProfileMcpTools } from "@/lib/chat.query";
+import { useModelsByProviderQuery } from "@/lib/chat-models.query";
+import {
+  type SupportedChatProvider,
+  useAvailableChatApiKeys,
+} from "@/lib/chat-settings.query";
 import { useChatOpsStatus } from "@/lib/chatops.query";
 import { useFeatures } from "@/lib/features.query";
 import { useInternalMcpCatalog } from "@/lib/internal-mcp-catalog.query";
@@ -404,6 +409,24 @@ export function AgentDialog({
   const [toolsSearchOpen, setToolsSearchOpen] = useState(false);
   const [toolsShowAll, setToolsShowAll] = useState(false);
   const [selectedToolsCount, setSelectedToolsCount] = useState(0);
+  // LLM Configuration state (internal agents only)
+  const [llmProvider, setLlmProvider] = useState<SupportedChatProvider | "">(
+    "",
+  );
+  const [llmModel, setLlmModel] = useState("");
+  const [llmApiKeyStrategy, setLlmApiKeyStrategy] = useState<
+    "dynamic" | "static"
+  >("dynamic");
+  const [llmStaticApiKeyId, setLlmStaticApiKeyId] = useState<string | null>(
+    null,
+  );
+
+  // Fetch models and API keys for LLM configuration
+  const { modelsByProvider, isLoading: isLoadingModels } =
+    useModelsByProviderQuery();
+  const { data: availableApiKeys = [] } = useAvailableChatApiKeys(
+    llmProvider || undefined,
+  );
 
   // Determine type-specific visibility based on agentType prop
   const isInternalAgent = agentType === "agent";
@@ -455,6 +478,11 @@ export function AgentDialog({
         setIncomingEmailAllowedDomain(
           agentData.incomingEmailAllowedDomain || "",
         );
+        // LLM configuration (internal agents only)
+        setLlmProvider(agentData.llmProvider || "");
+        setLlmModel(agentData.llmModel || "");
+        setLlmApiKeyStrategy(agentData.llmApiKeyStrategy || "dynamic");
+        setLlmStaticApiKeyId(agentData.llmStaticApiKeyId || null);
       } else {
         // Create mode - reset all fields
         setName("");
@@ -468,6 +496,11 @@ export function AgentDialog({
         setIncomingEmailEnabled(false);
         setIncomingEmailSecurityMode("private");
         setIncomingEmailAllowedDomain("");
+        // Reset LLM config
+        setLlmProvider("");
+        setLlmModel("");
+        setLlmApiKeyStrategy("dynamic");
+        setLlmStaticApiKeyId(null);
       }
       // Reset search and counts when dialog opens
       setSubagentsSearch("");
@@ -555,6 +588,19 @@ export function AgentDialog({
           }
         : {};
 
+      // Build LLM config for internal agents
+      const llmConfig = isInternalAgent
+        ? {
+            llmProvider: llmProvider || undefined,
+            llmModel: llmModel || undefined,
+            llmApiKeyStrategy,
+            llmStaticApiKeyId:
+              llmApiKeyStrategy === "static"
+                ? llmStaticApiKeyId || undefined
+                : undefined,
+          }
+        : {};
+
       if (agent) {
         // Update existing agent
         const updated = await updateAgent.mutateAsync({
@@ -571,6 +617,7 @@ export function AgentDialog({
             labels: updatedLabels,
             ...(showSecurity && { considerContextUntrusted }),
             ...emailSettings,
+            ...llmConfig,
           },
         });
         savedAgentId = updated?.id ?? agent.id;
@@ -589,6 +636,7 @@ export function AgentDialog({
           labels: updatedLabels,
           ...(showSecurity && { considerContextUntrusted }),
           ...emailSettings,
+          ...llmConfig,
         });
         savedAgentId = created?.id ?? "";
 
@@ -636,6 +684,10 @@ export function AgentDialog({
     incomingEmailEnabled,
     incomingEmailSecurityMode,
     incomingEmailAllowedDomain,
+    llmProvider,
+    llmModel,
+    llmApiKeyStrategy,
+    llmStaticApiKeyId,
     agentType,
     agent,
     isInternalAgent,
@@ -1028,6 +1080,165 @@ export function AgentDialog({
                     <EmailNotConfiguredMessage />
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* LLM Configuration (Agent only) */}
+            {isInternalAgent && (
+              <div className="space-y-2">
+                <Label>LLM Configuration</Label>
+                <div className="border rounded-lg bg-muted/30 p-4 space-y-4">
+                  {/* Provider Selection */}
+                  <div className="space-y-2">
+                    <Label htmlFor="llm-provider" className="text-sm">
+                      Provider
+                    </Label>
+                    <Select
+                      value={llmProvider || "__dynamic__"}
+                      onValueChange={(value) => {
+                        const newProvider =
+                          value === "__dynamic__" ? "" : value;
+                        setLlmProvider(
+                          newProvider as SupportedChatProvider | "",
+                        );
+                        // Pre-select default model for the provider
+                        setLlmModel(
+                          providerDefaultModels[
+                            newProvider as keyof typeof providerDefaultModels
+                          ] || "",
+                        );
+                        setLlmStaticApiKeyId(null); // Reset static API key when provider changes
+                        setLlmApiKeyStrategy("dynamic"); // Reset to dynamic when provider changes
+                      }}
+                    >
+                      <SelectTrigger id="llm-provider">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__dynamic__">
+                          Dynamic (first available)
+                        </SelectItem>
+                        <div className="h-px bg-border my-1" />
+                        {Object.keys(modelsByProvider).map((provider) => (
+                          <SelectItem key={provider} value={provider}>
+                            {provider.charAt(0).toUpperCase() +
+                              provider.slice(1)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {!llmProvider && (
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <p>
+                          Resolves from: user's API key → team key → org key →
+                          environment.
+                        </p>
+                        <p>
+                          Model depends on provider: Claude Opus 4.1, Gemini 2.5
+                          Pro, GPT-4o, or Command R.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Model - only shown when provider is selected */}
+                  {llmProvider && (
+                    <div className="space-y-2">
+                      <Label htmlFor="llm-model" className="text-sm">
+                        Model
+                      </Label>
+                      <Select
+                        value={llmModel}
+                        onValueChange={setLlmModel}
+                        disabled={isLoadingModels}
+                      >
+                        <SelectTrigger id="llm-model">
+                          <SelectValue placeholder="Select model" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(
+                            modelsByProvider[
+                              llmProvider as keyof typeof modelsByProvider
+                            ] || []
+                          ).map((model) => (
+                            <SelectItem key={model.id} value={model.id}>
+                              {model.displayName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* API Key Selection - not shown for Gemini when Vertex AI is enabled */}
+                  {llmProvider &&
+                    !(
+                      llmProvider === "gemini" &&
+                      features?.geminiVertexAiEnabled
+                    ) && (
+                      <div className="space-y-2">
+                        <Label htmlFor="llm-api-key" className="text-sm">
+                          API Key
+                        </Label>
+                        <Select
+                          value={
+                            llmApiKeyStrategy === "static" && llmStaticApiKeyId
+                              ? llmStaticApiKeyId
+                              : "__dynamic__"
+                          }
+                          onValueChange={(value) => {
+                            if (value === "__dynamic__") {
+                              setLlmApiKeyStrategy("dynamic");
+                              setLlmStaticApiKeyId(null);
+                            } else {
+                              setLlmApiKeyStrategy("static");
+                              setLlmStaticApiKeyId(value);
+                            }
+                          }}
+                        >
+                          <SelectTrigger id="llm-api-key">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__dynamic__">
+                              Dynamic (first available)
+                            </SelectItem>
+                            {availableApiKeys.length > 0 && (
+                              <>
+                                <div className="h-px bg-border my-1" />
+                                <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                                  Static
+                                </div>
+                                {availableApiKeys.map((key) => (
+                                  <SelectItem key={key.id} value={key.id}>
+                                    <div className="flex items-center gap-2">
+                                      <span>{key.name}</span>
+                                      <span className="text-xs text-muted-foreground">
+                                        ({key.scope})
+                                      </span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          {llmApiKeyStrategy === "dynamic"
+                            ? "Resolves from: user's key → team key → org key → environment."
+                            : "Uses a specific API key for this agent."}
+                        </p>
+                      </div>
+                    )}
+
+                  {/* Vertex AI info for Gemini */}
+                  {llmProvider === "gemini" &&
+                    features?.geminiVertexAiEnabled && (
+                      <p className="text-xs text-muted-foreground">
+                        Uses Vertex AI with service account authentication.
+                      </p>
+                    )}
+                </div>
               </div>
             )}
 

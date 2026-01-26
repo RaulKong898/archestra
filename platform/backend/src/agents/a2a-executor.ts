@@ -1,9 +1,9 @@
 import { stepCountIs, streamText } from "ai";
 import { getChatMcpTools } from "@/clients/chat-mcp-client";
 import { createLLMModelForAgent } from "@/clients/llm-client";
-import config from "@/config";
 import logger from "@/logging";
 import { AgentModel } from "@/models";
+import { resolveModelAndProvider } from "@/routes/chat/routes.chat";
 
 export interface A2AExecuteParams {
   /**
@@ -67,9 +67,28 @@ export async function executeA2AMessage(
     );
   }
 
-  // Use default model and provider from config
-  const selectedModel = config.chat.defaultModel;
-  const provider = config.chat.defaultProvider;
+  // Resolve model and provider: check agent's LLM config first, then smart defaults
+  const {
+    model: selectedModel,
+    provider,
+    source: modelSource,
+  } = await resolveModelAndProvider({
+    userId,
+    organizationId,
+    agent,
+  });
+
+  logger.info(
+    {
+      agentId: agent.id,
+      selectedModel,
+      provider,
+      modelSource,
+      hasAgentLlmConfig: !!agent.llmProvider && !!agent.llmModel,
+      llmApiKeyStrategy: agent.llmApiKeyStrategy,
+    },
+    "A2A resolved model and provider",
+  );
 
   // Build system prompt from agent's systemPrompt and userPrompt fields
   let systemPrompt: string | undefined;
@@ -115,6 +134,7 @@ export async function executeA2AMessage(
   // Create LLM model using shared service
   // Pass sessionId to group A2A requests with the calling session
   // Pass delegationChain as externalAgentId so agent names appear in logs
+  // Pass agent's static API key ID when strategy is "static"
   const { model } = await createLLMModelForAgent({
     organizationId,
     userId,
@@ -123,6 +143,8 @@ export async function executeA2AMessage(
     provider,
     sessionId,
     externalAgentId: delegationChain,
+    agentStaticApiKeyId:
+      agent.llmApiKeyStrategy === "static" ? agent.llmStaticApiKeyId : null,
   });
 
   // Execute with AI SDK using streamText (required for long-running requests)

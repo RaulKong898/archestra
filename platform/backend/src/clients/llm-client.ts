@@ -14,7 +14,7 @@ import { isVertexAiEnabled } from "@/clients/gemini-client";
 import config from "@/config";
 import logger from "@/logging";
 import { ChatApiKeyModel, TeamModel } from "@/models";
-import { secretManager } from "@/secrets-manager";
+import { extractApiKeyFromSecret, secretManager } from "@/secrets-manager";
 import { ApiError, type SupportedChatProvider } from "@/types";
 
 /**
@@ -69,18 +69,43 @@ export function detectProviderFromModel(model: string): SupportedChatProvider {
 
 /**
  * Resolve API key for a provider using priority:
- * conversation > personal > team > org_wide > environment variable
+ * agentStaticApiKeyId (if provided) > conversation > personal > team > org_wide > environment variable
  */
 export async function resolveProviderApiKey(params: {
   organizationId: string;
   userId: string;
   provider: SupportedChatProvider;
   conversationId?: string | null;
+  /** If set, use this specific API key directly (agent static API key) */
+  agentStaticApiKeyId?: string | null;
 }): Promise<{ apiKey: string | undefined; source: string }> {
-  const { organizationId, userId, provider, conversationId } = params;
+  const {
+    organizationId,
+    userId,
+    provider,
+    conversationId,
+    agentStaticApiKeyId,
+  } = params;
 
   let providerApiKey: string | undefined;
   let apiKeySource = "environment";
+
+  // If agent has a static API key configured, use it directly
+  if (agentStaticApiKeyId) {
+    const staticKey = await ChatApiKeyModel.findById(agentStaticApiKeyId);
+    if (staticKey?.secretId && staticKey.provider === provider) {
+      const secret = await secretManager().getSecret(staticKey.secretId);
+      const secretValue = extractApiKeyFromSecret(secret);
+      if (secretValue) {
+        return { apiKey: secretValue, source: "agent_static" };
+      }
+    }
+    // If static key is invalid or doesn't match provider, fall through to normal resolution
+    logger.warn(
+      { agentStaticApiKeyId, provider },
+      "Agent static API key not found or provider mismatch, falling back to normal resolution",
+    );
+  }
 
   // Get user's team IDs for API key resolution
   const userTeamIds = await TeamModel.getUserTeamIds(userId);
@@ -96,16 +121,9 @@ export async function resolveProviderApiKey(params: {
 
   if (resolvedApiKey?.secretId) {
     const secret = await secretManager().getSecret(resolvedApiKey.secretId);
-    // Support both old format (anthropicApiKey) and new format (apiKey)
-    const secretValue =
-      secret?.secret?.apiKey ??
-      secret?.secret?.anthropicApiKey ??
-      secret?.secret?.geminiApiKey ??
-      secret?.secret?.openaiApiKey ??
-      secret?.secret?.zhipuaiApiKey ??
-      secret?.secret?.cohereApiKey;
+    const secretValue = extractApiKeyFromSecret(secret);
     if (secretValue) {
-      providerApiKey = secretValue as string;
+      providerApiKey = secretValue;
       apiKeySource = resolvedApiKey.scope;
     }
   }
@@ -448,6 +466,8 @@ export async function createLLMModelForAgent(params: {
   conversationId?: string | null;
   externalAgentId?: string;
   sessionId?: string;
+  /** Agent's static API key ID (when llmApiKeyStrategy is "static") */
+  agentStaticApiKeyId?: string | null;
 }): Promise<{
   model: LLMModel;
   provider: SupportedChatProvider;
@@ -462,6 +482,7 @@ export async function createLLMModelForAgent(params: {
     conversationId,
     externalAgentId,
     sessionId,
+    agentStaticApiKeyId,
   } = params;
 
   const { apiKey, source } = await resolveProviderApiKey({
@@ -469,6 +490,7 @@ export async function createLLMModelForAgent(params: {
     userId,
     provider,
     conversationId,
+    agentStaticApiKeyId,
   });
 
   // Check if Gemini with Vertex AI (doesn't require API key)

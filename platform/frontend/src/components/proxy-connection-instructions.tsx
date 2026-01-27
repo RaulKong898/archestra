@@ -1,10 +1,11 @@
 "use client";
 
-import type { SupportedProvider } from "@shared";
+import { providerDisplayNames, type SupportedProvider } from "@shared";
 import { Check, ChevronDown, Copy } from "lucide-react";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { CodeText } from "@/components/code-text";
+import { ConnectionBaseUrlSelect } from "@/components/connection-base-url-select";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import {
@@ -14,9 +15,67 @@ import {
 } from "@/components/ui/popover";
 import config from "@/lib/config";
 
-const { internalProxyUrl } = config.api;
+const { externalProxyUrls, internalProxyUrl } = config.api;
 
 type ProviderOption = SupportedProvider | "claude-code";
+
+/** Provider configuration for URL replacement instructions */
+const PROVIDER_CONFIG: Record<
+  ProviderOption,
+  { label: string; originalUrl: string } | { label: string; isCommand: true }
+> = {
+  openai: {
+    label: providerDisplayNames.openai,
+    originalUrl: "https://api.openai.com/v1/",
+  },
+  gemini: {
+    label: providerDisplayNames.gemini,
+    originalUrl: "https://generativelanguage.googleapis.com/v1/",
+  },
+  anthropic: {
+    label: providerDisplayNames.anthropic,
+    originalUrl: "https://api.anthropic.com/v1/",
+  },
+  cerebras: {
+    label: providerDisplayNames.cerebras,
+    originalUrl: "https://api.cerebras.ai/v1/",
+  },
+  mistral: {
+    label: providerDisplayNames.mistral,
+    originalUrl: "https://api.mistral.ai/v1/",
+  },
+  cohere: {
+    label: providerDisplayNames.cohere,
+    originalUrl: "https://api.cohere.com/v2/",
+  },
+  vllm: {
+    label: providerDisplayNames.vllm,
+    originalUrl: "http://localhost:8000/v1/",
+  },
+  ollama: {
+    label: providerDisplayNames.ollama,
+    originalUrl: "http://localhost:11434/v1/",
+  },
+  zhipuai: {
+    label: providerDisplayNames.zhipuai,
+    originalUrl: "https://open.bigmodel.cn/api/",
+  },
+  bedrock: {
+    label: providerDisplayNames.bedrock,
+    originalUrl: "https://bedrock-runtime.your-region.amazonaws.com/",
+  },
+  "claude-code": { label: "Claude Code", isCommand: true },
+};
+
+/** Providers to show as buttons (subset of all providers) */
+const VISIBLE_PROVIDERS: ProviderOption[] = [
+  "openai",
+  "gemini",
+  "anthropic",
+  "cerebras",
+  "claude-code",
+  "mistral",
+];
 
 interface ProxyConnectionInstructionsProps {
   agentId?: string;
@@ -27,67 +86,41 @@ export function ProxyConnectionInstructions({
 }: ProxyConnectionInstructionsProps) {
   const [selectedProvider, setSelectedProvider] =
     useState<ProviderOption>("openai");
+  const [connectionUrl, setConnectionUrl] = useState<string>(
+    externalProxyUrls.length >= 1 ? externalProxyUrls[0] : internalProxyUrl,
+  );
 
   const getProviderPath = (provider: ProviderOption) =>
     provider === "claude-code" ? "anthropic" : provider;
 
   const proxyUrl = agentId
-    ? `${internalProxyUrl}/${getProviderPath(selectedProvider)}/${agentId}`
-    : `${internalProxyUrl}/${getProviderPath(selectedProvider)}`;
+    ? `${connectionUrl}/${getProviderPath(selectedProvider)}/${agentId}`
+    : `${connectionUrl}/${getProviderPath(selectedProvider)}`;
 
-  const claudeCodeCommand = `ANTHROPIC_BASE_URL=${internalProxyUrl}/anthropic${agentId ? `/${agentId}` : ""} claude`;
+  const claudeCodeCommand = `ANTHROPIC_BASE_URL=${connectionUrl}/anthropic${agentId ? `/${agentId}` : ""} claude`;
+
+  const providerConfig = PROVIDER_CONFIG[selectedProvider];
 
   return (
     <div className="space-y-3">
       <ButtonGroup>
-        <Button
-          variant={selectedProvider === "openai" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setSelectedProvider("openai")}
-        >
-          OpenAI
-        </Button>
-        <Button
-          variant={selectedProvider === "gemini" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setSelectedProvider("gemini")}
-        >
-          Gemini
-        </Button>
-        <Button
-          variant={selectedProvider === "anthropic" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setSelectedProvider("anthropic")}
-        >
-          Anthropic
-        </Button>
-        <Button
-          variant={selectedProvider === "cerebras" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setSelectedProvider("cerebras")}
-        >
-          Cerebras
-        </Button>
+        {VISIBLE_PROVIDERS.map((provider) => (
+          <Button
+            key={provider}
+            variant={selectedProvider === provider ? "default" : "outline"}
+            size="sm"
+            onClick={() => setSelectedProvider(provider)}
+          >
+            {PROVIDER_CONFIG[provider].label}
+          </Button>
+        ))}
         <Popover>
           <PopoverTrigger asChild>
-            <Button
-              variant={
-                selectedProvider === "claude-code" ? "default" : "outline"
-              }
-              size="sm"
-            >
+            <Button variant="outline" size="sm">
               <ChevronDown className="h-4 w-4" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start"
-              onClick={() => setSelectedProvider("claude-code")}
-            >
-              Claude Code
-            </Button>
             <p className="text-xs text-muted-foreground px-2 py-1">
               More providers coming soon
             </p>
@@ -95,51 +128,13 @@ export function ProxyConnectionInstructions({
         </Popover>
       </ButtonGroup>
 
-      {selectedProvider === "openai" && (
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Replace your OpenAI base URL:
-          </p>
-          <UrlReplacementRow
-            originalUrl="https://api.openai.com/v1/"
-            newUrl={proxyUrl}
-          />
-        </div>
-      )}
-      {selectedProvider === "gemini" && (
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Replace your Gemini base URL:
-          </p>
-          <UrlReplacementRow
-            originalUrl="https://generativelanguage.googleapis.com/v1/"
-            newUrl={proxyUrl}
-          />
-        </div>
-      )}
-      {selectedProvider === "anthropic" && (
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Replace your Anthropic base URL:
-          </p>
-          <UrlReplacementRow
-            originalUrl="https://api.anthropic.com/v1/"
-            newUrl={proxyUrl}
-          />
-        </div>
-      )}
-      {selectedProvider === "cerebras" && (
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Replace your Cerebras base URL:
-          </p>
-          <UrlReplacementRow
-            originalUrl="https://api.cerebras.ai/v1/"
-            newUrl={proxyUrl}
-          />
-        </div>
-      )}
-      {selectedProvider === "claude-code" && (
+      <ConnectionBaseUrlSelect
+        value={connectionUrl}
+        onChange={setConnectionUrl}
+        idPrefix="llm"
+      />
+
+      {"isCommand" in providerConfig ? (
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground">
             Run Claude Code with the Archestra proxy:
@@ -153,6 +148,16 @@ export function ProxyConnectionInstructions({
               toastMessage="Command copied to clipboard"
             />
           </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Replace your {providerConfig.label} base URL:
+          </p>
+          <UrlReplacementRow
+            originalUrl={providerConfig.originalUrl}
+            newUrl={proxyUrl}
+          />
         </div>
       )}
     </div>
@@ -210,7 +215,7 @@ function UrlReplacementRow({
       </div>
       <span className="text-muted-foreground flex-shrink-0">→</span>
       <div className="bg-primary/5 rounded-md px-3 py-2 border border-primary/20 flex items-center gap-2">
-        <CodeText className="text-xs text-primary whitespace-nowrap">
+        <CodeText className="text-xs text-primary flex-1 break-all">
           {newUrl}
         </CodeText>
         <CopyButton

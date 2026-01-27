@@ -34,8 +34,10 @@ const providerToLogoProvider: Record<SupportedProvider, string> = {
   openai: "openai",
   anthropic: "anthropic",
   gemini: "google",
+  bedrock: "amazon-bedrock",
   cerebras: "cerebras",
   cohere: "cohere",
+  mistral: "mistral",
   vllm: "vllm",
   ollama: "ollama",
   zhipuai: "zhipuai",
@@ -137,11 +139,17 @@ export function ModelSelector({
     <div>
       <ModelSelectorRoot open={open} onOpenChange={handleOpenChange}>
         <ModelSelectorTrigger asChild>
-          <PromptInputButton disabled={disabled}>
+          <PromptInputButton
+            disabled={disabled}
+            className="max-w-[280px] min-w-0"
+          >
             {selectedModelLogo && (
-              <ModelSelectorLogo provider={selectedModelLogo} />
+              <ModelSelectorLogo
+                provider={selectedModelLogo}
+                className="shrink-0"
+              />
             )}
-            <ModelSelectorName>
+            <ModelSelectorName className="truncate flex-1 text-left">
               {selectedModelDisplayName || "Select model"}
             </ModelSelectorName>
           </PromptInputButton>

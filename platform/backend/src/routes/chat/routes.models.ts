@@ -8,13 +8,13 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { uniqBy } from "lodash-es";
 import { z } from "zod";
 import { CacheKey, cacheManager } from "@/cache-manager";
-import config from "@/config";
-import logger from "@/logging";
-import { ChatApiKeyModel, TeamModel } from "@/models";
 import {
   createGoogleGenAIClient,
   isVertexAiEnabled,
-} from "@/routes/proxy/utils/gemini-client";
+} from "@/clients/gemini-client";
+import config from "@/config";
+import logger from "@/logging";
+import { ChatApiKeyModel, TeamModel } from "@/models";
 import { getSecretValueForLlmProviderApiKey } from "@/secrets-manager";
 import {
   type Anthropic,
@@ -229,6 +229,44 @@ async function fetchCerebrasModels(apiKey: string): Promise<ModelInfo[]> {
       provider: "cerebras" as const,
       createdAt: new Date(model.created * 1000).toISOString(),
     }));
+}
+
+/**
+ * Fetch models from Mistral API (OpenAI-compatible)
+ */
+async function fetchMistralModels(apiKey: string): Promise<ModelInfo[]> {
+  const baseUrl = config.chat.mistral.baseUrl;
+  const url = `${baseUrl}/models`;
+
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    logger.error(
+      { status: response.status, error: errorText },
+      "Failed to fetch Mistral models",
+    );
+    throw new Error(`Failed to fetch Mistral models: ${response.status}`);
+  }
+
+  const data = (await response.json()) as {
+    data: Array<{
+      id: string;
+      created: number;
+      owned_by: string;
+    }>;
+  };
+
+  return data.data.map((model) => ({
+    id: model.id,
+    displayName: model.id,
+    provider: "mistral" as const,
+    createdAt: new Date(model.created * 1000).toISOString(),
+  }));
 }
 
 /**
@@ -464,6 +502,112 @@ async function fetchZhipuaiModels(apiKey: string): Promise<ModelInfo[]> {
 }
 
 /**
+ * Fetch models from AWS Bedrock API
+ * Uses Bearer token authentication (proxy handles AWS credentials)
+ */
+export async function fetchBedrockModels(apiKey: string): Promise<ModelInfo[]> {
+  const baseUrl = config.llm.bedrock.baseUrl;
+  if (!baseUrl) {
+    logger.warn("Bedrock base URL not configured");
+    return [];
+  }
+
+  // Remove '-runtime' from base URL to get the control plane endpoint
+  const url = `${baseUrl.replace("-runtime", "")}/foundation-models?byOutputModality=TEXT&byInputModality=TEXT`;
+
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    logger.error(
+      { status: response.status, error: errorText },
+      "Failed to fetch Bedrock models",
+    );
+    throw new Error(`Failed to fetch Bedrock models: ${response.status}`);
+  }
+
+  const data = (await response.json()) as {
+    modelSummaries?: Array<{
+      modelId?: string;
+      modelName?: string;
+      providerName?: string;
+      inferenceTypesSupported?: string[];
+      inputModalities?: string[];
+    }>;
+  };
+
+  logger.info(
+    { url, modelCount: data.modelSummaries?.length, data },
+    "[fetchBedrockModels] full response from Bedrock ListFoundationModels",
+  );
+
+  if (!data.modelSummaries) {
+    logger.warn("No models returned from Bedrock ListFoundationModels");
+    return [];
+  }
+
+  // Filter to include models that support on-demand or inference profile (cross-region)
+  // INFERENCE_PROFILE models (like Claude) require the prefix env var to be set
+  const inferenceProfilePrefix = config.llm.bedrock.inferenceProfilePrefix;
+
+  const models = data.modelSummaries
+    .filter((model) => {
+      // Must support TEXT input modality
+      if (!model.inputModalities?.includes("TEXT")) {
+        return false;
+      }
+
+      const supportsOnDemand =
+        model.inferenceTypesSupported?.includes("ON_DEMAND");
+      const supportsInferenceProfile =
+        model.inferenceTypesSupported?.includes("INFERENCE_PROFILE");
+
+      // Include ON_DEMAND models always
+      // Include INFERENCE_PROFILE models only if prefix is configured
+      return (
+        supportsOnDemand || (supportsInferenceProfile && inferenceProfilePrefix)
+      );
+    })
+    .map((model) => {
+      // Generate a readable display name
+      const providerName = model.providerName || "Unknown";
+      const modelName = model.modelName || model.modelId || "Unknown Model";
+      const displayName = `${providerName} ${modelName}`;
+
+      // For INFERENCE_PROFILE models, prefix with region (e.g., "us" or "eu")
+      const isInferenceProfile =
+        model.inferenceTypesSupported?.includes("INFERENCE_PROFILE");
+      const prefix = inferenceProfilePrefix.endsWith(".")
+        ? inferenceProfilePrefix
+        : `${inferenceProfilePrefix}.`;
+      const modelId =
+        isInferenceProfile && inferenceProfilePrefix
+          ? `${prefix}${model.modelId}`
+          : model.modelId;
+
+      return {
+        id: modelId || "",
+        displayName,
+        provider: "bedrock" as const,
+      };
+    });
+
+  logger.info(
+    {
+      modelCount: models.length,
+      models: models.map((m) => ({ id: m.id, displayName: m.displayName })),
+    },
+    "[fetchBedrockModels] filtered models returned for bedrock",
+  );
+
+  return models;
+}
+
+/**
  * Fetch models from Gemini API via Vertex AI SDK
  * Uses Application Default Credentials (ADC) for authentication
  *
@@ -589,6 +733,8 @@ async function getProviderApiKey({
       return config.chat.anthropic.apiKey || null;
     case "cerebras":
       return config.chat.cerebras.apiKey || null;
+    case "mistral":
+      return config.chat.mistral.apiKey || null;
     case "gemini":
       return config.chat.gemini.apiKey || null;
     case "openai":
@@ -601,6 +747,8 @@ async function getProviderApiKey({
       return config.chat.ollama.apiKey || "";
     case "zhipuai":
       return config.chat.zhipuai?.apiKey || null;
+    case "bedrock":
+      return config.chat.bedrock.apiKey || null;
     default:
       return null;
   }
@@ -612,8 +760,10 @@ const modelFetchers: Record<
   (apiKey: string) => Promise<ModelInfo[]>
 > = {
   anthropic: fetchAnthropicModels,
+  bedrock: fetchBedrockModels,
   cerebras: fetchCerebrasModels,
   gemini: fetchGeminiModels,
+  mistral: fetchMistralModels,
   openai: fetchOpenAiModels,
   vllm: fetchVllmModels,
   ollama: fetchOllamaModels,
@@ -657,10 +807,19 @@ export async function fetchModelsForProvider({
   // vLLM and Ollama typically don't require API keys, but need base URL configured
   const isVllmEnabled = provider === "vllm" && config.llm.vllm.enabled;
   const isOllamaEnabled = provider === "ollama" && config.llm.ollama.enabled;
+  // Bedrock uses AWS credentials which may come from default credential chain
+  const isBedrockEnabled = provider === "bedrock" && config.llm.bedrock.enabled;
 
   // For Gemini with Vertex AI, we don't need an API key - authentication is via ADC
   // For vLLM and Ollama, API key is optional but base URL must be configured
-  if (!apiKey && !vertexAiEnabled && !isVllmEnabled && !isOllamaEnabled) {
+  // For Bedrock, we check if it's enabled (may use default AWS credential chain)
+  if (
+    !apiKey &&
+    !vertexAiEnabled &&
+    !isVllmEnabled &&
+    !isOllamaEnabled &&
+    !isBedrockEnabled
+  ) {
     logger.debug(
       { provider, organizationId },
       "No API key available for provider",
@@ -670,7 +829,11 @@ export async function fetchModelsForProvider({
 
   try {
     let models: ModelInfo[] = [];
-    if (["anthropic", "cerebras", "openai", "cohere"].includes(provider)) {
+    if (
+      ["anthropic", "cerebras", "cohere", "mistral", "openai"].includes(
+        provider,
+      )
+    ) {
       if (apiKey) {
         models = await modelFetchers[provider](apiKey);
       }
@@ -689,6 +852,11 @@ export async function fetchModelsForProvider({
       // Ollama doesn't require API key, pass empty or configured key
       models = await modelFetchers[provider](apiKey || "EMPTY");
     } else if (provider === "zhipuai") {
+      if (apiKey) {
+        models = await modelFetchers[provider](apiKey);
+      }
+    } else if (provider === "bedrock" && isBedrockEnabled) {
+      // Bedrock uses AWS credentials via the proxy
       if (apiKey) {
         models = await modelFetchers[provider](apiKey);
       }

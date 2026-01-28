@@ -2,7 +2,7 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { generateObject } from "ai";
 import { z } from "zod";
 import config from "@/config";
-import { getObservableFetch } from "@/llm-metrics";
+import { getObservableFetch } from "@/metrics";
 import logger from "@/logging";
 import AgentModel from "@/models/agent";
 import InteractionModel from "@/models/interaction";

@@ -2,7 +2,7 @@ import AnthropicProvider from "@anthropic-ai/sdk";
 import { encode as toonEncode } from "@toon-format/toon";
 import { get } from "lodash-es";
 import config from "@/config";
-import { getObservableFetch } from "@/llm-metrics";
+import { getObservableFetch } from "@/metrics";
 import logger from "@/logging";
 import { TokenPriceModel } from "@/models";
 import { getTokenizer } from "@/tokenizers";

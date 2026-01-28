@@ -39,13 +39,22 @@ The endpoint `http://localhost:9050/metrics` exposes Prometheus-formatted metric
 
 ### LLM Metrics
 
-- `llm_request_duration_seconds` - LLM API request duration by provider, agent_id, profile_id, profile_name, and status code
-- `llm_tokens_total` - Token consumption by provider, agent_id, profile_id, profile_name, and type (input/output)
-- `llm_blocked_tool_total` - Counter of tool calls blocked by tool invocation policies, grouped by provider, agent_id, profile_id, and profile_name
-- `llm_time_to_first_token_seconds` - Time to first token (TTFT) for streaming requests, by provider, agent_id, profile_id, profile_name, and model. Helps developers choose models with lower initial response latency.
-- `llm_tokens_per_second` - Output tokens per second throughput, by provider, agent_id, profile_id, profile_name, and model. Allows comparing model response speeds for latency-sensitive applications.
+- `llm_request_duration_seconds` - LLM API request duration by provider, external_agent_id, agent_id, agent_name, and status code
+- `llm_tokens_total` - Token consumption by provider, external_agent_id, agent_id, agent_name, and type (input/output)
+- `llm_time_to_first_token_seconds` - Time to first token (TTFT) for streaming requests, by provider, external_agent_id, agent_id, agent_name, and model. Helps developers choose models with lower initial response latency.
+- `llm_tokens_per_second` - Output tokens per second throughput, by provider, external_agent_id, agent_id, agent_name, and model. Allows comparing model response speeds for latency-sensitive applications.
 
-> **Note:** The `agent_id` label contains the external agent ID passed via the `X-Archestra-Agent-Id` header. This allows clients to associate metrics with their own agent identifiers. If the header is not provided, the label will be empty. Use `profile_id` and `profile_name` for the internal Archestra profile identifier.
+> **Note:** The `external_agent_id` label contains the external agent ID passed via the `X-Archestra-Agent-Id` header. This allows clients to associate metrics with their own agent identifiers. If the header is not provided, the label will be empty. Use `agent_id` and `agent_name` for the internal Archestra agent identifier.
+
+### MCP Metrics
+
+- `mcp_tool_call_total` - Total MCP tool calls, with the following labels:
+  - `agent_id` - Internal Archestra agent ID
+  - `agent_name` - Internal Archestra agent name
+  - `credential_name` - Team name or user name that provided the credential
+  - `tool_name` - Full tool name including MCP server prefix
+  - `mcp_server_name` - The MCP server that hosts the tool
+  - `success` - Whether the tool call was successful ("true" or "false")
 
 ### Process Metrics
 
@@ -125,9 +134,9 @@ Each LLM API call includes detailed attributes for filtering and analysis:
 - `llm.provider` - Provider name (`openai`, `anthropic`, `gemini`)
 - `llm.model` - Model name (e.g., `gpt-4`, `claude-3-5-sonnet-20241022`)
 - `llm.stream` - Whether the request was streaming (`true`/`false`)
-- `profile.id` - The ID of the profile handling the request
-- `profile.name` - The name of the profile handling the request
-- `profile.<label_key>` - Custom profile labels (e.g., `environment=production`, `team=data-science`)
+- `agent.id` - The ID of the agent handling the request
+- `agent.name` - The name of the agent handling the request
+- `agent.<label_key>` - Custom agent labels (e.g., `environment=production`, `team=data-science`)
 
 **Span Names:**
 
@@ -137,11 +146,11 @@ Each LLM API call includes detailed attributes for filtering and analysis:
 
 These dedicated spans show the exact duration of external LLM API calls, separate from your application's processing time.
 
-### Custom Profile Labels
+### Custom Agent Labels
 
-Labels are key-value pairs that can be configured when creating or updating profiles through the Archestra Platform UI. Use them, for example, to logically group profiles by environment or application type. Once added, labels automatically appear in:
+Labels are key-value pairs that can be configured when creating or updating agents through the Archestra Platform UI. Use them, for example, to logically group agents by environment or application type. Once added, labels automatically appear in:
 
-- **Metrics** - As additional label dimensions on `llm_request_duration_seconds` and `llm_tokens_total`. Use them to drill down into charts. _Note that `kebab-case` labels will be converted to `snake_case` here because of Prometheus naming rules._
+- **Metrics** - As additional label dimensions on `llm_request_duration_seconds`, `llm_tokens_total`, and `mcp_tool_call_total`. Use them to drill down into charts. _Note that `kebab-case` labels will be converted to `snake_case` here because of Prometheus naming rules._
 - **Traces** - As span attributes. Use them to filter traces.
 
 ## Grafana Dashboard
@@ -196,7 +205,7 @@ Here are some PromQL queries for Grafana charts to get you started:
 - LLM requests per second by profile and provider:
 
   ```promql
-  sum(rate(llm_request_duration_seconds_count[5m])) by (profile_name, provider)
+  sum(rate(llm_request_duration_seconds_count[5m])) by (agent_name, provider)
   ```
 
 - LLM error rate by provider:
@@ -208,25 +217,25 @@ Here are some PromQL queries for Grafana charts to get you started:
 - LLM token usage rate (tokens/sec) by profile name:
 
   ```promql
-  sum(rate(llm_tokens_total[5m])) by (provider, profile_name, type)
+  sum(rate(llm_tokens_total[5m])) by (provider, agent_name, type)
   ```
 
 - Total tokens by profile name:
 
   ```promql
-  sum(rate(llm_tokens_total[5m])) by (profile_name, type)
+  sum(rate(llm_tokens_total[5m])) by (agent_name, type)
   ```
 
 - Request duration by profile name and provider:
 
   ```promql
-  histogram_quantile(0.95, sum(rate(llm_request_duration_seconds_bucket[5m])) by (profile_name, provider, le))
+  histogram_quantile(0.95, sum(rate(llm_request_duration_seconds_bucket[5m])) by (agent_name, provider, le))
   ```
 
 - Error rate by profile:
 
   ```promql
-  sum(rate(llm_request_duration_seconds_count{status_code!~"2.."}[5m])) by (profile_name) / sum(rate(llm_request_duration_seconds_count[5m])) by (profile_name)
+  sum(rate(llm_request_duration_seconds_count{status_code!~"2.."}[5m])) by (agent_name) / sum(rate(llm_request_duration_seconds_count[5m])) by (agent_name)
   ```
 
 - Time to first token (TTFT) p95 by model:

@@ -50,7 +50,7 @@ import {
   cleanupKnowledgeGraphProvider,
   initializeKnowledgeGraphProvider,
 } from "@/knowledge-graph";
-import { initializeMetrics } from "@/llm-metrics";
+import { initializeLlmMetrics, initializeMcpMetrics } from "@/metrics";
 import logger from "@/logging";
 import { McpServerRuntimeManager } from "@/mcp-server-runtime";
 import { enterpriseLicenseMiddleware } from "@/middleware";
@@ -561,7 +561,8 @@ const start = async () => {
 
     // Initialize metrics with keys of custom agent labels
     const labelKeys = await AgentLabelModel.getAllKeys();
-    initializeMetrics(labelKeys);
+    initializeLlmMetrics(labelKeys);
+    initializeMcpMetrics(labelKeys);
 
     // Start metrics server
     await startMetricsServer();

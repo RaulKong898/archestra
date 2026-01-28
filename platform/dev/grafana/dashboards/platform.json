@@ -150,10 +150,10 @@
             "type": "prometheus",
             "uid": "$metrics_datasource"
           },
-          "expr": "sum by (profile_name) (rate(llm_tokens_total{type=\"input\"}[$__rate_interval]))",
+          "expr": "sum by (agent_name) (rate(llm_tokens_total{type=\"input\"}[$__rate_interval]))",
           "hide": false,
           "instant": false,
-          "legendFormat": "{{profile_name}} (input)",
+          "legendFormat": "{{agent_name}} (input)",
           "queryType": "range",
           "range": true,
           "refId": "A"
@@ -163,10 +163,10 @@
             "type": "prometheus",
             "uid": "$metrics_datasource"
           },
-          "expr": "sum by (profile_name) (rate(llm_tokens_total{type=\"output\"}[$__rate_interval]))",
+          "expr": "sum by (agent_name) (rate(llm_tokens_total{type=\"output\"}[$__rate_interval]))",
           "hide": false,
           "instant": false,
-          "legendFormat": "{{profile_name}} (output)",
+          "legendFormat": "{{agent_name}} (output)",
           "queryType": "range",
           "range": true,
           "refId": "B"
@@ -393,16 +393,16 @@
             "type": "prometheus",
             "uid": "$metrics_datasource"
           },
-          "expr": "rate(llm_blocked_tools_total[$__rate_interval])",
+          "expr": "sum by (agent_name, mcp_server_name, success) (rate(mcp_tool_call_total[$__rate_interval]))",
           "hide": false,
           "instant": false,
-          "legendFormat": "{{profile_name}}",
+          "legendFormat": "{{agent_name}} / {{mcp_server_name}} (success={{success}})",
           "queryType": "range",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Blocked Tool Calls",
+      "title": "MCP Tool Calls",
       "type": "timeseries"
     },
     {

@@ -28,7 +28,6 @@ type Fetch = (
 // You can monitor request count, duration and error rate with these.
 let llmRequestDuration: client.Histogram<string>;
 let llmTokensCounter: client.Counter<string>;
-let llmBlockedToolCounter: client.Counter<string>;
 let llmCostTotal: client.Counter<string>;
 let llmTimeToFirstToken: client.Histogram<string>;
 let llmTokensPerSecond: client.Histogram<string>;
@@ -45,7 +44,7 @@ const sanitizeRegexp = /[^a-zA-Z0-9_]/g;
  * - Replace invalid characters with underscores
  * - Prefix with underscore if starts with a digit
  */
-function sanitizeLabelKey(key: string): string {
+export function sanitizeLabelKey(key: string): string {
   let sanitized = key.replace(sanitizeRegexp, "_");
   // Prometheus labels cannot start with a digit
   if (/^[0-9]/.test(sanitized)) {
@@ -58,7 +57,7 @@ function sanitizeLabelKey(key: string): string {
  * Initialize LLM metrics with dynamic agent label keys
  * @param labelKeys Array of agent label keys to include as metric labels
  */
-export function initializeMetrics(labelKeys: string[]): void {
+export function initializeLlmMetrics(labelKeys: string[]): void {
   // Prometheus labels have naming restrictions. Dashes are not allowed, for example.
   const nextLabelKeys = labelKeys.map(sanitizeLabelKey).sort();
   // Check if label keys have changed
@@ -69,7 +68,6 @@ export function initializeMetrics(labelKeys: string[]): void {
     !labelKeysChanged &&
     llmRequestDuration &&
     llmTokensCounter &&
-    llmBlockedToolCounter &&
     llmCostTotal &&
     llmTimeToFirstToken &&
     llmTokensPerSecond
@@ -90,9 +88,6 @@ export function initializeMetrics(labelKeys: string[]): void {
     if (llmTokensCounter) {
       client.register.removeSingleMetric("llm_tokens_total");
     }
-    if (llmBlockedToolCounter) {
-      client.register.removeSingleMetric("llm_blocked_tools_total");
-    }
     if (llmCostTotal) {
       client.register.removeSingleMetric("llm_cost_total");
     }
@@ -107,14 +102,14 @@ export function initializeMetrics(labelKeys: string[]): void {
   }
 
   // Create new metrics with updated label names
-  // agent_id: External agent ID from X-Archestra-Agent-Id header (client-provided identifier)
-  // profile_id/profile_name: Internal Archestra profile ID and name
+  // external_agent_id: External agent ID from X-Archestra-Agent-Id header (client-provided identifier)
+  // agent_id/agent_name: Internal Archestra agent ID and name
   const baseLabelNames = [
     "provider",
     "model",
+    "external_agent_id",
     "agent_id",
-    "profile_id",
-    "profile_name",
+    "agent_name",
   ];
 
   llmRequestDuration = new client.Histogram({
@@ -129,12 +124,6 @@ export function initializeMetrics(labelKeys: string[]): void {
     name: "llm_tokens_total",
     help: "Total tokens used",
     labelNames: [...baseLabelNames, "type", ...nextLabelKeys], // type: input|output
-  });
-
-  llmBlockedToolCounter = new client.Counter({
-    name: "llm_blocked_tools_total",
-    help: "Blocked tool count",
-    labelNames: [...baseLabelNames, ...nextLabelKeys],
   });
 
   llmCostTotal = new client.Counter({
@@ -168,23 +157,23 @@ export function initializeMetrics(labelKeys: string[]): void {
 
 /**
  * Helper function to build metric labels from agent
- * @param profile The Archestra profile
+ * @param agent The Archestra agent
  * @param additionalLabels Additional labels to include
  * @param model The model name
  * @param externalAgentId Optional external agent ID from X-Archestra-Agent-Id header
  */
-function buildMetricLabels(
-  profile: Agent,
+export function buildMetricLabels(
+  agent: Agent,
   additionalLabels: Record<string, string>,
   model?: string,
   externalAgentId?: string,
 ): Record<string, string> {
-  // agent_id: External agent ID from X-Archestra-Agent-Id header (or empty if not provided)
-  // profile_id/profile_name: Internal Archestra profile ID and name
+  // external_agent_id: External agent ID from X-Archestra-Agent-Id header (or empty if not provided)
+  // agent_id/agent_name: Internal Archestra agent ID and name
   const labels: Record<string, string> = {
-    agent_id: externalAgentId ?? "",
-    profile_id: profile.id,
-    profile_name: profile.name,
+    external_agent_id: externalAgentId ?? "",
+    agent_id: agent.id,
+    agent_name: agent.name,
     model: model ?? "unknown",
     ...additionalLabels,
   };
@@ -192,7 +181,7 @@ function buildMetricLabels(
   // Add agent label values for all registered label keys
   for (const labelKey of currentLabelKeys) {
     // Find the label value for this key from the agent's labels
-    const agentLabel = profile.labels?.find(
+    const agentLabel = agent.labels?.find(
       (l) => sanitizeLabelKey(l.key) === labelKey,
     );
     labels[labelKey] = agentLabel?.value ?? "";
@@ -204,14 +193,14 @@ function buildMetricLabels(
 /**
  * Reports LLM token usage
  * @param provider The LLM provider
- * @param profile The Archestra profile
+ * @param agent The Archestra agent
  * @param usage Token usage object with input/output counts
  * @param model The model name
  * @param externalAgentId Optional external agent ID from X-Archestra-Agent-Id header
  */
 export function reportLLMTokens(
   provider: SupportedProvider,
-  profile: Agent,
+  agent: Agent,
   usage: { input?: number; output?: number },
   model: string | undefined,
   externalAgentId?: string,
@@ -224,7 +213,7 @@ export function reportLLMTokens(
   if (usage.input && usage.input > 0) {
     llmTokensCounter.inc(
       buildMetricLabels(
-        profile,
+        agent,
         { provider, type: "input" },
         model,
         externalAgentId,
@@ -235,7 +224,7 @@ export function reportLLMTokens(
   if (usage.output && usage.output > 0) {
     llmTokensCounter.inc(
       buildMetricLabels(
-        profile,
+        agent,
         { provider, type: "output" },
         model,
         externalAgentId,
@@ -246,45 +235,16 @@ export function reportLLMTokens(
 }
 
 /**
- * Increases the blocked tool counter by count.
- * Count can be more than 1, because when one tool call from an LLM response call is blocked,
- * all other calls in a response are blocked too.
- * @param provider The LLM provider
- * @param profile The Archestra profile
- * @param count Number of blocked tools
- * @param model The model name
- * @param externalAgentId Optional external agent ID from X-Archestra-Agent-Id header
- */
-export function reportBlockedTools(
-  provider: SupportedProvider,
-  profile: Agent,
-  count: number,
-  model?: string,
-  externalAgentId?: string,
-) {
-  if (!llmBlockedToolCounter) {
-    logger.warn(
-      "LLM metrics not initialized, skipping blocked tools reporting",
-    );
-    return;
-  }
-  llmBlockedToolCounter.inc(
-    buildMetricLabels(profile, { provider }, model, externalAgentId),
-    count,
-  );
-}
-
-/**
  * Reports estimated cost for LLM request in USD
  * @param provider The LLM provider
- * @param profile The Archestra profile
+ * @param agent The Archestra agent
  * @param model The model name
  * @param cost The cost in USD
  * @param externalAgentId Optional external agent ID from X-Archestra-Agent-Id header
  */
 export function reportLLMCost(
   provider: SupportedProvider,
-  profile: Agent,
+  agent: Agent,
   model: string,
   cost: number | null | undefined,
   externalAgentId?: string,
@@ -297,7 +257,7 @@ export function reportLLMCost(
     return;
   }
   llmCostTotal.inc(
-    buildMetricLabels(profile, { provider }, model, externalAgentId),
+    buildMetricLabels(agent, { provider }, model, externalAgentId),
     cost,
   );
 }
@@ -307,14 +267,14 @@ export function reportLLMCost(
  * This metric helps application developers understand streaming latency
  * and choose models with lower initial response times.
  * @param provider The LLM provider
- * @param profile The Archestra profile
+ * @param agent The Archestra agent
  * @param model The model name
  * @param ttftSeconds Time to first token in seconds
  * @param externalAgentId Optional external agent ID from X-Archestra-Agent-Id header
  */
 export function reportTimeToFirstToken(
   provider: SupportedProvider,
-  profile: Agent,
+  agent: Agent,
   model: string | undefined,
   ttftSeconds: number,
   externalAgentId?: string,
@@ -328,7 +288,7 @@ export function reportTimeToFirstToken(
     return;
   }
   llmTimeToFirstToken.observe(
-    buildMetricLabels(profile, { provider }, model, externalAgentId),
+    buildMetricLabels(agent, { provider }, model, externalAgentId),
     ttftSeconds,
   );
 }
@@ -338,7 +298,7 @@ export function reportTimeToFirstToken(
  * This metric allows comparing model response speeds and helps
  * developers choose models for latency-sensitive applications.
  * @param provider The LLM provider
- * @param profile The Archestra profile
+ * @param agent The Archestra agent
  * @param model The model name
  * @param outputTokens Number of output tokens generated
  * @param durationSeconds Total request duration in seconds
@@ -346,7 +306,7 @@ export function reportTimeToFirstToken(
  */
 export function reportTokensPerSecond(
   provider: SupportedProvider,
-  profile: Agent,
+  agent: Agent,
   model: string | undefined,
   outputTokens: number,
   durationSeconds: number,
@@ -362,7 +322,7 @@ export function reportTokensPerSecond(
   }
   const tokensPerSecond = outputTokens / durationSeconds;
   llmTokensPerSecond.observe(
-    buildMetricLabels(profile, { provider }, model, externalAgentId),
+    buildMetricLabels(agent, { provider }, model, externalAgentId),
     tokensPerSecond,
   );
 }
@@ -370,12 +330,12 @@ export function reportTokensPerSecond(
 /**
  * Returns a fetch wrapped in observability. Use it as OpenAI or Anthropic provider custom fetch implementation.
  * @param provider The LLM provider
- * @param profile The Archestra profile
+ * @param agent The Archestra agent
  * @param externalAgentId Optional external agent ID from X-Archestra-Agent-Id header
  */
 export function getObservableFetch(
   provider: SupportedProvider,
-  profile: Agent,
+  agent: Agent,
   externalAgentId?: string,
 ): Fetch {
   return async function observableFetch(
@@ -409,7 +369,7 @@ export function getObservableFetch(
 
       llmRequestDuration.observe(
         buildMetricLabels(
-          profile,
+          agent,
           { provider, status_code: status },
           model,
           externalAgentId,
@@ -421,7 +381,7 @@ export function getObservableFetch(
       const duration = Math.round((Date.now() - startTime) / 1000);
       llmRequestDuration.observe(
         buildMetricLabels(
-          profile,
+          agent,
           { provider, status_code: "0" },
           model,
           externalAgentId,
@@ -456,7 +416,7 @@ export function getObservableFetch(
           const { input, output } = getOpenAIUsage(data.usage);
           reportLLMTokens(
             provider,
-            profile,
+            agent,
             { input, output },
             model,
             externalAgentId,
@@ -465,7 +425,7 @@ export function getObservableFetch(
           const { input, output } = getAnthropicUsage(data.usage);
           reportLLMTokens(
             provider,
-            profile,
+            agent,
             { input, output },
             model,
             externalAgentId,
@@ -474,7 +434,7 @@ export function getObservableFetch(
           const { input, output } = getCohereUsage(data.usage);
           reportLLMTokens(
             provider,
-            profile,
+            agent,
             { input, output },
             model,
             externalAgentId,
@@ -483,7 +443,7 @@ export function getObservableFetch(
           const { input, output } = getZhipuaiUsage(data.usage);
           reportLLMTokens(
             provider,
-            profile,
+            agent,
             { input, output },
             model,
             externalAgentId,
@@ -503,12 +463,12 @@ export function getObservableFetch(
 /**
  * Wraps observability around GenAI's LLM request methods
  * @param genAI The GoogleGenAI instance
- * @param profile The Archestra profile
+ * @param agent The Archestra agent
  * @param externalAgentId Optional external agent ID from X-Archestra-Agent-Id header
  */
 export function getObservableGenAI(
   genAI: GoogleGenAI,
-  profile: Agent,
+  agent: Agent,
   externalAgentId?: string,
 ) {
   const originalGenerateContent = genAI.models.generateContent;
@@ -538,7 +498,7 @@ export function getObservableGenAI(
       // Assuming 200 status code. Gemini doesn't expose HTTP status, but unlike fetch, throws on 4xx & 5xx.
       llmRequestDuration.observe(
         buildMetricLabels(
-          profile,
+          agent,
           { provider, status_code: "200" },
           model,
           externalAgentId,
@@ -552,7 +512,7 @@ export function getObservableGenAI(
         const { input, output } = getGeminiUsage(usage);
         reportLLMTokens(
           provider,
-          profile,
+          agent,
           { input, output },
           model,
           externalAgentId,
@@ -571,7 +531,7 @@ export function getObservableGenAI(
 
       llmRequestDuration.observe(
         buildMetricLabels(
-          profile,
+          agent,
           { provider, status_code: statusCode },
           model,
           externalAgentId,

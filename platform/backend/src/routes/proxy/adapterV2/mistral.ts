@@ -16,7 +16,7 @@ import type {
   ChatCompletionCreateParamsStreaming,
 } from "openai/resources/chat/completions/completions";
 import config from "@/config";
-import { getObservableFetch } from "@/llm-metrics";
+import { getObservableFetch } from "@/metrics";
 import type {
   CreateClientOptions,
   LLMProvider,

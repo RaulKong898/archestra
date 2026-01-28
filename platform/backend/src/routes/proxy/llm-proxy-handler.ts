@@ -9,12 +9,11 @@ import type { FastifyReply } from "fastify";
 import config from "@/config";
 import getDefaultPricing from "@/default-model-prices";
 import {
-  reportBlockedTools,
   reportLLMCost,
   reportLLMTokens,
   reportTimeToFirstToken,
   reportTokensPerSecond,
-} from "@/llm-metrics";
+} from "@/metrics";
 import logger from "@/logging";
 import {
   AgentModel,
@@ -579,14 +578,6 @@ async function handleStreaming<
       for (const event of refusalEvents) {
         reply.raw.write(event);
       }
-
-      reportBlockedTools(
-        providerName,
-        agent,
-        toolCalls.length,
-        actualModel,
-        externalAgentId,
-      );
     } else if (toolCalls.length > 0) {
       // Tool calls approved - stream raw events
       logger.info(
@@ -774,14 +765,6 @@ async function handleNonStreaming<
       const refusalResponse = responseAdapter.toRefusalResponse(
         refusalMessage,
         contentMessage,
-      );
-
-      reportBlockedTools(
-        providerName,
-        agent,
-        toolCalls.length,
-        actualModel,
-        externalAgentId,
       );
 
       // Record interaction with refusal

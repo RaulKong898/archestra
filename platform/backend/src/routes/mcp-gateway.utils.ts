@@ -9,6 +9,7 @@ import {
   ARCHESTRA_MCP_SERVER_NAME,
   MCP_SERVER_TOOL_NAME_SEPARATOR,
 } from "@shared";
+import { eq } from "drizzle-orm";
 import type { FastifyRequest } from "fastify";
 import {
   executeArchestraTool,
@@ -17,7 +18,10 @@ import {
 import { userHasPermission } from "@/auth/utils";
 import mcpClient, { type TokenAuthContext } from "@/clients/mcp-client";
 import config from "@/config";
+import db from "@/database";
+import usersTable from "@/database/schemas/user";
 import logger from "@/logging";
+import { reportMcpToolCall } from "@/metrics";
 import {
   AgentModel,
   AgentTeamModel,
@@ -27,6 +31,7 @@ import {
   ToolModel,
   UserTokenModel,
 } from "@/models";
+import type { Agent } from "@/types";
 import { type CommonToolCall, UuidIdSchema } from "@/types";
 import { estimateToolResultContentLength } from "@/utils/tool-result-preview";
 
@@ -43,6 +48,70 @@ export interface TokenAuthResult {
   isUserToken?: boolean;
   /** User ID for user tokens */
   userId?: string;
+}
+
+/**
+ * Get the credential name for metrics labeling.
+ * Returns the team name for team tokens, or user name for user tokens.
+ */
+async function getCredentialName(
+  tokenAuth?: TokenAuthContext,
+): Promise<string> {
+  if (!tokenAuth) {
+    return "unknown";
+  }
+
+  // For team tokens, look up the team name
+  if (tokenAuth.teamId) {
+    const team = await TeamModel.findById(tokenAuth.teamId);
+    return team?.name ?? "unknown-team";
+  }
+
+  // For user tokens, look up the user name
+  if (tokenAuth.isUserToken && tokenAuth.userId) {
+    const user = await db
+      .select({ name: usersTable.name })
+      .from(usersTable)
+      .where(eq(usersTable.id, tokenAuth.userId))
+      .limit(1);
+    return user[0]?.name ?? "unknown-user";
+  }
+
+  // Organization token without specific team/user
+  return "organization";
+}
+
+/**
+ * Extract MCP server name from full tool name.
+ * Tool names are formatted as "serverName__toolName".
+ */
+function extractMcpServerName(toolName: string): string {
+  const parts = toolName.split(MCP_SERVER_TOOL_NAME_SEPARATOR);
+  return parts.length > 1 ? parts[0] : "unknown";
+}
+
+/**
+ * Report MCP tool call metric
+ */
+async function reportToolCallMetric(
+  agent: { id: string; name: string },
+  toolName: string,
+  success: boolean,
+  tokenAuth?: TokenAuthContext,
+  fullAgent?: Agent,
+): Promise<void> {
+  const credentialName = await getCredentialName(tokenAuth);
+  const mcpServerName = extractMcpServerName(toolName);
+
+  reportMcpToolCall({
+    agentId: agent.id,
+    agentName: agent.name,
+    credentialName,
+    toolName,
+    mcpServerName,
+    success,
+    agentLabels: fullAgent?.labels,
+  });
 }
 
 /**
@@ -68,13 +137,17 @@ export async function createAgentServer(
   );
 
   // Use cached agent data if available, otherwise fetch it
-  let agent = cachedAgent;
+  // We track both the minimal agent info and the full agent (for metric labels)
+  let agent: { name: string; id: string } | undefined = cachedAgent;
+  let fullAgent: Agent | undefined;
+
   if (!agent) {
     const fetchedAgent = await AgentModel.findById(agentId);
     if (!fetchedAgent) {
       throw new Error(`Agent not found: ${agentId}`);
     }
     agent = fetchedAgent;
+    fullAgent = fetchedAgent;
   }
 
   // Create a map of Archestra tool names to their titles
@@ -140,6 +213,9 @@ export async function createAgentServer(
             agent: { id: agent.id, name: agent.name },
           });
 
+          // Report metric for Archestra tool call (always success since errors are thrown)
+          reportToolCallMetric(agent, name, true, tokenAuth, fullAgent);
+
           logger.info(
             {
               agentId,
@@ -179,6 +255,10 @@ export async function createAgentServer(
         );
 
         const contentLength = estimateToolResultContentLength(result.content);
+
+        // Report metric for MCP tool call
+        reportToolCallMetric(agent, name, !result.isError, tokenAuth, fullAgent);
+
         logger.info(
           {
             agentId,
@@ -202,6 +282,9 @@ export async function createAgentServer(
           isError: result.isError,
         };
       } catch (error) {
+        // Report metric for failed tool call
+        reportToolCallMetric(agent, name, false, tokenAuth, fullAgent);
+
         if (typeof error === "object" && error !== null && "code" in error) {
           throw error; // Re-throw JSON-RPC errors
         }

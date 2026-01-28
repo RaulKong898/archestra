@@ -32,7 +32,9 @@ Text-based documents that can be meaningfully indexed:
 - **Web files**: `.html`, `.htm`
 - **Code files**: `.js`, `.ts`, `.jsx`, `.tsx`, `.py`, `.java`, `.c`, `.cpp`, `.h`, `.hpp`, `.rs`, `.go`, `.rb`, `.php`, `.sh`, `.bash`, `.sql`, `.graphql`, `.css`, `.scss`, `.less`
 
-Binary files (images, PDFs, etc.) are not currently supported.
+Binary files (images, PDFs, etc.) are not currently supported for knowledge graph ingestion.
+
+> **Note**: The "KG Upload" indicator in the Chat interface only appears when you attach supported text documents. If you attach only images or other unsupported file types, the indicator will not be shown since those files cannot be ingested into the knowledge graph.
 
 ## Configuration
 

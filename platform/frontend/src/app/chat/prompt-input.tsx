@@ -294,9 +294,7 @@ const PromptInputContent = ({
           )}
         </PromptInputTools>
         <div className="flex items-center gap-2">
-          <KnowledgeGraphUploadIndicator
-            attachmentCount={controller.attachments.files.length}
-          />
+          <KnowledgeGraphUploadIndicator files={controller.attachments.files} />
           <PromptInputSpeechButton
             textareaRef={textareaRef}
             onTranscriptionChange={handleTranscriptionChange}

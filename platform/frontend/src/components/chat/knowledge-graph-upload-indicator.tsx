@@ -1,5 +1,6 @@
 "use client";
 
+import { countTextDocuments, type FileInfo } from "@shared";
 import { DatabaseIcon } from "lucide-react";
 import {
   Tooltip,
@@ -9,21 +10,25 @@ import {
 import { useFeatureValue } from "@/lib/features.hook";
 
 interface KnowledgeGraphUploadIndicatorProps {
-  /** Number of files attached */
-  attachmentCount: number;
+  /** Array of attached files with their metadata */
+  files: FileInfo[];
 }
 
 /**
- * Shows a small indicator when files are attached and a knowledge graph provider is configured.
+ * Shows a small indicator when text documents are attached and a knowledge graph provider is configured.
+ * Only text-based documents (not images, PDFs, etc.) will be ingested into the knowledge graph.
  * Displays a database icon with short text, and a tooltip with more details on hover.
  */
 export function KnowledgeGraphUploadIndicator({
-  attachmentCount,
+  files,
 }: KnowledgeGraphUploadIndicatorProps) {
   const knowledgeGraph = useFeatureValue("knowledgeGraph");
 
-  // Don't show if no knowledge graph is configured or no files are attached
-  if (!knowledgeGraph?.enabled || attachmentCount === 0) {
+  // Count only text documents that will actually be ingested
+  const textDocumentCount = countTextDocuments(files);
+
+  // Don't show if no knowledge graph is configured or no text documents are attached
+  if (!knowledgeGraph?.enabled || textDocumentCount === 0) {
     return null;
   }
 
@@ -39,9 +44,9 @@ export function KnowledgeGraphUploadIndicator({
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-xs">
         <p>
-          {attachmentCount === 1
-            ? `This file will be ingested into ${displayName} for enhanced search and retrieval.`
-            : `These ${attachmentCount} files will be ingested into ${displayName} for enhanced search and retrieval.`}
+          {textDocumentCount === 1
+            ? `This text document will be ingested into ${displayName} for enhanced search and retrieval.`
+            : `These ${textDocumentCount} text documents will be ingested into ${displayName} for enhanced search and retrieval.`}
         </p>
       </TooltipContent>
     </Tooltip>

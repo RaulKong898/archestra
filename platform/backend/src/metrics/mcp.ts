@@ -44,21 +44,17 @@ export function initializeMcpMetrics(labelKeys: string[]): void {
   }
 
   // Create new metric with labels:
-  // - agent_id: Internal Archestra agent ID
-  // - agent_name: Internal Archestra agent name
+  // - mcp_gateway_name: Name of the MCP gateway (profile/agent name)
   // - credential_name: Team name or user name that provided the credential
   // - tool_name: Full tool name including MCP server prefix
   // - mcp_server_name: The MCP server that hosts the tool
   // - success: Whether the tool call was successful ("true" or "false")
-  // - blocked: Whether the tool call was blocked by policy ("true" or "false")
   const baseLabelNames = [
-    "agent_id",
-    "agent_name",
+    "mcp_gateway_name",
     "credential_name",
     "tool_name",
     "mcp_server_name",
     "success",
-    "blocked",
   ];
 
   mcpToolCallCounter = new client.Counter({
@@ -78,10 +74,8 @@ export function initializeMcpMetrics(labelKeys: string[]): void {
  * Context for reporting MCP tool call metrics
  */
 export interface McpToolCallMetricContext {
-  /** Internal Archestra agent ID */
-  agentId: string;
-  /** Internal Archestra agent name */
-  agentName: string;
+  /** Name of the MCP gateway (profile/agent name) */
+  mcpGatewayName: string;
   /** Team name or user name that provided the credential */
   credentialName: string;
   /** Full tool name including MCP server prefix */
@@ -90,8 +84,6 @@ export interface McpToolCallMetricContext {
   mcpServerName: string;
   /** Whether the tool call was successful */
   success: boolean;
-  /** Whether the tool call was blocked by policy */
-  blocked: boolean;
   /** Optional agent labels for additional dimensions */
   agentLabels?: Array<{ key: string; value: string }>;
 }
@@ -107,13 +99,11 @@ export function reportMcpToolCall(context: McpToolCallMetricContext): void {
   }
 
   const labels: Record<string, string> = {
-    agent_id: context.agentId,
-    agent_name: context.agentName,
+    mcp_gateway_name: context.mcpGatewayName,
     credential_name: context.credentialName,
     tool_name: context.toolName,
     mcp_server_name: context.mcpServerName,
     success: context.success ? "true" : "false",
-    blocked: context.blocked ? "true" : "false",
   };
 
   // Add agent label values for all registered label keys

@@ -33,6 +33,7 @@ let llmTokensCounter: client.Counter<string>;
 let llmCostTotal: client.Counter<string>;
 let llmTimeToFirstToken: client.Histogram<string>;
 let llmTokensPerSecond: client.Histogram<string>;
+let llmBlockedToolTotal: client.Counter<string>;
 
 // Store current label keys for comparison
 let currentLabelKeys: string[] = [];
@@ -54,7 +55,8 @@ export function initializeLlmMetrics(labelKeys: string[]): void {
     llmTokensCounter &&
     llmCostTotal &&
     llmTimeToFirstToken &&
-    llmTokensPerSecond
+    llmTokensPerSecond &&
+    llmBlockedToolTotal
   ) {
     logger.info(
       "Metrics already initialized with same label keys, skipping reinitialization",
@@ -81,19 +83,22 @@ export function initializeLlmMetrics(labelKeys: string[]): void {
     if (llmTokensPerSecond) {
       client.register.removeSingleMetric("llm_tokens_per_second");
     }
+    if (llmBlockedToolTotal) {
+      client.register.removeSingleMetric("llm_blocked_tool_total");
+    }
   } catch (_error) {
     // Ignore errors if metrics don't exist
   }
 
   // Create new metrics with updated label names
   // external_agent_id: External agent ID from X-Archestra-Agent-Id header (client-provided identifier)
-  // agent_id/agent_name: Internal Archestra agent ID and name
+  // llm_proxy_id/llm_proxy_name: Internal Archestra LLM proxy ID and name
   const baseLabelNames = [
     "provider",
     "model",
     "external_agent_id",
-    "agent_id",
-    "agent_name",
+    "llm_proxy_id",
+    "llm_proxy_name",
   ];
 
   llmRequestDuration = new client.Histogram({
@@ -132,6 +137,20 @@ export function initializeLlmMetrics(labelKeys: string[]): void {
     buckets: [5, 10, 25, 50, 75, 100, 150, 200, 300],
   });
 
+  // Blocked tool metric has different labels since it tracks tool-level blocking
+  llmBlockedToolTotal = new client.Counter({
+    name: "llm_blocked_tool_total",
+    help: "Total tool calls blocked by policy",
+    labelNames: [
+      "llm_proxy_id",
+      "llm_proxy_name",
+      "tool_name",
+      "mcp_server_name",
+      "credential_name",
+      ...nextLabelKeys,
+    ],
+  });
+
   logger.info(
     `Metrics initialized with ${
       nextLabelKeys.length
@@ -140,8 +159,8 @@ export function initializeLlmMetrics(labelKeys: string[]): void {
 }
 
 /**
- * Helper function to build metric labels from agent
- * @param agent The Archestra agent
+ * Helper function to build metric labels from agent (LLM proxy)
+ * @param agent The Archestra agent (LLM proxy)
  * @param additionalLabels Additional labels to include
  * @param model The model name
  * @param externalAgentId Optional external agent ID from X-Archestra-Agent-Id header
@@ -153,11 +172,11 @@ export function buildMetricLabels(
   externalAgentId?: string,
 ): Record<string, string> {
   // external_agent_id: External agent ID from X-Archestra-Agent-Id header (or empty if not provided)
-  // agent_id/agent_name: Internal Archestra agent ID and name
+  // llm_proxy_id/llm_proxy_name: Internal Archestra LLM proxy ID and name
   const labels: Record<string, string> = {
     external_agent_id: externalAgentId ?? "",
-    agent_id: agent.id,
-    agent_name: agent.name,
+    llm_proxy_id: agent.id,
+    llm_proxy_name: agent.name,
     model: model ?? "unknown",
     ...additionalLabels,
   };
@@ -309,6 +328,53 @@ export function reportTokensPerSecond(
     buildMetricLabels(agent, { provider }, model, externalAgentId),
     tokensPerSecond,
   );
+}
+
+/**
+ * Context for reporting blocked tool metrics
+ */
+export interface BlockedToolMetricContext {
+  /** Internal Archestra LLM proxy ID */
+  llmProxyId: string;
+  /** Internal Archestra LLM proxy name */
+  llmProxyName: string;
+  /** Full tool name including MCP server prefix */
+  toolName: string;
+  /** The MCP server that hosts the tool */
+  mcpServerName: string;
+  /** Team name or user name that provided the credential */
+  credentialName: string;
+  /** Optional agent labels for additional dimensions */
+  agentLabels?: Array<{ key: string; value: string }>;
+}
+
+/**
+ * Reports a tool call that was blocked by policy
+ * @param context The metric context containing all label values
+ */
+export function reportBlockedTools(context: BlockedToolMetricContext): void {
+  if (!llmBlockedToolTotal) {
+    logger.warn("LLM metrics not initialized, skipping blocked tool reporting");
+    return;
+  }
+
+  const labels: Record<string, string> = {
+    llm_proxy_id: context.llmProxyId,
+    llm_proxy_name: context.llmProxyName,
+    tool_name: context.toolName,
+    mcp_server_name: context.mcpServerName,
+    credential_name: context.credentialName,
+  };
+
+  // Add agent label values for all registered label keys
+  for (const labelKey of currentLabelKeys) {
+    const agentLabel = context.agentLabels?.find(
+      (l) => sanitizeLabelKey(l.key) === labelKey,
+    );
+    labels[labelKey] = agentLabel?.value ?? "";
+  }
+
+  llmBlockedToolTotal.inc(labels);
 }
 
 /**

@@ -39,23 +39,27 @@ The endpoint `http://localhost:9050/metrics` exposes Prometheus-formatted metric
 
 ### LLM Metrics
 
-- `llm_request_duration_seconds` - LLM API request duration by provider, external_agent_id, agent_id, agent_name, and status code
-- `llm_tokens_total` - Token consumption by provider, external_agent_id, agent_id, agent_name, and type (input/output)
-- `llm_time_to_first_token_seconds` - Time to first token (TTFT) for streaming requests, by provider, external_agent_id, agent_id, agent_name, and model. Helps developers choose models with lower initial response latency.
-- `llm_tokens_per_second` - Output tokens per second throughput, by provider, external_agent_id, agent_id, agent_name, and model. Allows comparing model response speeds for latency-sensitive applications.
+- `llm_request_duration_seconds` - LLM API request duration by provider, external_agent_id, llm_proxy_id, llm_proxy_name, and status code
+- `llm_tokens_total` - Token consumption by provider, external_agent_id, llm_proxy_id, llm_proxy_name, and type (input/output)
+- `llm_time_to_first_token_seconds` - Time to first token (TTFT) for streaming requests, by provider, external_agent_id, llm_proxy_id, llm_proxy_name, and model. Helps developers choose models with lower initial response latency.
+- `llm_tokens_per_second` - Output tokens per second throughput, by provider, external_agent_id, llm_proxy_id, llm_proxy_name, and model. Allows comparing model response speeds for latency-sensitive applications.
+- `llm_blocked_tool_total` - Total tool calls blocked by policy, with the following labels:
+  - `llm_proxy_id` - Internal Archestra LLM proxy ID
+  - `llm_proxy_name` - Internal Archestra LLM proxy name
+  - `tool_name` - Full tool name including MCP server prefix
+  - `mcp_server_name` - The MCP server that hosts the tool
+  - `credential_name` - Team name or user name that provided the credential
 
-> **Note:** The `external_agent_id` label contains the external agent ID passed via the `X-Archestra-Agent-Id` header. This allows clients to associate metrics with their own agent identifiers. If the header is not provided, the label will be empty. Use `agent_id` and `agent_name` for the internal Archestra agent identifier.
+> **Note:** The `external_agent_id` label contains the external agent ID passed via the `X-Archestra-Agent-Id` header. This allows clients to associate metrics with their own agent identifiers. If the header is not provided, the label will be empty. Use `llm_proxy_id` and `llm_proxy_name` for the internal Archestra LLM proxy identifier.
 
 ### MCP Metrics
 
 - `mcp_tool_call_total` - Total MCP tool calls, with the following labels:
-  - `agent_id` - Internal Archestra agent ID
-  - `agent_name` - Internal Archestra agent name
+  - `mcp_gateway_name` - Name of the MCP gateway
   - `credential_name` - Team name or user name that provided the credential
   - `tool_name` - Full tool name including MCP server prefix
   - `mcp_server_name` - The MCP server that hosts the tool
   - `success` - Whether the tool call was successful ("true" or "false")
-  - `blocked` - Whether the tool call was blocked by policy ("true" or "false")
 
 ### Process Metrics
 
@@ -206,7 +210,7 @@ Here are some PromQL queries for Grafana charts to get you started:
 - LLM requests per second by agent and provider:
 
   ```promql
-  sum(rate(llm_request_duration_seconds_count[5m])) by (agent_name, provider)
+  sum(rate(llm_request_duration_seconds_count[5m])) by (llm_proxy_name, provider)
   ```
 
 - LLM error rate by provider:
@@ -218,25 +222,25 @@ Here are some PromQL queries for Grafana charts to get you started:
 - LLM token usage rate (tokens/sec) by agent name:
 
   ```promql
-  sum(rate(llm_tokens_total[5m])) by (provider, agent_name, type)
+  sum(rate(llm_tokens_total[5m])) by (provider, llm_proxy_name, type)
   ```
 
 - Total tokens by agent name:
 
   ```promql
-  sum(rate(llm_tokens_total[5m])) by (agent_name, type)
+  sum(rate(llm_tokens_total[5m])) by (llm_proxy_name, type)
   ```
 
 - Request duration by agent name and provider:
 
   ```promql
-  histogram_quantile(0.95, sum(rate(llm_request_duration_seconds_bucket[5m])) by (agent_name, provider, le))
+  histogram_quantile(0.95, sum(rate(llm_request_duration_seconds_bucket[5m])) by (llm_proxy_name, provider, le))
   ```
 
 - Error rate by agent:
 
   ```promql
-  sum(rate(llm_request_duration_seconds_count{status_code!~"2.."}[5m])) by (agent_name) / sum(rate(llm_request_duration_seconds_count[5m])) by (agent_name)
+  sum(rate(llm_request_duration_seconds_count{status_code!~"2.."}[5m])) by (llm_proxy_name) / sum(rate(llm_request_duration_seconds_count[5m])) by (llm_proxy_name)
   ```
 
 - Time to first token (TTFT) p95 by model:

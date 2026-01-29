@@ -76,67 +76,37 @@ describe("reportMcpToolCall", () => {
 
   test("records successful tool call", () => {
     reportMcpToolCall({
-      agentId: "agent-123",
-      agentName: "test-agent",
+      mcpGatewayName: "test-gateway",
       credentialName: "team-alpha",
       toolName: "github__create_issue",
       mcpServerName: "github",
       success: true,
-      blocked: false,
     });
 
     expect(counterInc).toHaveBeenCalledWith({
-      agent_id: "agent-123",
-      agent_name: "test-agent",
+      mcp_gateway_name: "test-gateway",
       credential_name: "team-alpha",
       tool_name: "github__create_issue",
       mcp_server_name: "github",
       success: "true",
-      blocked: "false",
     });
   });
 
   test("records failed tool call", () => {
     reportMcpToolCall({
-      agentId: "agent-456",
-      agentName: "another-agent",
+      mcpGatewayName: "another-gateway",
       credentialName: "user-john",
       toolName: "slack__send_message",
       mcpServerName: "slack",
       success: false,
-      blocked: false,
     });
 
     expect(counterInc).toHaveBeenCalledWith({
-      agent_id: "agent-456",
-      agent_name: "another-agent",
+      mcp_gateway_name: "another-gateway",
       credential_name: "user-john",
       tool_name: "slack__send_message",
       mcp_server_name: "slack",
       success: "false",
-      blocked: "false",
-    });
-  });
-
-  test("records blocked tool call", () => {
-    reportMcpToolCall({
-      agentId: "agent-blocked",
-      agentName: "blocked-agent",
-      credentialName: "team-epsilon",
-      toolName: "dangerous__execute",
-      mcpServerName: "dangerous",
-      success: false,
-      blocked: true,
-    });
-
-    expect(counterInc).toHaveBeenCalledWith({
-      agent_id: "agent-blocked",
-      agent_name: "blocked-agent",
-      credential_name: "team-epsilon",
-      tool_name: "dangerous__execute",
-      mcp_server_name: "dangerous",
-      success: "false",
-      blocked: "true",
     });
   });
 
@@ -144,13 +114,11 @@ describe("reportMcpToolCall", () => {
     initializeMcpMetrics(["environment", "team"]);
 
     reportMcpToolCall({
-      agentId: "agent-789",
-      agentName: "prod-agent",
+      mcpGatewayName: "prod-gateway",
       credentialName: "team-beta",
       toolName: "jira__create_ticket",
       mcpServerName: "jira",
       success: true,
-      blocked: false,
       agentLabels: [
         { key: "environment", value: "production" },
         { key: "team", value: "platform" },
@@ -158,13 +126,11 @@ describe("reportMcpToolCall", () => {
     });
 
     expect(counterInc).toHaveBeenCalledWith({
-      agent_id: "agent-789",
-      agent_name: "prod-agent",
+      mcp_gateway_name: "prod-gateway",
       credential_name: "team-beta",
       tool_name: "jira__create_ticket",
       mcp_server_name: "jira",
       success: "true",
-      blocked: "false",
       environment: "production",
       team: "platform",
     });
@@ -174,24 +140,20 @@ describe("reportMcpToolCall", () => {
     initializeMcpMetrics(["environment", "team"]);
 
     reportMcpToolCall({
-      agentId: "agent-999",
-      agentName: "minimal-agent",
+      mcpGatewayName: "minimal-gateway",
       credentialName: "team-gamma",
       toolName: "linear__get_issues",
       mcpServerName: "linear",
       success: true,
-      blocked: false,
       agentLabels: [{ key: "environment", value: "staging" }],
     });
 
     expect(counterInc).toHaveBeenCalledWith({
-      agent_id: "agent-999",
-      agent_name: "minimal-agent",
+      mcp_gateway_name: "minimal-gateway",
       credential_name: "team-gamma",
       tool_name: "linear__get_issues",
       mcp_server_name: "linear",
       success: "true",
-      blocked: "false",
       environment: "staging",
       team: "",
     });
@@ -201,13 +163,11 @@ describe("reportMcpToolCall", () => {
     initializeMcpMetrics(["env-name", "team.id"]);
 
     reportMcpToolCall({
-      agentId: "agent-special",
-      agentName: "special-agent",
+      mcpGatewayName: "special-gateway",
       credentialName: "team-delta",
       toolName: "notion__search",
       mcpServerName: "notion",
       success: true,
-      blocked: false,
       agentLabels: [
         { key: "env-name", value: "dev" },
         { key: "team.id", value: "t-123" },
@@ -215,13 +175,11 @@ describe("reportMcpToolCall", () => {
     });
 
     expect(counterInc).toHaveBeenCalledWith({
-      agent_id: "agent-special",
-      agent_name: "special-agent",
+      mcp_gateway_name: "special-gateway",
       credential_name: "team-delta",
       tool_name: "notion__search",
       mcp_server_name: "notion",
       success: "true",
-      blocked: "false",
       env_name: "dev",
       team_id: "t-123",
     });

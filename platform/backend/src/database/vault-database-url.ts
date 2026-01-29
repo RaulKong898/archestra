@@ -3,7 +3,7 @@ import logger from "@/logging";
 
 /**
  * Environment variable for specifying database URL in Vault.
- * Format: path#key (e.g., "secret/data/archestra/config#database_url")
+ * Format: path:key (e.g., "secret/data/archestra/config:database_url")
  */
 export const DATABASE_URL_VAULT_REF_ENV = "ARCHESTRA_DATABASE_URL_VAULT_REF";
 
@@ -18,23 +18,23 @@ export function isReadonlyVaultEnabled(): boolean {
 }
 
 /**
- * Parse the vault reference string in "path#key" format.
+ * Parse the vault reference string in "path:key" format.
  * @returns Object with path and key, or null if ref is invalid
  */
 export function parseDatabaseUrlVaultRef(
   ref: string,
 ): { path: string; key: string } | null {
-  const hashIndex = ref.lastIndexOf("#");
-  if (hashIndex === -1) {
+  const colonIndex = ref.lastIndexOf(":");
+  if (colonIndex === -1) {
     logger.error(
       { ref },
-      `Invalid ${DATABASE_URL_VAULT_REF_ENV} format. Expected: path#key`,
+      `Invalid ${DATABASE_URL_VAULT_REF_ENV} format. Expected: path:key`,
     );
     return null;
   }
 
-  const path = ref.slice(0, hashIndex);
-  const key = ref.slice(hashIndex + 1);
+  const path = ref.slice(0, colonIndex);
+  const key = ref.slice(colonIndex + 1);
 
   if (!path || !key) {
     logger.error(
@@ -50,7 +50,7 @@ export function parseDatabaseUrlVaultRef(
 /**
  * Read the database URL from Vault.
  *
- * @param vaultRef - The vault reference in "path#key" format
+ * @param vaultRef - The vault reference in "path:key" format
  * @returns The database URL from Vault, or null if parsing fails
  * @throws Error if the key is not found in Vault
  */

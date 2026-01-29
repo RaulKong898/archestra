@@ -88,6 +88,7 @@ Examples:
     promptVersion: 1,
     promptHistory: [],
     allowedChatops: [],
+    description: null,
     incomingEmailEnabled: false,
     incomingEmailSecurityMode: "private",
     incomingEmailAllowedDomain: null,
@@ -238,11 +239,8 @@ Examples:
     );
 
     try {
-      // Get or create a dedicated system agent for subagent interactions
-      // This agent will show as empty/system in the UI
-      const systemAgent = await AgentModel.getAgentOrCreateDefault(
-        PolicyConfigSubagent.SUBAGENT_NAME,
-      );
+      // Get or create default LLM proxy agent for recording subagent interactions
+      const systemAgent = await AgentModel.getLLMProxyOrCreateDefault();
 
       await InteractionModel.create({
         profileId: systemAgent.id,

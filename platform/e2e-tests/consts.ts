@@ -30,7 +30,8 @@ export const IS_CI = process.env.CI === "true";
 
 // Use 127.0.0.1 instead of localhost to avoid IPv6 issues with Docker networking
 // These can be overridden via environment variables for different test environments
-export const UI_BASE_URL = process.env.E2E_UI_BASE_URL || "http://localhost:3000";
+export const UI_BASE_URL =
+  process.env.E2E_UI_BASE_URL || "http://localhost:3000";
 export const API_BASE_URL =
   process.env.E2E_API_BASE_URL || "http://localhost:9000";
 export const WIREMOCK_BASE_URL =
@@ -81,10 +82,7 @@ export const MARKETING_TEAM_NAME = "Marketing Team";
 
 export const DEFAULT_PROFILE_NAME = "Default Profile";
 
-export {
-  E2eTestId,
-  MCP_SERVER_TOOL_NAME_SEPARATOR,
-} from "@shared";
+export { E2eTestId, MCP_SERVER_TOOL_NAME_SEPARATOR } from "@shared";
 
 export const TEST_CATALOG_ITEM_NAME = "internal-dev-test-server";
 export const TEST_TOOL_NAME = `${TEST_CATALOG_ITEM_NAME}${MCP_SERVER_TOOL_NAME_SEPARATOR}print_archestra_test`;

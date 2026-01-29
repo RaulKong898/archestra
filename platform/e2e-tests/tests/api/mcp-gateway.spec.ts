@@ -122,7 +122,7 @@ test.describe("MCP Gateway - Authentication", () => {
     expect(archestraWhoami).toBeDefined();
     expect(archestraWhoami.title).toBe("Who Am I");
     expect(archestraWhoami.description).toContain(
-      "name and ID of the current profile",
+      "name and ID of the current agent",
     );
 
     // Verify search_private_mcp_registry tool
@@ -243,14 +243,14 @@ test.describe("MCP Gateway - External MCP Server Tests", () => {
       uninstallMcpServer,
       getTeamByName,
     }) => {
-      // Use the Default Profile
-      const defaultProfileResponse = await makeApiRequest({
+      // Use the Default MCP Gateway
+      const defaultGatewayResponse = await makeApiRequest({
         request,
         method: "get",
-        urlSuffix: "/api/agents/default",
+        urlSuffix: "/api/mcp-gateways/default",
       });
-      const defaultProfile = await defaultProfileResponse.json();
-      profileId = defaultProfile.id;
+      const defaultGateway = await defaultGatewayResponse.json();
+      profileId = defaultGateway.id;
 
       // Get org token using shared utility
       archestraToken = await getOrgTokenForProfile(request);

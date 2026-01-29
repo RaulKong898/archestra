@@ -126,7 +126,10 @@ export const requiredEndpointPermissionsMap: Partial<
   [RouteId.GetAgent]: {
     profile: ["read"],
   },
-  [RouteId.GetDefaultAgent]: {
+  [RouteId.GetDefaultMcpGateway]: {
+    profile: ["read"],
+  },
+  [RouteId.GetDefaultLlmProxy]: {
     profile: ["read"],
   },
   [RouteId.CreateAgent]: {
@@ -464,7 +467,7 @@ export const requiredEndpointPermissionsMap: Partial<
   [RouteId.GetChatModels]: {
     conversation: ["read"],
   },
-  [RouteId.InvalidateChatModelsCache]: {
+  [RouteId.SyncChatModels]: {
     chatSettings: ["update"],
   },
   [RouteId.UpdateChatMessage]: {
@@ -496,6 +499,9 @@ export const requiredEndpointPermissionsMap: Partial<
   },
   [RouteId.DeleteChatApiKey]: {
     chatSettings: ["delete"],
+  },
+  [RouteId.GetModelsWithApiKeys]: {
+    chatSettings: ["read"],
   },
   [RouteId.GetPrompts]: {
     prompt: ["read"],

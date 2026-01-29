@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { parseDatabaseUrlVaultRef } from "./vault-database-url";
 
 describe("parseDatabaseUrlVaultRef", () => {
-  it("parses valid path#key format", () => {
+  it("parses valid path:key format", () => {
     const result = parseDatabaseUrlVaultRef(
-      "secret/data/archestra/config#database_url",
+      "secret/data/archestra/config:database_url",
     );
     expect(result).toEqual({
       path: "secret/data/archestra/config",
@@ -14,7 +14,7 @@ describe("parseDatabaseUrlVaultRef", () => {
 
   it("handles path with multiple segments", () => {
     const result = parseDatabaseUrlVaultRef(
-      "secret/data/team/prod/database#connection_string",
+      "secret/data/team/prod/database:connection_string",
     );
     expect(result).toEqual({
       path: "secret/data/team/prod/database",
@@ -22,26 +22,28 @@ describe("parseDatabaseUrlVaultRef", () => {
     });
   });
 
-  it("handles key with hash character (uses last hash as separator)", () => {
-    const result = parseDatabaseUrlVaultRef("secret/data/config#key#with#hash");
+  it("handles key with colon character (uses last colon as separator)", () => {
+    const result = parseDatabaseUrlVaultRef(
+      "secret/data/config:key:with:colon",
+    );
     expect(result).toEqual({
-      path: "secret/data/config#key#with",
-      key: "hash",
+      path: "secret/data/config:key:with",
+      key: "colon",
     });
   });
 
-  it("returns null for string without hash separator", () => {
+  it("returns null for string without colon separator", () => {
     const result = parseDatabaseUrlVaultRef("secret/data/config");
     expect(result).toBeNull();
   });
 
-  it("returns null for empty path (hash at start)", () => {
-    const result = parseDatabaseUrlVaultRef("#key");
+  it("returns null for empty path (colon at start)", () => {
+    const result = parseDatabaseUrlVaultRef(":key");
     expect(result).toBeNull();
   });
 
-  it("returns null for empty key (hash at end)", () => {
-    const result = parseDatabaseUrlVaultRef("secret/data/config#");
+  it("returns null for empty key (colon at end)", () => {
+    const result = parseDatabaseUrlVaultRef("secret/data/config:");
     expect(result).toBeNull();
   });
 });

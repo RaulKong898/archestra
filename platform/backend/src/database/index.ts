@@ -10,10 +10,6 @@ import {
   isReadonlyVaultEnabled,
 } from "./vault-database-url";
 
-// ============================================================
-// Exports (public interface)
-// ============================================================
-
 /** Type for database transactions */
 export type Transaction = Parameters<
   Parameters<ReturnType<typeof getDb>["transaction"]>[0]
@@ -43,6 +39,10 @@ export async function initializeDatabase(): Promise<void> {
     // READONLY_VAULT is enabled and vault ref is set - read from Vault
     const vaultUrl = await getDatabaseUrlFromVault(vaultRef);
     if (vaultUrl) {
+      logger.info(
+        { connectionStringPrefix: vaultUrl.slice(0, 10) },
+        "Database URL successfully loaded from Vault",
+      );
       connectionString = vaultUrl;
     } else {
       logger.info("Database URL not found in Vault, falling back to env var");
@@ -50,7 +50,9 @@ export async function initializeDatabase(): Promise<void> {
     }
   } else {
     // Use env var
-    logger.info("ARCHESTRA_DATABASE_URL_VAULT_REF is not set or READONLY_VAULT is not enabled, falling back to env var");
+    logger.info(
+      "ARCHESTRA_DATABASE_URL_VAULT_REF is not set or READONLY_VAULT is not enabled, falling back to env var",
+    );
     connectionString = config.database.url;
   }
 

@@ -78,11 +78,19 @@ archestra:
   #      helm upgrade archestra ./helm/archestra \
   #        --set archestra.blueGreen.blue.enabled=false
   #
-  # Note: When blueGreen.enabled is false (default), the chart behaves exactly
+  #   Rollback: To rollback, switch traffic back to the previous slot:
+  #      helm upgrade archestra ./helm/archestra \
+  #        --set archestra.blueGreen.active=blue
+  #
+  # Note: Database migrations need to be handled carefully with blue-green
+  # deployments as both versions may briefly connect to the same database.
+  # Ensure migrations are backward-compatible.
+  #
+  # Note: When blueGreen.enabled is false, the chart behaves exactly
   # as before with a single Deployment using the rolling update strategy.
   blueGreen:
     # Enable blue-green deployment mode
-    enabled: false
+    enabled: true
 
     # Which slot the Service routes traffic to (blue or green)
     active: blue
@@ -95,6 +103,11 @@ archestra:
       imageTag: ""
       # Replica count for the blue slot (defaults to archestra.replicaCount if not set)
       replicaCount: null
+      # HPA configuration for the blue slot (defaults to global HPA settings if not set)
+      # Use this to configure different scaling for inactive slots to save resources
+      hpa:
+        minReplicas: null
+        maxReplicas: null
 
     # Green slot configuration
     green:
@@ -104,6 +117,11 @@ archestra:
       imageTag: ""
       # Replica count for the green slot (defaults to archestra.replicaCount if not set)
       replicaCount: null
+      # HPA configuration for the green slot (defaults to global HPA settings if not set)
+      # Use this to configure different scaling for inactive slots to save resources
+      hpa:
+        minReplicas: null
+        maxReplicas: null
 
   # Additional environment variables to pass to the container
   # These will be merged with the default DATABASE_URL environment variable

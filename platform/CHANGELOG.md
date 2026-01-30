@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.36](https://github.com/archestra-ai/archestra/compare/platform-v1.0.35...platform-v1.0.36) (2026-01-30)
+
+
+### Bug Fixes
+
+* support external database passwords with special characters ([#2532](https://github.com/archestra-ai/archestra/issues/2532)) ([#2539](https://github.com/archestra-ai/archestra/issues/2539)) ([3b63cec](https://github.com/archestra-ai/archestra/commit/3b63cec1e58b29aef9e0085f8e008d35edc944f6))
+
 ## [1.0.35](https://github.com/archestra-ai/archestra/compare/platform-v1.0.34...platform-v1.0.35) (2026-01-29)
 
 

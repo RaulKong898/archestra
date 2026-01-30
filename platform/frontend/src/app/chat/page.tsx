@@ -62,7 +62,11 @@ import {
   useUpdateConversation,
   useUpdateConversationEnabledTools,
 } from "@/lib/chat.query";
-import { useChatModels, useModelsByProvider } from "@/lib/chat-models.query";
+import {
+  useChatModels,
+  useModelsByProvider,
+  useModelsWithApiKeys,
+} from "@/lib/chat-models.query";
 import {
   type SupportedChatProvider,
   useChatApiKeys,
@@ -132,6 +136,9 @@ export default function ChatPage() {
   // Fetch profiles and models for initial chat (no conversation)
   const { modelsByProvider, isPending: isModelsLoading } =
     useModelsByProvider();
+
+  // Fetch models with API keys for best model selection
+  const { data: modelsWithApiKeys = [] } = useModelsWithApiKeys();
 
   // State for initial chat (when no conversation exists yet)
   const [initialAgentId, setInitialAgentId] = useState<string | null>(null);
@@ -205,7 +212,34 @@ export default function ChatPage() {
         return;
       }
 
-      // Fall back to first available model
+      // Fall back to best available model from preferred API key (org_wide > team > personal)
+      const scopePriority = { org_wide: 0, team: 1, personal: 2 } as const;
+
+      // Find best model with highest priority API key
+      const bestModelWithKey = modelsWithApiKeys
+        .filter((m) => m.isBest && m.apiKeys.length > 0)
+        .map((m) => {
+          // Find highest priority API key for this model
+          const sortedKeys = [...m.apiKeys].sort(
+            (a, b) =>
+              (scopePriority[a.scope as keyof typeof scopePriority] ?? 3) -
+              (scopePriority[b.scope as keyof typeof scopePriority] ?? 3),
+          );
+          return { model: m, apiKey: sortedKeys[0] };
+        })
+        .sort(
+          (a, b) =>
+            (scopePriority[a.apiKey.scope as keyof typeof scopePriority] ?? 3) -
+            (scopePriority[b.apiKey.scope as keyof typeof scopePriority] ?? 3),
+        )[0];
+
+      if (bestModelWithKey) {
+        setInitialModel(bestModelWithKey.model.id);
+        setInitialApiKeyId(bestModelWithKey.apiKey.id);
+        return;
+      }
+
+      // Final fallback to first available model
       const providers = Object.keys(modelsByProvider);
       if (providers.length > 0) {
         const firstProvider = providers[0];
@@ -216,7 +250,13 @@ export default function ChatPage() {
         }
       }
     }
-  }, [modelsByProvider, initialModel, initialAgentId, internalAgents]);
+  }, [
+    modelsByProvider,
+    initialModel,
+    initialAgentId,
+    internalAgents,
+    modelsWithApiKeys,
+  ]);
 
   // Save model to localStorage when changed
   const handleInitialModelChange = useCallback((modelId: string) => {

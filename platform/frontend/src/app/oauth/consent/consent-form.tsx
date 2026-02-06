@@ -1,0 +1,146 @@
+"use client";
+
+import { Shield } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+
+const SCOPE_DESCRIPTIONS: Record<string, string> = {
+  mcp: "Access MCP tools and resources",
+  openid: "Verify your identity",
+  profile: "Access your profile information",
+  email: "Access your email address",
+  offline_access: "Maintain access when you're not present",
+};
+
+export function ConsentForm() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const clientName = searchParams.get("client_name") || "Unknown Application";
+  const scope = searchParams.get("scope") || "mcp";
+  const scopes = scope.split(" ").filter(Boolean);
+
+  // Reconstruct the original OAuth query from search params
+  // The consent page receives the full OAuth authorize query params
+  const oauthQuery = searchParams.toString();
+
+  const handleConsent = async (accept: boolean) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/auth/oauth2/consent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        redirect: "manual",
+        body: JSON.stringify({
+          accept,
+          scope,
+          oauth_query: oauthQuery,
+        }),
+      });
+
+      // Follow redirect from server (authorization code redirect)
+      if (response.status === 302 || response.status === 301) {
+        const location = response.headers.get("location");
+        if (location) {
+          window.location.href = location;
+          return;
+        }
+      }
+
+      // If the response is a JSON with a redirect URL
+      if (response.ok) {
+        const data = await response.json();
+        if (data?.url) {
+          window.location.href = data.url;
+          return;
+        }
+        if (data?.redirectTo) {
+          window.location.href = data.redirectTo;
+          return;
+        }
+      }
+
+      // If rejected, redirect to home
+      if (!accept) {
+        router.push("/");
+        return;
+      }
+
+      setError("Unexpected response from server");
+    } catch {
+      setError("Failed to process consent. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Card className="w-full max-w-md">
+      <CardHeader className="text-center">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+          <Shield className="h-6 w-6 text-primary" />
+        </div>
+        <CardTitle>Authorization Request</CardTitle>
+        <CardDescription>
+          <span className="font-semibold text-foreground">{clientName}</span> is
+          requesting access to your account
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent>
+        <div className="space-y-3">
+          <p className="text-muted-foreground text-sm">
+            This application is requesting the following permissions:
+          </p>
+          <div className="space-y-2">
+            {scopes.map((s) => (
+              <div
+                key={s}
+                className="flex items-center gap-2 rounded-md border p-2"
+              >
+                <Badge variant="secondary" className="shrink-0">
+                  {s}
+                </Badge>
+                <span className="text-sm">{SCOPE_DESCRIPTIONS[s] || s}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        {error && <p className="mt-3 text-destructive text-sm">{error}</p>}
+      </CardContent>
+
+      <CardFooter className="flex gap-3">
+        <Button
+          variant="outline"
+          className="flex-1"
+          onClick={() => handleConsent(false)}
+          disabled={isLoading}
+        >
+          Deny
+        </Button>
+        <Button
+          className="flex-1"
+          onClick={() => handleConsent(true)}
+          disabled={isLoading}
+        >
+          {isLoading ? "Processing..." : "Allow"}
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+}

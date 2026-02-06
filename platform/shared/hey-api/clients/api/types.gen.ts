@@ -22140,6 +22140,56 @@ export type HandleOAuthCallbackResponses = {
 
 export type HandleOAuthCallbackResponse = HandleOAuthCallbackResponses[keyof HandleOAuthCallbackResponses];
 
+export type GetWellKnownOauthProtectedResourceBy__Data = {
+    body?: never;
+    path: {
+        '*': string;
+    };
+    query?: never;
+    url: '/.well-known/oauth-protected-resource/{*}';
+};
+
+export type GetWellKnownOauthProtectedResourceBy__Responses = {
+    /**
+     * Default Response
+     */
+    200: {
+        resource: string;
+        authorization_servers: Array<string>;
+        scopes_supported: Array<string>;
+        bearer_methods_supported: Array<string>;
+    };
+};
+
+export type GetWellKnownOauthProtectedResourceBy__Response = GetWellKnownOauthProtectedResourceBy__Responses[keyof GetWellKnownOauthProtectedResourceBy__Responses];
+
+export type GetWellKnownOauthAuthorizationServerData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/.well-known/oauth-authorization-server';
+};
+
+export type GetWellKnownOauthAuthorizationServerResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        issuer: string;
+        authorization_endpoint: string;
+        token_endpoint: string;
+        registration_endpoint: string;
+        jwks_uri: string;
+        response_types_supported: Array<string>;
+        grant_types_supported: Array<string>;
+        token_endpoint_auth_methods_supported: Array<string>;
+        code_challenge_methods_supported: Array<string>;
+        scopes_supported: Array<string>;
+    };
+};
+
+export type GetWellKnownOauthAuthorizationServerResponse = GetWellKnownOauthAuthorizationServerResponses[keyof GetWellKnownOauthAuthorizationServerResponses];
+
 export type OllamaChatCompletionsWithDefaultAgentData = {
     body?: OllamaChatCompletionRequestInput;
     headers?: {

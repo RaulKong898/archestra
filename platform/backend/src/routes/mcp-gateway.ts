@@ -197,6 +197,11 @@ export const mcpGatewayRoutes: FastifyPluginAsyncZod = async (fastify) => {
         extractProfileIdAndTokenFromRequest(request) ?? {};
 
       if (!profileId || !token) {
+        const resourceMetadataUrl = `${request.protocol}://${request.headers.host}/.well-known/oauth-protected-resource${request.url}`;
+        reply.header(
+          "WWW-Authenticate",
+          `Bearer resource_metadata="${resourceMetadataUrl}"`,
+        );
         reply.status(401);
         return {
           error: "Unauthorized",
@@ -247,6 +252,11 @@ export const mcpGatewayRoutes: FastifyPluginAsyncZod = async (fastify) => {
         extractProfileIdAndTokenFromRequest(request) ?? {};
 
       if (!profileId || !token) {
+        const resourceMetadataUrl = `${request.protocol}://${request.headers.host}/.well-known/oauth-protected-resource${request.url}`;
+        reply.header(
+          "WWW-Authenticate",
+          `Bearer resource_metadata="${resourceMetadataUrl}"`,
+        );
         reply.status(401);
         return {
           jsonrpc: "2.0",
@@ -261,6 +271,11 @@ export const mcpGatewayRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       const tokenAuth = await validateMCPGatewayToken(profileId, token);
       if (!tokenAuth) {
+        const resourceMetadataUrl = `${request.protocol}://${request.headers.host}/.well-known/oauth-protected-resource${request.url}`;
+        reply.header(
+          "WWW-Authenticate",
+          `Bearer resource_metadata="${resourceMetadataUrl}"`,
+        );
         reply.status(401);
         return {
           jsonrpc: "2.0",

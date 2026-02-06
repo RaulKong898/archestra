@@ -232,6 +232,174 @@ test.describe("MCP Gateway - Authentication", () => {
   });
 });
 
+test.describe("MCP Gateway - OAuth 2.1 Discovery", () => {
+  let profileId: string;
+
+  test.beforeAll(async ({ request, createAgent }) => {
+    const uniqueSuffix = crypto.randomUUID().slice(0, 8);
+    const createResponse = await createAgent(
+      request,
+      `MCP Gateway OAuth Test ${uniqueSuffix}`,
+    );
+    const profile = await createResponse.json();
+    profileId = profile.id;
+  });
+
+  test.afterAll(async ({ request, deleteAgent }) => {
+    await deleteAgent(request, profileId);
+  });
+
+  test("401 response includes WWW-Authenticate header with resource_metadata", async ({
+    request,
+    makeApiRequest,
+  }) => {
+    // Send a POST without any Authorization header
+    const response = await makeApiRequest({
+      request,
+      method: "post",
+      urlSuffix: `${MCP_GATEWAY_URL_SUFFIX}/${profileId}`,
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+        // No Authorization header
+      },
+      data: {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2024-11-05",
+          capabilities: { tools: {} },
+          clientInfo: { name: "test-client", version: "1.0.0" },
+        },
+      },
+      ignoreStatusCheck: true,
+    });
+
+    expect(response.status()).toBe(401);
+
+    const wwwAuth = response.headers()["www-authenticate"];
+    expect(wwwAuth).toBeDefined();
+    expect(wwwAuth).toContain("Bearer");
+    expect(wwwAuth).toContain("resource_metadata=");
+    expect(wwwAuth).toContain(
+      `/.well-known/oauth-protected-resource${MCP_GATEWAY_URL_SUFFIX}/${profileId}`,
+    );
+  });
+
+  test("401 response for invalid token includes WWW-Authenticate header", async ({
+    request,
+    makeApiRequest,
+  }) => {
+    const response = await makeApiRequest({
+      request,
+      method: "post",
+      urlSuffix: `${MCP_GATEWAY_URL_SUFFIX}/${profileId}`,
+      headers: {
+        Authorization: "Bearer invalid_jwt_token_here",
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+      },
+      data: {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2024-11-05",
+          capabilities: { tools: {} },
+          clientInfo: { name: "test-client", version: "1.0.0" },
+        },
+      },
+      ignoreStatusCheck: true,
+    });
+
+    expect(response.status()).toBe(401);
+
+    const wwwAuth = response.headers()["www-authenticate"];
+    expect(wwwAuth).toBeDefined();
+    expect(wwwAuth).toContain("Bearer");
+    expect(wwwAuth).toContain("resource_metadata=");
+  });
+
+  test("GET /.well-known/oauth-protected-resource returns metadata for profile", async ({
+    request,
+  }) => {
+    const response = await request.get(
+      `${API_BASE_URL}/.well-known/oauth-protected-resource${MCP_GATEWAY_URL_SUFFIX}/${profileId}`,
+    );
+
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+
+    expect(body.resource).toContain(`${MCP_GATEWAY_URL_SUFFIX}/${profileId}`);
+    expect(body.authorization_servers).toBeDefined();
+    expect(body.authorization_servers.length).toBeGreaterThan(0);
+    expect(body.scopes_supported).toContain("mcp");
+    expect(body.bearer_methods_supported).toContain("header");
+  });
+
+  test("GET /.well-known/oauth-authorization-server returns server metadata", async ({
+    request,
+  }) => {
+    const response = await request.get(
+      `${API_BASE_URL}/.well-known/oauth-authorization-server`,
+    );
+
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+
+    // Verify all required OAuth 2.1 fields
+    expect(body.issuer).toBeDefined();
+    expect(body.authorization_endpoint).toContain("/api/auth/oauth2/authorize");
+    expect(body.token_endpoint).toContain("/api/auth/oauth2/token");
+    expect(body.registration_endpoint).toContain("/api/auth/oauth2/register");
+    expect(body.jwks_uri).toContain("/api/auth/jwks");
+    expect(body.response_types_supported).toContain("code");
+    expect(body.grant_types_supported).toContain("authorization_code");
+    expect(body.grant_types_supported).toContain("refresh_token");
+    expect(body.code_challenge_methods_supported).toContain("S256");
+    expect(body.token_endpoint_auth_methods_supported).toContain("none");
+  });
+
+  test("existing archestra_ tokens still work (backward compatibility)", async ({
+    request,
+    makeApiRequest,
+  }) => {
+    // Get org token
+    const archestraToken = await getOrgTokenForProfile(request);
+
+    // Assign Archestra tools to the profile
+    await assignArchestraToolsToProfile(request, profileId);
+
+    // Verify the existing token-based auth still works
+    const response = await makeApiRequest({
+      request,
+      method: "post",
+      urlSuffix: `${MCP_GATEWAY_URL_SUFFIX}/${profileId}`,
+      headers: {
+        Authorization: `Bearer ${archestraToken}`,
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+      },
+      data: {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2024-11-05",
+          capabilities: { tools: {} },
+          clientInfo: { name: "test-client", version: "1.0.0" },
+        },
+      },
+    });
+
+    expect(response.status()).toBe(200);
+    const result = await response.json();
+    expect(result).toHaveProperty("result");
+    expect(result.result).toHaveProperty("serverInfo");
+  });
+});
+
 test.describe("MCP Gateway - External MCP Server Tests", () => {
   let profileId: string;
   let archestraToken: string;

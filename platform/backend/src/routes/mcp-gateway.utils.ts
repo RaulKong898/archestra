@@ -23,6 +23,7 @@ import {
   AgentModel,
   AgentTeamModel,
   McpToolCallModel,
+  MemberModel,
   TeamModel,
   TeamTokenModel,
   ToolModel,
@@ -412,8 +413,102 @@ export async function validateUserToken(
 }
 
 /**
+ * Validate an OAuth JWT access token for a specific profile.
+ * Verifies the JWT signature via JWKS, then checks user access to the profile.
+ *
+ * Returns token auth info if valid, null otherwise.
+ */
+export async function validateOAuthToken(
+  profileId: string,
+  tokenValue: string,
+): Promise<TokenAuthResult | null> {
+  try {
+    const { verifyAccessToken } = await import("better-auth/oauth2");
+
+    const jwksUrl = `${config.frontendBaseUrl}/api/auth/jwks`;
+    const payload = await verifyAccessToken(tokenValue, {
+      verifyOptions: {
+        issuer: config.frontendBaseUrl,
+        audience: config.frontendBaseUrl,
+      },
+      jwksUrl,
+    });
+
+    if (!payload?.sub) {
+      return null;
+    }
+
+    const userId = payload.sub;
+
+    // Look up the user's organization membership
+    const membership = await MemberModel.getFirstMembershipForUser(userId);
+    if (!membership) {
+      logger.warn(
+        { profileId, userId },
+        "validateOAuthToken: user has no organization membership",
+      );
+      return null;
+    }
+
+    const organizationId = membership.organizationId;
+
+    // Check if user has profile admin permission (can access all profiles)
+    const isProfileAdmin = await userHasPermission(
+      userId,
+      organizationId,
+      "profile",
+      "admin",
+    );
+
+    if (isProfileAdmin) {
+      return {
+        tokenId: `oauth-jwt-${userId}`,
+        teamId: null,
+        isOrganizationToken: false,
+        organizationId,
+        isUserToken: true,
+        userId,
+      };
+    }
+
+    // Non-admin: user can access profile if they are a member of any team assigned to the profile
+    const userTeamIds = await TeamModel.getUserTeamIds(userId);
+    const profileTeamIds = await AgentTeamModel.getTeamsForAgent(profileId);
+    const hasAccess = userTeamIds.some((teamId) =>
+      profileTeamIds.includes(teamId),
+    );
+
+    if (!hasAccess) {
+      logger.warn(
+        { profileId, userId, userTeamIds, profileTeamIds },
+        "validateOAuthToken: profile not accessible via OAuth token (no shared teams)",
+      );
+      return null;
+    }
+
+    return {
+      tokenId: `oauth-jwt-${userId}`,
+      teamId: null,
+      isOrganizationToken: false,
+      organizationId,
+      isUserToken: true,
+      userId,
+    };
+  } catch (error) {
+    logger.debug(
+      {
+        profileId,
+        error: error instanceof Error ? error.message : "unknown",
+      },
+      "validateOAuthToken: JWT verification failed",
+    );
+    return null;
+  }
+}
+
+/**
  * Validate any archestra_ prefixed token for a specific profile
- * Tries team/org tokens first, then user tokens
+ * Tries team/org tokens first, then user tokens, then OAuth JWT tokens
  * Returns token auth info if valid, null otherwise
  */
 export async function validateMCPGatewayToken(
@@ -430,6 +525,14 @@ export async function validateMCPGatewayToken(
   const userTokenResult = await validateUserToken(profileId, tokenValue);
   if (userTokenResult) {
     return userTokenResult;
+  }
+
+  // Try OAuth JWT token validation (for MCP clients like Open WebUI)
+  if (!tokenValue.startsWith("archestra_")) {
+    const oauthResult = await validateOAuthToken(profileId, tokenValue);
+    if (oauthResult) {
+      return oauthResult;
+    }
   }
 
   logger.warn(

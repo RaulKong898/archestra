@@ -26,6 +26,7 @@ import {
   type AgentToolsEditorRef,
 } from "@/components/agent-tools-editor";
 import { EmailNotConfiguredMessage } from "@/components/email-not-configured-message";
+import { MsTeamsSetupDialog } from "@/components/ms-teams-setup-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -663,9 +664,7 @@ export function AgentDialog({
     onOpenChange(false);
   }, [onOpenChange]);
 
-  const configuredChatopsProviders = chatopsProviders.filter(
-    (provider) => provider.configured,
-  );
+  const [msTeamsSetupOpen, setMsTeamsSetupOpen] = useState(false);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -863,25 +862,25 @@ export function AgentDialog({
             {isInternalAgent && (
               <div className="space-y-2">
                 <Label>Agent Trigger Rules</Label>
-                {configuredChatopsProviders.length > 0 ? (
-                  <div className="space-y-3 pt-1">
-                    {configuredChatopsProviders.map((provider) => (
-                      <div
-                        key={provider.id}
-                        className="flex items-center justify-between"
-                      >
-                        <div className="space-y-0.5">
-                          <label
-                            htmlFor={`chatops-${provider.id}`}
-                            className="text-sm cursor-pointer"
-                          >
-                            {provider.displayName}
-                          </label>
-                          <p className="text-xs text-muted-foreground">
-                            Allow this agent to be triggered via{" "}
-                            {provider.displayName}
-                          </p>
-                        </div>
+                <div className="space-y-3 pt-1">
+                  {chatopsProviders.map((provider) => (
+                    <div
+                      key={provider.id}
+                      className="flex items-center justify-between"
+                    >
+                      <div className="space-y-0.5">
+                        <label
+                          htmlFor={`chatops-${provider.id}`}
+                          className="text-sm cursor-pointer"
+                        >
+                          {provider.displayName}
+                        </label>
+                        <p className="text-xs text-muted-foreground">
+                          Allow this agent to be triggered via{" "}
+                          {provider.displayName}
+                        </p>
+                      </div>
+                      {provider.configured ? (
                         <Switch
                           id={`chatops-${provider.id}`}
                           checked={allowedChatops.includes(provider.id)}
@@ -900,23 +899,22 @@ export function AgentDialog({
                             }
                           }}
                         />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No integrations configured. You can integrate with{" "}
-                    <a
-                      href="https://archestra.ai/docs/platform-agents#chatops-microsoft-teams"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary underline hover:no-underline"
-                    >
-                      Microsoft Teams
-                    </a>{" "}
-                    to trigger agents from chat messages.
-                  </p>
-                )}
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setMsTeamsSetupOpen(true)}
+                        >
+                          Setup MS Teams
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <MsTeamsSetupDialog
+                  open={msTeamsSetupOpen}
+                  onOpenChange={setMsTeamsSetupOpen}
+                />
               </div>
             )}
 

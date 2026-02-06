@@ -14179,6 +14179,88 @@ export type DeleteChatOpsBindingResponses = {
 
 export type DeleteChatOpsBindingResponse = DeleteChatOpsBindingResponses[keyof DeleteChatOpsBindingResponses];
 
+export type UpdateChatOpsConfigInQuickstartData = {
+    body?: {
+        enabled?: boolean;
+        appId?: string;
+        appSecret?: string;
+        tenantId?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/chatops/config/ms-teams';
+};
+
+export type UpdateChatOpsConfigInQuickstartErrors = {
+    /**
+     * Default Response
+     */
+    400: {
+        error: {
+            message: string;
+            type: 'api_validation_error';
+        };
+    };
+    /**
+     * Default Response
+     */
+    401: {
+        error: {
+            message: string;
+            type: 'api_authentication_error';
+        };
+    };
+    /**
+     * Default Response
+     */
+    403: {
+        error: {
+            message: string;
+            type: 'api_authorization_error';
+        };
+    };
+    /**
+     * Default Response
+     */
+    404: {
+        error: {
+            message: string;
+            type: 'api_not_found_error';
+        };
+    };
+    /**
+     * Default Response
+     */
+    409: {
+        error: {
+            message: string;
+            type: 'api_conflict_error';
+        };
+    };
+    /**
+     * Default Response
+     */
+    500: {
+        error: {
+            message: string;
+            type: 'api_internal_server_error';
+        };
+    };
+};
+
+export type UpdateChatOpsConfigInQuickstartError = UpdateChatOpsConfigInQuickstartErrors[keyof UpdateChatOpsConfigInQuickstartErrors];
+
+export type UpdateChatOpsConfigInQuickstartResponses = {
+    /**
+     * Default Response
+     */
+    200: {
+        success: boolean;
+    };
+};
+
+export type UpdateChatOpsConfigInQuickstartResponse = UpdateChatOpsConfigInQuickstartResponses[keyof UpdateChatOpsConfigInQuickstartResponses];
+
 export type CohereChatWithDefaultAgentData = {
     body?: CohereChatRequestInput;
     headers?: {
@@ -15072,6 +15154,13 @@ export type GetFeaturesResponses = {
         };
         mcpServerBaseImage: string;
         orchestratorK8sNamespace: string;
+        isQuickstart: boolean;
+        chatops: {
+            msTeamsEnabled: boolean;
+            msTeamsAppId: boolean;
+            msTeamsAppSecret: boolean;
+            msTeamsTenantId: boolean;
+        };
     };
 };
 

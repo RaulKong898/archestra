@@ -59,6 +59,15 @@ const featuresRoutes: FastifyPluginAsyncZod = async (fastify) => {
             mcpServerBaseImage: z.string(),
             /** Default K8s namespace for MCP server pods */
             orchestratorK8sNamespace: z.string(),
+            /** Whether the platform is running in quickstart mode */
+            isQuickstart: z.boolean(),
+            /** ChatOps configuration status (which fields are set) */
+            chatops: z.object({
+              msTeamsEnabled: z.boolean(),
+              msTeamsAppId: z.boolean(),
+              msTeamsAppSecret: z.boolean(),
+              msTeamsTenantId: z.boolean(),
+            }),
           }),
         },
       },
@@ -83,6 +92,13 @@ const featuresRoutes: FastifyPluginAsyncZod = async (fastify) => {
         knowledgeGraph: getKnowledgeGraphProviderInfo(),
         mcpServerBaseImage: config.orchestrator.mcpServerBaseImage,
         orchestratorK8sNamespace: config.orchestrator.kubernetes.namespace,
+        isQuickstart: config.isQuickstart,
+        chatops: {
+          msTeamsEnabled: config.chatops.msTeams.enabled,
+          msTeamsAppId: Boolean(config.chatops.msTeams.appId),
+          msTeamsAppSecret: Boolean(config.chatops.msTeams.appSecret),
+          msTeamsTenantId: Boolean(config.chatops.msTeams.tenantId),
+        },
       });
     },
   );

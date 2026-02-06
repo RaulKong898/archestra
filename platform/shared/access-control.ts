@@ -713,6 +713,9 @@ export const requiredEndpointPermissionsMap: Partial<
   [RouteId.DeleteChatOpsBinding]: {
     organization: ["update"],
   },
+  [RouteId.UpdateChatOpsConfigInQuickstart]: {
+    organization: ["update"],
+  },
 };
 
 /**
@@ -792,6 +795,9 @@ export const requiredPagePermissionsMap: Record<string, Permissions> = {
     organization: ["update"],
   },
   "/settings/incoming-email": {
+    organization: ["update"],
+  },
+  "/settings/chatops": {
     organization: ["update"],
   },
 

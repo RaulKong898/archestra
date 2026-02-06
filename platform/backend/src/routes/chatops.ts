@@ -9,6 +9,7 @@ import {
 } from "@/agents/chatops/constants";
 import { isRateLimited } from "@/agents/utils";
 import { type AllowedCacheKey, CacheKey } from "@/cache-manager";
+import config from "@/config";
 import logger from "@/logging";
 import {
   AgentModel,
@@ -418,6 +419,56 @@ const chatopsRoutes: FastifyPluginAsyncZod = async (fastify) => {
       if (!deleted) {
         throw new ApiError(404, "Binding not found");
       }
+
+      return reply.send({ success: true });
+    },
+  );
+
+  /**
+   * Update MS Teams chatops config in quickstart mode.
+   * Mutates in-memory config and reinitializes the chatops manager.
+   */
+  fastify.put(
+    "/api/chatops/config/ms-teams",
+    {
+      schema: {
+        operationId: RouteId.UpdateChatOpsConfigInQuickstart,
+        description:
+          "Update MS Teams chatops configuration (quickstart mode only)",
+        tags: ["ChatOps"],
+        body: z.object({
+          enabled: z.boolean().optional(),
+          appId: z.string().optional(),
+          appSecret: z.string().optional(),
+          tenantId: z.string().optional(),
+        }),
+        response: constructResponseSchema(z.object({ success: z.boolean() })),
+      },
+    },
+    async (request, reply) => {
+      if (!config.isQuickstart) {
+        throw new ApiError(403, "Only available in quickstart mode");
+      }
+
+      const { enabled, appId, appSecret, tenantId } = request.body;
+
+      if (enabled !== undefined) {
+        config.chatops.msTeams.enabled = enabled;
+      }
+      if (appId !== undefined) {
+        config.chatops.msTeams.appId = appId;
+        config.chatops.msTeams.graph.clientId = appId;
+      }
+      if (appSecret !== undefined) {
+        config.chatops.msTeams.appSecret = appSecret;
+        config.chatops.msTeams.graph.clientSecret = appSecret;
+      }
+      if (tenantId !== undefined) {
+        config.chatops.msTeams.tenantId = tenantId;
+        config.chatops.msTeams.graph.tenantId = tenantId;
+      }
+
+      await chatOpsManager.reinitialize();
 
       return reply.send({ success: true });
     },

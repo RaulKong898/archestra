@@ -28,6 +28,8 @@ import {
   ToolModel,
   UserTokenModel,
 } from "@/models";
+import { metrics } from "@/observability";
+import { startActiveMcpSpan } from "@/routes/proxy/utils/tracing";
 import { type CommonToolCall, UuidIdSchema } from "@/types";
 import { estimateToolResultContentLength } from "@/utils/tool-result-preview";
 
@@ -124,6 +126,12 @@ export async function createAgentServer(
   server.setRequestHandler(
     CallToolRequestSchema,
     async ({ params: { name, arguments: args } }) => {
+      const startTime = Date.now();
+      // Extract MCP server name from tool name (format: servername__toolname)
+      const separatorIndex = name.indexOf(MCP_SERVER_TOOL_NAME_SEPARATOR);
+      const mcpServerName =
+        separatorIndex > 0 ? name.substring(0, separatorIndex) : "unknown";
+
       try {
         // Check if this is an Archestra tool or agent delegation tool
         const archestraToolPrefix = `${ARCHESTRA_MCP_SERVER_NAME}${MCP_SERVER_TOOL_NAME_SEPARATOR}`;
@@ -143,11 +151,32 @@ export async function createAgentServer(
           );
 
           // Handle Archestra and agent delegation tools directly
-          const response = await executeArchestraTool(name, args, {
-            agent: { id: agent.id, name: agent.name },
-            agentId: agent.id,
-            organizationId: tokenAuth?.organizationId,
-            tokenAuth,
+          const response = await startActiveMcpSpan({
+            toolName: name,
+            mcpServerName,
+            agent,
+            callback: async () => {
+              return executeArchestraTool(name, args, {
+                agent: { id: agent.id, name: agent.name },
+                agentId: agent.id,
+                organizationId: tokenAuth?.organizationId,
+                tokenAuth,
+              });
+            },
+          });
+
+          const durationSeconds = (Date.now() - startTime) / 1000;
+          metrics.mcp.reportMcpToolCall({
+            profileId: agent.id,
+            profileName: agent.name,
+            mcpServerName,
+            toolName: name,
+            durationSeconds,
+            isError: false,
+            profileLabels:
+              "labels" in agent
+                ? (agent.labels as Array<{ key: string; value: string }>)
+                : undefined,
           });
 
           logger.info(
@@ -183,12 +212,29 @@ export async function createAgentServer(
           arguments: args || {},
         };
 
-        // Execute the tool call via McpClient (pass tokenAuth for dynamic credential resolution)
-        const result = await mcpClient.executeToolCall(
-          toolCall,
-          agentId,
-          tokenAuth,
-        );
+        // Execute the tool call via McpClient with tracing
+        const result = await startActiveMcpSpan({
+          toolName: name,
+          mcpServerName,
+          agent,
+          callback: async () => {
+            return mcpClient.executeToolCall(toolCall, agentId, tokenAuth);
+          },
+        });
+
+        const durationSeconds = (Date.now() - startTime) / 1000;
+        metrics.mcp.reportMcpToolCall({
+          profileId: agent.id,
+          profileName: agent.name,
+          mcpServerName,
+          toolName: name,
+          durationSeconds,
+          isError: result.isError ?? false,
+          profileLabels:
+            "labels" in agent
+              ? (agent.labels as Array<{ key: string; value: string }>)
+              : undefined,
+        });
 
         const contentLength = estimateToolResultContentLength(result.content);
         logger.info(
@@ -214,6 +260,20 @@ export async function createAgentServer(
           isError: result.isError,
         };
       } catch (error) {
+        const durationSeconds = (Date.now() - startTime) / 1000;
+        metrics.mcp.reportMcpToolCall({
+          profileId: agent.id,
+          profileName: agent.name,
+          mcpServerName,
+          toolName: name,
+          durationSeconds,
+          isError: true,
+          profileLabels:
+            "labels" in agent
+              ? (agent.labels as Array<{ key: string; value: string }>)
+              : undefined,
+        });
+
         if (typeof error === "object" && error !== null && "code" in error) {
           throw error; // Re-throw JSON-RPC errors
         }

@@ -1,12 +1,11 @@
-import { createAnthropic } from "@ai-sdk/anthropic";
+import type { SupportedProviderDiscriminator } from "@shared/model-constants";
 import { generateObject } from "ai";
 import { z } from "zod";
-import config from "@/config";
-import { getObservableFetch } from "@/llm-metrics";
+import { createDirectLLMModel } from "@/clients/llm-client";
 import logger from "@/logging";
 import AgentModel from "@/models/agent";
 import InteractionModel from "@/models/interaction";
-import type { Agent, Tool } from "@/types";
+import type { SupportedChatProvider, Tool } from "@/types";
 
 const PolicyConfigSchema = z.object({
   allowUsageWhenUntrustedDataIsPresent: z
@@ -74,79 +73,45 @@ Examples:
 - External APIs (raw data): allowUsage=false, treatment="untrusted"
 - Code execution: allowUsage=false, treatment="untrusted"`;
 
-  // Virtual agent representing the subagent for observability
-  private static readonly VIRTUAL_AGENT: Agent = {
-    id: PolicyConfigSubagent.SUBAGENT_ID,
-    organizationId: "",
-    name: PolicyConfigSubagent.SUBAGENT_NAME,
-    isDemo: false,
-    isDefault: false,
-    considerContextUntrusted: false,
-    agentType: "profile",
-    systemPrompt: null,
-    userPrompt: null,
-    promptVersion: 1,
-    promptHistory: [],
-    allowedChatops: [],
-    description: null,
-    incomingEmailEnabled: false,
-    incomingEmailSecurityMode: "private",
-    incomingEmailAllowedDomain: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    tools: [],
-    teams: [],
-    labels: [],
-    llmApiKeyId: null,
-    llmModel: null,
-  };
-
   /**
    * Analyze a tool and determine appropriate security policies
    *
    * This method:
    * 1. Constructs analysis prompt from tool metadata
-   * 2. Calls LLM with observable fetch (traces/metrics)
+   * 2. Calls LLM via createDirectLLMModel (multi-provider)
    * 3. Records interaction in database
    * 4. Returns structured policy configuration
    */
   async analyze(params: {
     tool: Pick<Tool, "id" | "name" | "description" | "parameters">;
     mcpServerName: string | null;
-    anthropicApiKey: string;
+    provider: SupportedChatProvider;
+    apiKey: string;
+    modelName: string;
     organizationId: string;
   }): Promise<PolicyConfig> {
-    const { tool, mcpServerName, anthropicApiKey, organizationId } = params;
+    const { tool, mcpServerName, provider, apiKey, modelName, organizationId } =
+      params;
 
     logger.info(
       {
         toolName: tool.name,
         mcpServerName,
         subagentId: PolicyConfigSubagent.SUBAGENT_ID,
-        model: config.chat.defaultModel,
+        provider,
+        model: modelName,
       },
       "[PolicyConfigSubagent] Starting policy analysis",
     );
 
-    // Create Anthropic client with observable fetch for tracing/metrics
-    const anthropic = createAnthropic({
-      apiKey: anthropicApiKey,
-      baseURL: `${config.llm.anthropic.baseUrl}/v1`,
-      fetch: getObservableFetch(
-        "anthropic",
-        PolicyConfigSubagent.VIRTUAL_AGENT,
-        PolicyConfigSubagent.SUBAGENT_ID, // Use subagent ID as external agent ID
-      ),
-    });
-
+    const model = createDirectLLMModel({ provider, apiKey, modelName });
     const prompt = this.buildPrompt(tool, mcpServerName);
-
     const startTime = Date.now();
 
     try {
       // Make LLM call with structured output
       const result = await generateObject({
-        model: anthropic(config.chat.defaultModel),
+        model,
         schema: PolicyConfigSchema,
         prompt,
       });
@@ -173,6 +138,8 @@ Examples:
         result: result.object,
         organizationId,
         duration,
+        provider,
+        modelName,
       }).catch((error) => {
         logger.error(
           {
@@ -189,7 +156,8 @@ Examples:
         {
           toolName: tool.name,
           mcpServerName,
-          model: config.chat.defaultModel,
+          provider,
+          model: modelName,
           error: error instanceof Error ? error.message : String(error),
           stack: error instanceof Error ? error.stack : undefined,
           subagentId: PolicyConfigSubagent.SUBAGENT_ID,
@@ -229,8 +197,10 @@ Examples:
     result: PolicyConfig;
     organizationId: string;
     duration: number;
+    provider: SupportedChatProvider;
+    modelName: string;
   }): Promise<void> {
-    const { tool, prompt, result } = params;
+    const { tool, prompt, result, provider, modelName } = params;
 
     logger.debug(
       {
@@ -243,12 +213,13 @@ Examples:
     try {
       // Get or create default LLM proxy agent for recording subagent interactions
       const systemAgent = await AgentModel.getLLMProxyOrCreateDefault();
+      const interactionType = PROVIDER_TO_DISCRIMINATOR[provider];
 
       await InteractionModel.create({
         profileId: systemAgent.id,
         externalAgentId: PolicyConfigSubagent.SUBAGENT_ID,
-        type: "anthropic:messages",
-        model: config.chat.defaultModel,
+        type: interactionType,
+        model: modelName,
         request: {
           messages: [
             {
@@ -256,7 +227,7 @@ Examples:
               content: prompt,
             },
           ],
-          model: config.chat.defaultModel,
+          model: modelName,
           max_tokens: 1024,
         },
         response: {
@@ -269,7 +240,7 @@ Examples:
               text: JSON.stringify(result, null, 2),
             },
           ],
-          model: config.chat.defaultModel,
+          model: modelName,
           stop_reason: "end_turn",
           stop_sequence: null,
           usage: {
@@ -301,3 +272,23 @@ Examples:
 
 // Singleton instance
 export const policyConfigSubagent = new PolicyConfigSubagent();
+
+// =============================================================================
+// Internal helpers
+// =============================================================================
+
+const PROVIDER_TO_DISCRIMINATOR: Record<
+  SupportedChatProvider,
+  SupportedProviderDiscriminator
+> = {
+  anthropic: "anthropic:messages",
+  openai: "openai:chatCompletions",
+  gemini: "gemini:generateContent",
+  bedrock: "bedrock:converse",
+  cohere: "cohere:chat",
+  cerebras: "cerebras:chatCompletions",
+  mistral: "mistral:chatCompletions",
+  vllm: "vllm:chatCompletions",
+  ollama: "ollama:chatCompletions",
+  zhipuai: "zhipuai:chatCompletions",
+};

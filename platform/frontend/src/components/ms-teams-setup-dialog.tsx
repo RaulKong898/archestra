@@ -1,8 +1,10 @@
 "use client";
 
+import JSZip from "jszip";
 import {
   ChevronLeft,
   ChevronRight,
+  Download,
   ExternalLink,
   Loader2,
   TriangleAlert,
@@ -104,48 +106,21 @@ function buildSteps(ngrokDomain: string) {
     },
     {
       title: "Create App Manifest",
-      video: "/ms-teams/create-azure-bot.mp4",
-      instructions: [
-        <>
-          Create a folder with <strong>color.png</strong> (192x192),{" "}
-          <strong>outline.png</strong> (32x32), and{" "}
-          <strong>manifest.json</strong>
-        </>,
-        <>
-          In the manifest, replace{" "}
-          <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">
-            {"{{BOT_MS_APP_ID}}"}
-          </code>{" "}
-          with your <strong>Microsoft App ID</strong>
-        </>,
-        <>
-          <strong>Zip the folder contents</strong> (not the folder itself)
-        </>,
-        <>
-          See the{" "}
-          <StepLink href="https://archestra.ai/docs/platform-ms-teams#teams-app-manifest">
-            full manifest template
-          </StepLink>{" "}
-          in the docs
-        </>,
-      ],
+      component: "manifest",
     },
     {
       title: "Install in Teams",
-      video: "/ms-teams/create-azure-bot.mp4",
+      video: "/ms-teams/ms-teams-upload-app.mp4",
       instructions: [
         <>
           In Teams, go to <strong>Apps</strong> →{" "}
           <strong>Manage your apps</strong> → <strong>Upload an app</strong>
         </>,
         <>
-          Select your <strong>manifest zip</strong> file
+          Select your <strong>archestra-teams-app.zip</strong> file
         </>,
         <>
           <strong>Add the app</strong> to a team or channel
-        </>,
-        <>
-          Mention the bot in a channel — it will prompt you to select an agent
         </>,
       ],
     },
@@ -175,6 +150,10 @@ export function MsTeamsSetupDialog({
       setCurrent(api.selectedScrollSnap());
     });
   }, [api]);
+
+  const saveRef = useRef<(() => Promise<void>) | null>(null);
+  const [canSave, setCanSave] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const isFirst = current === 0;
   const isLast = current === steps.length - 1;
@@ -211,7 +190,9 @@ export function MsTeamsSetupDialog({
                 // biome-ignore lint/suspicious/noArrayIndexKey: items are static
                 <CarouselItem key={index} className="h-full">
                   <div className="flex h-full flex-col overflow-y-auto px-6">
-                    {index < steps.length - 1 ? (
+                    {step.component === "manifest" ? (
+                      <StepManifest stepNumber={index + 1} />
+                    ) : index < steps.length - 1 ? (
                       <StepSlide
                         title={step.title}
                         stepNumber={index + 1}
@@ -220,7 +201,7 @@ export function MsTeamsSetupDialog({
                         isActive={current === index}
                       />
                     ) : features?.isQuickstart ? (
-                      <StepConfigForm />
+                      <StepConfigForm saveRef={saveRef} onCanSaveChange={setCanSave} />
                     ) : (
                       <StepEnvVarsInfo />
                     )}
@@ -249,6 +230,25 @@ export function MsTeamsSetupDialog({
             {isLast && !features?.isQuickstart && (
               <Button size="sm" onClick={() => onOpenChange(false)}>
                 Close
+              </Button>
+            )}
+            {isLast && features?.isQuickstart && (
+              <Button
+                size="sm"
+                disabled={saving || !canSave}
+                onClick={async () => {
+                  if (!saveRef.current) return;
+                  setSaving(true);
+                  try {
+                    await saveRef.current();
+                    onOpenChange(false);
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+              >
+                {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                Connect
               </Button>
             )}
             {!isLast && (
@@ -334,7 +334,13 @@ function StepSlide({
   );
 }
 
-function StepConfigForm() {
+function StepConfigForm({
+  saveRef,
+  onCanSaveChange,
+}: {
+  saveRef: React.MutableRefObject<(() => Promise<void>) | null>;
+  onCanSaveChange: (canSave: boolean) => void;
+}) {
   const { data: features } = useFeatures();
   const mutation = useUpdateChatOpsConfigInQuickstart();
   const chatops = features?.chatops;
@@ -342,6 +348,13 @@ function StepConfigForm() {
   const [appId, setAppId] = useState("");
   const [appSecret, setAppSecret] = useState("");
   const [tenantId, setTenantId] = useState("");
+
+  const hasAppId = Boolean(appId || chatops?.msTeamsAppId);
+  const hasAppSecret = Boolean(appSecret || chatops?.msTeamsAppSecret);
+
+  React.useEffect(() => {
+    onCanSaveChange(hasAppId && hasAppSecret);
+  }, [hasAppId, hasAppSecret, onCanSaveChange]);
 
   const handleSave = async () => {
     const body: Record<string, unknown> = { enabled: true };
@@ -362,6 +375,9 @@ function StepConfigForm() {
     setAppSecret("");
     setTenantId("");
   };
+
+  // Expose handleSave to the parent dialog footer
+  saveRef.current = handleSave;
 
   return (
     <div
@@ -415,18 +431,6 @@ function StepConfigForm() {
             }
           />
         </div>
-
-        <Button
-          onClick={handleSave}
-          disabled={mutation.isPending}
-          className="w-full mt-2"
-          size="lg"
-        >
-          {mutation.isPending && (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          )}
-          Save & Activate
-        </Button>
       </div>
 
       {/* Right side — instructions (matches instruction position in other steps) */}
@@ -536,6 +540,162 @@ function StepEnvVarsInfo() {
             </span>
           </li>
         </ol>
+      </div>
+    </div>
+  );
+}
+
+function buildManifest(botAppId: string) {
+  return {
+    $schema:
+      "https://developer.microsoft.com/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+    manifestVersion: "1.16",
+    version: "1.0.0",
+    id: botAppId || "{{BOT_MS_APP_ID}}",
+    packageName: "com.archestra.bot",
+    developer: {
+      name: "Archestra",
+      websiteUrl: "https://archestra.ai",
+      privacyUrl: "https://archestra.ai/privacy",
+      termsOfUseUrl: "https://archestra.ai/terms",
+    },
+    name: { short: "Archestra", full: "Archestra Bot" },
+    description: { short: "Ask Archestra", full: "Chat with Archestra agents" },
+    icons: { outline: "outline.png", color: "color.png" },
+    accentColor: "#FFFFFF",
+    bots: [
+      {
+        botId: botAppId || "{{BOT_MS_APP_ID}}",
+        scopes: ["team", "groupchat"],
+        supportsFiles: false,
+        isNotificationOnly: false,
+        commandLists: [
+          {
+            scopes: ["team", "groupchat"],
+            commands: [
+              {
+                title: "/select-agent",
+                description: "Change which agent handles this channel",
+              },
+              {
+                title: "/status",
+                description: "Show current agent for this channel",
+              },
+              { title: "/help", description: "Show available commands" },
+            ],
+          },
+        ],
+      },
+    ],
+    permissions: ["identity", "messageTeamMembers"],
+    validDomains: [],
+    webApplicationInfo: {
+      id: botAppId || "{{BOT_MS_APP_ID}}",
+      resource: "https://graph.microsoft.com",
+    },
+    authorization: {
+      permissions: {
+        resourceSpecific: [
+          { name: "ChannelMessage.Read.Group", type: "Application" },
+          { name: "ChatMessage.Read.Chat", type: "Application" },
+        ],
+      },
+    },
+  };
+}
+
+function StepManifest({ stepNumber }: { stepNumber: number }) {
+  const [botAppId, setBotAppId] = useState("");
+  const [downloading, setDownloading] = useState(false);
+
+  const manifest = buildManifest(botAppId);
+  const manifestJson = JSON.stringify(manifest, null, 2);
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const zip = new JSZip();
+      zip.file("manifest.json", manifestJson);
+
+      const [colorRes, outlineRes] = await Promise.all([
+        fetch("/ms-teams/color.png"),
+        fetch("/ms-teams/outline.png"),
+      ]);
+      zip.file("color.png", await colorRes.blob());
+      zip.file("outline.png", await outlineRes.blob());
+
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "archestra-teams-app.zip";
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <div
+      className="grid flex-1 gap-6"
+      style={{ gridTemplateColumns: "6fr 4fr" }}
+    >
+      {/* Left side — manifest preview */}
+      <div className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-4 min-h-0">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-muted-foreground">
+            manifest.json
+          </span>
+          <CopyButton text={manifestJson} />
+        </div>
+        <pre className="flex-1 overflow-auto rounded bg-muted p-3 text-xs font-mono leading-relaxed min-h-0">
+          {manifestJson}
+        </pre>
+      </div>
+
+      {/* Right side — instructions */}
+      <div className="flex flex-col gap-4 py-2">
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="font-mono text-xs">
+            Step {stepNumber}
+          </Badge>
+          <h3 className="text-lg font-semibold">Create App Manifest</h3>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="manifest-bot-id">Microsoft App ID</Label>
+          <Input
+            id="manifest-bot-id"
+            value={botAppId}
+            onChange={(e) => setBotAppId(e.target.value)}
+            placeholder="Paste your Microsoft App ID"
+          />
+          <p className="text-xs text-muted-foreground">
+            The App ID from Step 2. It will be injected into the manifest
+            automatically.
+          </p>
+        </div>
+
+        <Button
+          onClick={handleDownload}
+          disabled={!botAppId || downloading}
+          className="w-full"
+        >
+          {downloading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="mr-2 h-4 w-4" />
+          )}
+          Download archestra-teams-app.zip
+        </Button>
+
+        {!botAppId && (
+          <span className="flex items-center gap-1 text-xs text-amber-500">
+            <TriangleAlert className="h-3 w-3 shrink-0" />
+            Enter your Microsoft App ID to generate the manifest
+          </span>
+        )}
       </div>
     </div>
   );

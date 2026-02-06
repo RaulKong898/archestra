@@ -11,8 +11,15 @@ import ToolInvocationPolicyModel from "./tool-invocation-policy";
 import TrustedDataPolicyModel from "./trusted-data-policy";
 
 type PolicyConfig = {
-  allowUsageWhenUntrustedDataIsPresent: boolean;
-  toolResultTreatment: "trusted" | "sanitize_with_dual_llm" | "untrusted";
+  toolInvocationAction:
+    | "allow_when_context_is_untrusted"
+    | "block_when_context_is_untrusted"
+    | "block_always";
+  trustedDataAction:
+    | "mark_as_trusted"
+    | "mark_as_untrusted"
+    | "sanitize_with_dual_llm"
+    | "block_always";
   reasoning: string;
 };
 
@@ -166,25 +173,15 @@ export class ToolAutoPolicyService {
       );
 
       // Create/upsert call policy (tool invocation policy)
-      const callPolicyAction = policyConfig.allowUsageWhenUntrustedDataIsPresent
-        ? "allow_when_context_is_untrusted"
-        : "block_always";
       await ToolInvocationPolicyModel.bulkUpsertDefaultPolicy(
         [toolId],
-        callPolicyAction,
+        policyConfig.toolInvocationAction,
       );
 
       // Create/upsert result policy (trusted data policy)
-      const resultPolicyActionMap = {
-        trusted: "mark_as_trusted",
-        untrusted: "block_always",
-        sanitize_with_dual_llm: "sanitize_with_dual_llm",
-      } as const;
-      const resultPolicyAction =
-        resultPolicyActionMap[policyConfig.toolResultTreatment];
       await TrustedDataPolicyModel.bulkUpsertDefaultPolicy(
         [toolId],
-        resultPolicyAction,
+        policyConfig.trustedDataAction,
       );
 
       // Update tool with timestamps and reasoning for tracking

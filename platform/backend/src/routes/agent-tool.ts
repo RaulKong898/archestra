@@ -295,10 +295,16 @@ const agentToolRoutes: FastifyPluginAsyncZod = async (fastify) => {
                 success: z.boolean(),
                 config: z
                   .object({
-                    toolResultTreatment: z.enum([
-                      "trusted",
+                    toolInvocationAction: z.enum([
+                      "allow_when_context_is_untrusted",
+                      "block_when_context_is_untrusted",
+                      "block_always",
+                    ]),
+                    trustedDataAction: z.enum([
+                      "mark_as_trusted",
+                      "mark_as_untrusted",
                       "sanitize_with_dual_llm",
-                      "untrusted",
+                      "block_always",
                     ]),
                     reasoning: z.string(),
                   })

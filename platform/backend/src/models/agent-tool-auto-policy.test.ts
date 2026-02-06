@@ -152,8 +152,8 @@ describe("ToolAutoPolicyService", () => {
 
       // Mock the subagent analysis
       vi.mocked(policyConfigSubagent.analyze).mockResolvedValue({
-        allowUsageWhenUntrustedDataIsPresent: true,
-        toolResultTreatment: "trusted",
+        toolInvocationAction: "allow_when_context_is_untrusted",
+        trustedDataAction: "mark_as_trusted",
         reasoning: "This tool is safe",
       });
 
@@ -161,8 +161,8 @@ describe("ToolAutoPolicyService", () => {
 
       expect(result.success).toBe(true);
       expect(result.config).toEqual({
-        allowUsageWhenUntrustedDataIsPresent: true,
-        toolResultTreatment: "trusted",
+        toolInvocationAction: "allow_when_context_is_untrusted",
+        trustedDataAction: "mark_as_trusted",
         reasoning: "This tool is safe",
       });
 
@@ -214,8 +214,8 @@ describe("ToolAutoPolicyService", () => {
 
       // Mock blocking policy response
       vi.mocked(policyConfigSubagent.analyze).mockResolvedValue({
-        allowUsageWhenUntrustedDataIsPresent: false,
-        toolResultTreatment: "untrusted",
+        toolInvocationAction: "block_always",
+        trustedDataAction: "block_always",
         reasoning: "This tool is risky",
       });
 
@@ -249,8 +249,8 @@ describe("ToolAutoPolicyService", () => {
       const tool = await makeTool({ mcpServerId: mcpServer.id });
 
       vi.mocked(policyConfigSubagent.analyze).mockResolvedValue({
-        allowUsageWhenUntrustedDataIsPresent: true,
-        toolResultTreatment: "sanitize_with_dual_llm",
+        toolInvocationAction: "allow_when_context_is_untrusted",
+        trustedDataAction: "sanitize_with_dual_llm",
         reasoning: "This tool needs sanitization",
       });
 
@@ -261,6 +261,42 @@ describe("ToolAutoPolicyService", () => {
         .from(schema.trustedDataPoliciesTable)
         .where(eq(schema.trustedDataPoliciesTable.toolId, tool.id));
       expect(trustedDataPolicies[0].action).toBe("sanitize_with_dual_llm");
+    });
+
+    test("handles block_when_context_is_untrusted invocation action", async ({
+      makeOrganization,
+      makeMcpServer,
+      makeTool,
+    }) => {
+      const org = await makeOrganization();
+
+      mockProviderKey("anthropic", "sk-ant-test-key", "key-123");
+      vi.spyOn(ApiKeyModelModel, "getBestModel").mockResolvedValue(MOCK_MODEL);
+
+      const mcpServer = await makeMcpServer({ name: "test-server" });
+      const tool = await makeTool({ mcpServerId: mcpServer.id });
+
+      vi.mocked(policyConfigSubagent.analyze).mockResolvedValue({
+        toolInvocationAction: "block_when_context_is_untrusted",
+        trustedDataAction: "mark_as_untrusted",
+        reasoning: "External API that could leak data",
+      });
+
+      await service.configurePoliciesForTool(tool.id, org.id);
+
+      const invocationPolicies = await db
+        .select()
+        .from(schema.toolInvocationPoliciesTable)
+        .where(eq(schema.toolInvocationPoliciesTable.toolId, tool.id));
+      expect(invocationPolicies[0].action).toBe(
+        "block_when_context_is_untrusted",
+      );
+
+      const trustedDataPolicies = await db
+        .select()
+        .from(schema.trustedDataPoliciesTable)
+        .where(eq(schema.trustedDataPoliciesTable.toolId, tool.id));
+      expect(trustedDataPolicies[0].action).toBe("mark_as_untrusted");
     });
   });
 

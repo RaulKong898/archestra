@@ -8,20 +8,31 @@ import InteractionModel from "@/models/interaction";
 import type { SupportedChatProvider, Tool } from "@/types";
 
 const PolicyConfigSchema = z.object({
-  allowUsageWhenUntrustedDataIsPresent: z
-    .boolean()
+  toolInvocationAction: z
+    .enum([
+      "allow_when_context_is_untrusted",
+      "block_when_context_is_untrusted",
+      "block_always",
+    ])
     .describe(
-      "Should this tool be allowed when untrusted data is present in the context? " +
-        "Set to true for tools that handle sensitive operations safely (e.g., read-only operations, search tools, informational tools). " +
-        "Set to false for tools that could leak sensitive data or modify state based on untrusted input.",
+      "When should this tool be allowed to be invoked? " +
+        "'allow_when_context_is_untrusted' - Allow invocation even when untrusted data is present (safe read-only tools). " +
+        "'block_when_context_is_untrusted' - Allow only when context is trusted, block when untrusted data is present (tools that could leak data). " +
+        "'block_always' - Never allow automatic invocation (dangerous tools that execute code, write data, or send data externally).",
     ),
-  toolResultTreatment: z
-    .enum(["trusted", "sanitize_with_dual_llm", "untrusted"])
+  trustedDataAction: z
+    .enum([
+      "mark_as_trusted",
+      "mark_as_untrusted",
+      "sanitize_with_dual_llm",
+      "block_always",
+    ])
     .describe(
       "How should the tool's results be treated? " +
-        "'trusted' - Results can be used directly in subsequent operations without restrictions (internal data sources). " +
-        "'untrusted' - Results are marked as untrusted and will restrict what other tools can be used (external sources, user-controlled data). " +
-        "'sanitize_with_dual_llm' - Results are processed through dual LLM security pattern before being used (mixed content).",
+        "'mark_as_trusted' - Results are trusted and can be used directly (internal systems, databases, dev tools). " +
+        "'mark_as_untrusted' - Results are untrusted and will restrict subsequent tool usage (external/filesystem data where exact values are safe). " +
+        "'sanitize_with_dual_llm' - Results are processed through dual LLM security pattern (untrusted data that needs summarization). " +
+        "'block_always' - Results are blocked entirely (highly sensitive or dangerous output).",
     ),
   reasoning: z
     .string()
@@ -55,23 +66,25 @@ Parameters: {tool.parameters}
 
 Determine:
 
-1. allowUsageWhenUntrustedDataIsPresent (boolean)
-   - TRUE: Read-only, doesn't leak sensitive data
-   - FALSE: Writes data, executes code, sends data externally
+1. toolInvocationAction (enum) - When should this tool be allowed?
+   - "allow_when_context_is_untrusted": Safe to invoke even with untrusted data (read-only, doesn't leak sensitive data)
+   - "block_when_context_is_untrusted": Only invoke when context is trusted (could leak data if untrusted input is present)
+   - "block_always": Never invoke automatically (writes data, executes code, sends data externally)
 
-2. toolResultTreatment (enum)
-   - "trusted": Internal systems (databases, APIs, dev tools like list-endpoints/get-config)
-   - "untrusted": External/filesystem data where exact values are safe to use directly
+2. trustedDataAction (enum) - How should the tool's results be treated?
+   - "mark_as_trusted": Internal systems (databases, APIs, dev tools like list-endpoints/get-config)
+   - "mark_as_untrusted": External/filesystem data where exact values are safe to use directly
    - "sanitize_with_dual_llm": Untrusted data that needs summarization without exposing exact values
+   - "block_always": Highly sensitive or dangerous output that should be blocked entirely
 
 Examples:
-- Internal dev tools: allowUsage=true, treatment="trusted"
-- Database queries: allowUsage=true, treatment="trusted"
-- File reads (code/config): allowUsage=true, treatment="untrusted"
-- Web search/scraping: allowUsage=true, treatment="sanitize_with_dual_llm"
-- File writes: allowUsage=false, treatment="trusted"
-- External APIs (raw data): allowUsage=false, treatment="untrusted"
-- Code execution: allowUsage=false, treatment="untrusted"`;
+- Internal dev tools: invocation="allow_when_context_is_untrusted", result="mark_as_trusted"
+- Database queries: invocation="allow_when_context_is_untrusted", result="mark_as_trusted"
+- File reads (code/config): invocation="allow_when_context_is_untrusted", result="mark_as_untrusted"
+- Web search/scraping: invocation="allow_when_context_is_untrusted", result="sanitize_with_dual_llm"
+- File writes: invocation="block_always", result="mark_as_trusted"
+- External APIs (raw data): invocation="block_when_context_is_untrusted", result="mark_as_untrusted"
+- Code execution: invocation="block_always", result="mark_as_untrusted"`;
 
   /**
    * Analyze a tool and determine appropriate security policies

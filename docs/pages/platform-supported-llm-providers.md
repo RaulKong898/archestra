@@ -169,6 +169,31 @@ See the [Vertex AI authentication guide](https://cloud.google.com/vertex-ai/docs
 
 - **API Key format**: Obtain your API key from the [Cohere Dashboard](https://dashboard.cohere.ai/)
 
+## Groq
+
+[Groq](https://groq.com/) provides ultra-fast inference for open-source AI models through an OpenAI-compatible API.
+
+### Supported Groq APIs
+
+- **Chat Completions API** (`/chat/completions`) - ✅ Fully supported
+
+### Groq Connection Details
+
+- **Base URL**: `http://localhost:9000/v1/groq/{profile-id}`
+- **Authentication**: Pass your Groq API key in the `Authorization` header as `Bearer <your-api-key>`
+
+### Environment Variables
+
+| Variable                       | Required | Description                                                                    |
+| ------------------------------ | -------- | ------------------------------------------------------------------------------ |
+| `ARCHESTRA_GROQ_BASE_URL`      | No       | Groq API base URL (default: `https://api.groq.com/openai/v1`)                  |
+| `ARCHESTRA_CHAT_GROQ_API_KEY`  | No       | Default API key for Groq (can be overridden per conversation/team/org)         |
+
+### Important Notes
+
+- **OpenAI-compatible API**: Groq's API follows the OpenAI Chat Completions format.
+- **API Key format**: Obtain your API key from the [Groq Console](https://console.groq.com/keys).
+
 ## Mistral AI
 
 [Mistral AI](https://mistral.ai/) provides state-of-the-art open and commercial AI models through an OpenAI-compatible API.

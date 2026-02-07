@@ -60,6 +60,9 @@ export function detectProviderFromModel(model: string): SupportedChatProvider {
   if (lowerModel.includes("command")) {
     return "cohere";
   }
+  if (lowerModel.includes("groq") || lowerModel.includes("llama-3")) {
+    return "groq";
+  }
   if (lowerModel.includes("glm") || lowerModel.includes("chatglm")) {
     return "zhipuai";
   }
@@ -82,6 +85,7 @@ const envApiKeyGetters: Record<
   cerebras: () => config.chat.cerebras.apiKey,
   cohere: () => config.chat.cohere.apiKey,
   gemini: () => config.chat.gemini.apiKey,
+  groq: () => config.chat.groq.apiKey,
   mistral: () => config.chat.mistral.apiKey,
   ollama: () => config.chat.ollama.apiKey,
   openai: () => config.chat.openai.apiKey,
@@ -124,6 +128,7 @@ export async function resolveProviderApiKey(params: {
       secret?.secret?.anthropicApiKey ??
       secret?.secret?.geminiApiKey ??
       secret?.secret?.openaiApiKey ??
+      secret?.secret?.groqApiKey ??
       secret?.secret?.zhipuaiApiKey ??
       secret?.secret?.cohereApiKey ??
       secret?.secret?.bedrockApiKey;
@@ -164,6 +169,7 @@ export const FAST_MODELS: Record<SupportedChatProvider, string> = {
   anthropic: "claude-3-5-haiku-20241022",
   openai: "gpt-4o-mini",
   gemini: "gemini-2.0-flash-001",
+  groq: "llama-3.3-70b-versatile",
   cerebras: "llama-3.3-70b", // Cerebras focuses on speed, all their models are fast
   cohere: "command-light", // Cohere's fast model
   vllm: "default", // vLLM uses whatever model is deployed
@@ -238,6 +244,20 @@ const directModelCreators: Record<SupportedChatProvider, DirectModelCreator> = {
       );
     }
     const client = createGoogleGenerativeAI({ apiKey });
+    return client(modelName);
+  },
+
+  groq: ({ apiKey, modelName }) => {
+    if (!apiKey) {
+      throw new ApiError(
+        400,
+        "Groq API key is required. Please configure GROQ_API_KEY.",
+      );
+    }
+    const client = createOpenAI({
+      apiKey,
+      baseURL: config.llm.groq.baseUrl,
+    });
     return client(modelName);
   },
 
@@ -410,6 +430,16 @@ const proxiedModelCreators: Record<SupportedChatProvider, ProxiedModelCreator> =
         headers,
       });
       return client(modelName);
+    },
+
+    groq: ({ apiKey, agentId, modelName, headers }) => {
+      // URL format: /v1/groq/:agentId (SDK appends /chat/completions)
+      const client = createOpenAI({
+        apiKey,
+        baseURL: buildProxyBaseUrl("groq", agentId),
+        headers,
+      });
+      return client.chat(modelName);
     },
 
     openai: ({ apiKey, agentId, modelName, headers }) => {
